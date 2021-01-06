@@ -1,1 +1,1 @@
-Folder with script for downloading and prre-processing of the data
+Folder with script for downloading and pre-processing of the data
