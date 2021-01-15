@@ -1,3 +1,19 @@
+# ignore output files
+oar_job_*
+
+#ignore data folders
+recipes/dcase2020_task4_baseline/data/desed/audio
+recipes/dcase2020_task4_baseline/data/desed/metadata
+recipes/dcase2020_task4_baseline/data/features/sr*
+recipes/dcase2020_task4_baseline/exp_out/Mean*
+
+#visual studio files
+.vscode/
+
+#run locals file
+run_oar.sh
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
