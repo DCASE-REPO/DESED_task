@@ -14,13 +14,13 @@ import time
 import pandas as pd
 import desed
 from tqdm import tqdm
+import logging
 
-import config as cfg
 from utilities.Logger import create_logger
 from utils.utils import read_audio, meta_path_to_audio_dir, create_folder
 
-logger = create_logger(__name__, terminal_level=cfg.terminal_level)
-
+#logger = create_logger(__name__, terminal_level=cfg.terminal_level)
+logger = create_logger(__name__, terminal_level=logging.INFO)
 
 class DESED:
     """

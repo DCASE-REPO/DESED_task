@@ -23,7 +23,6 @@ from evaluation_measures import (
     compute_metrics,
 )
 from models.CRNN import CRNN
-import config as cfg
 from utils import ramps
 from utils.Logger import create_logger
 from utils.Scaler import ScalerPerAudio, Scaler
@@ -45,7 +44,7 @@ from utils_data.DataLoad import DataLoadDf, ConcatDataset, MultiStreamBatchSampl
 from Configuration import Configuration
 
 
-def adjust_learning_rate(optimizer, rampup_value, rampdown_value=1):
+def adjust_learning_rate(optimizer, rampup_value, config_params, rampdown_value=1):
     """adjust the learning rate
     Args:
         optimizer: torch.Module, the optimizer to be updated
@@ -56,7 +55,7 @@ def adjust_learning_rate(optimizer, rampup_value, rampdown_value=1):
     """
     # LR warm-up to handle large minibatch sizes from https://arxiv.org/abs/1706.02677
     # We commented parts on betas and weight decay to match 2nd system of last year from Orange
-    lr = rampup_value * rampdown_value * cfg.max_learning_rate
+    lr = rampup_value * rampdown_value * config_params.max_learning_rate
     # beta1 = rampdown_value * cfg.beta1_before_rampdown + (1. - rampdown_value) * cfg.beta1_after_rampdown
     # beta2 = (1. - rampup_value) * cfg.beta2_during_rampdup + rampup_value * cfg.beta2_after_rampup
     # weight_decay = (1 - rampup_value) * cfg.weight_decay_during_rampup + cfg.weight_decay_after_rampup * rampup_value
@@ -98,7 +97,7 @@ def train(
     """
     log = create_logger(
         __name__ + "/" + inspect.currentframe().f_code.co_name,
-        terminal_level=cfg.terminal_level,
+        terminal_level=config_params.terminal_level,
     )
     class_criterion = nn.BCELoss()
     consistency_criterion = nn.MSELoss()
@@ -112,11 +111,11 @@ def train(
     for i, ((batch_input, ema_batch_input), target) in enumerate(train_loader):
         global_step = c_epoch * len(train_loader) + i
         rampup_value = ramps.exp_rampup(
-            global_step, cfg.n_epoch_rampup * len(train_loader)
+            global_step, config_params.n_epoch_rampup * len(train_loader)
         )
 
         if adjust_lr:
-            adjust_learning_rate(optimizer, rampup_value)
+            adjust_learning_rate(optimizer, rampup_value, config_params)
         meters.update("lr", optimizer.param_groups[0]["lr"])
         batch_input, ema_batch_input, target = to_cuda_if_available(
             batch_input, ema_batch_input, target
@@ -169,7 +168,7 @@ def train(
 
         # Teacher-student consistency cost
         if ema_model is not None:
-            consistency_cost = cfg.max_consistency_cost * rampup_value
+            consistency_cost = config_params.max_consistency_cost * rampup_value
             meters.update("Consistency weight", consistency_cost)
             # Take consistency about strong predictions (all data)
             consistency_loss_strong = consistency_cost * consistency_criterion(
@@ -528,7 +527,7 @@ if __name__ == "__main__":
         drop_last=False,
         num_workers=config_params.num_workers,
     )
-    if cfg.save_features:
+    if config_params.save_features:
         validation_labels_df = dfs["validation"].drop("feature_filename", axis=1)
     else:
         validation_labels_df = dfs["validation"]

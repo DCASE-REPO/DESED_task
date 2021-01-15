@@ -6,9 +6,9 @@ import random
 import warnings
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
+import logging
 
 from utils.Logger import create_logger
-import config as cfg
 from utils.Transforms import Compose
 from utils_data.Desed import generate_feature_from_raw_file
 import os
@@ -16,7 +16,9 @@ import os
 torch.manual_seed(0)
 random.seed(0)
 # TODO: cfg configuration file
-logger = create_logger(__name__, terminal_level=cfg.terminal_level)
+
+logger = create_logger(__name__, terminal_level=logging.INFO)
+#logger = create_logger(__name__, terminal_level=cfg.terminal_level)
 
 
 class DataLoadDf(Dataset):

@@ -14,8 +14,6 @@ import torch
 # from desed.utils import create_folder
 from torch import nn
 
-import config as cfg
-
 
 def create_folder(folder_name):
     """

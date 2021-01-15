@@ -8,13 +8,10 @@ from utils_data.DataLoad import DataLoadDf, ConcatDataset
 from utils.Logger import create_logger
 from utils.Transforms import get_transforms
 from utils.Scaler import ScalerPerAudio, Scaler
-import config as cfg
 import os
 import inspect
 
 # Extraction of datasets
-
-
 def get_dfs(config_params, desed_dataset, nb_files=None, separated_sources=False):
     """
     The function inizialize and retrieve all the subset of the dataset.
@@ -178,7 +175,7 @@ def get_compose_transforms(dfs, encod_func, config_params):
             encode_function=encod_func,
             transforms=transforms,
             config_params=config_params,
-            filenames_folder=os.path.join(cfg.audio_train_folder, "weak"),
+            filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
         )
 
         unlabel_data = DataLoadDf(
@@ -186,7 +183,7 @@ def get_compose_transforms(dfs, encod_func, config_params):
             encode_function=encod_func,
             transforms=transforms,
             config_params=config_params,
-            filenames_folder=os.path.join(cfg.audio_train_folder, "unlabel_in_domain"),
+            filenames_folder=os.path.join(config_params.audio_train_folder, "unlabel_in_domain"),
         )
 
         train_synth_data = DataLoadDf(
@@ -195,7 +192,7 @@ def get_compose_transforms(dfs, encod_func, config_params):
             transforms=transforms,
             config_params=config_params,
             filenames_folder=os.path.join(
-                cfg.audio_train_folder, "synthetic20/soundscapes"
+                config_params.audio_train_folder, "synthetic20/soundscapes"
             ),
         )
 

@@ -17,8 +17,8 @@ class Configuration:
         """
 
         # TODO: Set the path with your local path
-        self.workspace = "<path/to/workspace/folder>"
-        #self.workspace = "/srv/storage/talc3@talc-data.nancy/multispeech/calcul/users/fronchini/repo/DESED_task/recipes/dcase2020_task4_baseline"
+        #self.workspace = "<path/to/workspace/folder>"
+        self.workspace = "/srv/storage/talc3@talc-data.nancy/multispeech/calcul/users/fronchini/repo/DESED_task/recipes/dcase2020_task4_baseline"
 
         ######################
         # DESED dataset paths
@@ -151,7 +151,7 @@ class Configuration:
         self.batch_size = 24
         self.noise_snr = 30
 
-        self.n_epoch = 200
+        self.n_epoch = 10
         self.n_epoch_rampup = 50
 
         self.checkpoint_epochs = 1
