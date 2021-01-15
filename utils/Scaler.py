@@ -22,17 +22,17 @@ class Scaler:
 
     def mean(self, data, axis=-1):
         """
-        Compute the mean incrementaly. 
+        Compute the mean incrementaly.
 
         Args:
-            data: batch to calculate the mean of. 
+            data: batch to calculate the mean of.
             axis: axis or axes along which the means are computed.
-                  (default value = -1, which means have at the end a mean vector of the last dimension) 
+                  (default value = -1, which means have at the end a mean vector of the last dimension)
 
         Return:
-            mean: arithmetic mean along the specified axis. 
+            mean: arithmetic mean along the specified axis.
         """
-       
+
         if axis == -1:
             mean = data
             while len(mean.shape) != 1:
@@ -41,7 +41,6 @@ class Scaler:
             mean = np.mean(data, axis=axis, dtype=np.float64)
         return mean
 
-    
     def variance(self, mean, mean_of_square):
         """
         Compute variance thanks to mean and mean of square
@@ -54,17 +53,17 @@ class Scaler:
             variance
 
         """
-        return mean_of_square - mean**2
+        return mean_of_square - mean ** 2
 
     def means(self, dataset):
-        '''
+        """
         Splits a dataset in to train test validation.
 
         Args:
             dataset: dataset, from DataLoad class, each sample is an (X, y) tuple.
-        '''
+        """
 
-        logger.info('computing mean')
+        logger.info("computing mean")
         start = time.time()
 
         shape = None
@@ -86,7 +85,9 @@ class Scaler:
                 shape = batch_x_arr.shape
             else:
                 if not batch_x_arr.shape == shape:
-                    raise NotImplementedError("Not possible to add data with different shape in mean calculation yet")
+                    raise NotImplementedError(
+                        "Not possible to add data with different shape in mean calculation yet"
+                    )
 
             # assume first item will have shape info
             if self.mean_ is None:
@@ -111,21 +112,21 @@ class Scaler:
         #     mean = mean * (1 - weight) + self.mean(X, axis=-1) * weight
         #     mean_of_square = mean_of_square * (1 - weight) + self.mean(data_square, axis=-1) * weight
 
-        logger.info('time to compute means: ' + str(time.time() - start))
+        logger.info("time to compute means: " + str(time.time() - start))
         return self
 
     def std(self, variance):
         return np.sqrt(variance)
 
     def calculate_scaler(self, dataset):
-        '''
+        """
         Calculate mean and standard deviation of the dataset
         Args:
-            dataset: dataset to calculate mean and standard deviation of 
+            dataset: dataset to calculate mean and standard deviation of
         Return:
-            self.mean: mean 
+            self.mean: mean
             self.std: standard deviation
-        '''
+        """
         self.means(dataset)
         variance = self.variance(self.mean_, self.mean_of_square_)
         self.std_ = self.std(variance)
@@ -142,10 +143,14 @@ class Scaler:
 
     def state_dict(self):
         if type(self.mean_) is not np.ndarray:
-            raise NotImplementedError("Save scaler only implemented for numpy array means_")
+            raise NotImplementedError(
+                "Save scaler only implemented for numpy array means_"
+            )
 
-        dict_save = {"mean_": self.mean_.tolist(),
-                     "mean_of_square_": self.mean_of_square_.tolist()}
+        dict_save = {
+            "mean_": self.mean_.tolist(),
+            "mean_of_square_": self.mean_of_square_.tolist(),
+        }
         return dict_save
 
     def save(self, path):
@@ -168,23 +173,23 @@ class Scaler:
 
 class ScalerPerAudio:
     """Normalize inputs one by one
-        Args:
-            normalization: str, in {"global", "per_channel"}
-            type_norm: str, in {"mean", "max"}
-        """
+    Args:
+        normalization: str, in {"global", "per_channel"}
+        type_norm: str, in {"mean", "max"}
+    """
 
     def __init__(self, normalization="global", type_norm="mean"):
         self.normalization = normalization
         self.type_norm = type_norm
 
     def normalize(self, spectrogram):
-        """ Apply the transformation on data
-            Args:
-                spectrogram: np.array, the data to be modified, assume to have 3 dimensions
+        """Apply the transformation on data
+        Args:
+            spectrogram: np.array, the data to be modified, assume to have 3 dimensions
 
-            Returns:
-                np.array
-                The transformed data
+        Returns:
+            np.array
+            The transformed data
         """
         if type(spectrogram) is torch.Tensor:
             tensor = True
@@ -200,17 +205,28 @@ class ScalerPerAudio:
             raise NotImplementedError("normalization is 'global' or 'per_band'")
 
         if self.type_norm == "standard":
-            res_data = (spectrogram - spectrogram[0].mean(axis)) / (spectrogram[0].std(axis) + np.finfo(float).eps)
+            res_data = (spectrogram - spectrogram[0].mean(axis)) / (
+                spectrogram[0].std(axis) + np.finfo(float).eps
+            )
         elif self.type_norm == "max":
-            res_data = spectrogram[0] / (np.abs(spectrogram[0].max(axis)) + np.finfo(float).eps)
+            res_data = spectrogram[0] / (
+                np.abs(spectrogram[0].max(axis)) + np.finfo(float).eps
+            )
         elif self.type_norm == "min-max":
-            res_data = (spectrogram - spectrogram[0].min(axis)) / (spectrogram[0].max(axis) - spectrogram[0].min(axis)
-                                                                   + np.finfo(float).eps)
+            res_data = (spectrogram - spectrogram[0].min(axis)) / (
+                spectrogram[0].max(axis)
+                - spectrogram[0].min(axis)
+                + np.finfo(float).eps
+            )
         else:
-            raise NotImplementedError("No other type_norm implemented except {'standard', 'max', 'min-max'}")
+            raise NotImplementedError(
+                "No other type_norm implemented except {'standard', 'max', 'min-max'}"
+            )
         if np.isnan(res_data).any():
             res_data = np.nan_to_num(res_data, posinf=0, neginf=0)
-            warnings.warn("Trying to divide by zeros while normalizing spectrogram, replacing nan by 0")
+            warnings.warn(
+                "Trying to divide by zeros while normalizing spectrogram, replacing nan by 0"
+            )
 
         if tensor:
             res_data = torch.Tensor(res_data)

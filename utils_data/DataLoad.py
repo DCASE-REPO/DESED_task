@@ -15,6 +15,7 @@ import os
 
 torch.manual_seed(0)
 random.seed(0)
+# TODO: cfg configuration file
 logger = create_logger(__name__, terminal_level=cfg.terminal_level)
 
 
@@ -67,22 +68,21 @@ class DataLoadDf(Dataset):
             self.feat_filenames = df.feature_filename.drop_duplicates()
 
     def set_return_indexes(self, val):
-        """ 
+        '''
         Set the value of self.return_indexes
         Args:
             val : bool, whether or not to return indexes when use __getitem__
-        """
+        '''
         self.return_indexes = val
 
     def get_feature_file_func(self, filename):
-        """
+        '''
         Get a feature file from a filename
         Args:
             filename:  str, name of the file to get the feature
         Returns:
-            numpy.array
-            containing the features computed previously
-        """
+            data: numpy.array, containing the features computed previously
+        '''
         if not self.in_memory:
             data = np.load(filename).astype(np.float32)
         else:
@@ -94,10 +94,10 @@ class DataLoadDf(Dataset):
         return data
 
     def __len__(self):
-        """
+        '''
         Returns:
             length: int, lenght of the object
-        """
+        '''
         #length = len(self.feat_filenames)
         length = len(self.filenames)
         return length
@@ -114,7 +114,6 @@ class DataLoadDf(Dataset):
         Returns:
             sample: tuple, Tuple containing the features and the labels (numpy.array, numpy.array)
         '''
-
         if self.config_params.save_features:
             features = self.get_feature_file_func(self.feat_filenames.iloc[index])
         else:
@@ -125,7 +124,7 @@ class DataLoadDf(Dataset):
 
             else:
                 print(f"Dataset size not recognized. This will throw an expection in a second moment")
-                # TODO: Throw excpetion
+                # TODO: Throw excpetion 
 
         # event_labels means weak labels, event_label means strong labels
         if "event_labels" in self.df.columns or {"onset", "offset", "event_label"}.issubset(self.df.columns):
@@ -161,16 +160,16 @@ class DataLoadDf(Dataset):
         return sample
 
     def __getitem__(self, index):
-        """ Get a sample and transform it to be used in a ss_model, use the transformations
+        '''
+        Get a sample and transform it to be used in a ss_model, use the transformations
 
         Args:
             index : int, index of the sample desired
 
-            tuple
-            Tuple containing the features and the labels (numpy.array, numpy.array) or
-            Tuple containing the features, the labels and the index (numpy.array, numpy.array, int)
-
-        """
+        Return:
+            sample: tuple, Tuple containing the features and the labels (numpy.array, numpy.array) or
+                           Tuple containing the features, the labels and the index (numpy.array, numpy.array, int)
+        '''
         sample = self.get_sample(index)
 
         if self.transforms:
@@ -182,11 +181,15 @@ class DataLoadDf(Dataset):
         return sample
 
     def set_transform(self, transform):
-        """Set the transformations used on a sample
+        '''
+        Set the transformations used on a sample
 
         Args:
             transform: function(), the new transformations
-        """
+
+        Return:
+            DataLoadDf class
+        '''
         self.transform = transform
 
     def add_transform(self, transform):
@@ -259,25 +262,24 @@ class ConcatDataset(Dataset):
 
 
 class MultiStreamBatchSampler(Sampler):
-    """
+    '''
     Takes a dataset with cluster_indices property, cuts it into batch-sized chunks
     Drops the extra items, not fitting into exact batches
-    """
+    '''
     def __init__(self, data_source, batch_sizes, shuffle=True):
-        """
+        '''
         Inizialization of MultiStreamBatchSampler class.
         Args:
             data_source : DESED, a DESED to sample from. Should have a cluster_indices property
             batch_size : int, a batch size that you would like to use later with Dataloader class
-            shuffle : bool, whether to shuffle the data or not
-        """
+            shuffle : bool, whether to shuffle the data or not 
+        '''
         super(MultiStreamBatchSampler, self).__init__(data_source)
         self.data_source = data_source
         self.batch_sizes = batch_sizes
         l_bs = len(batch_sizes)
         nb_dataset = len(self.data_source.cluster_indices)
-        assert l_bs == nb_dataset, "batch_sizes must be the same length as the number of datasets in " \
-                                   "the source {} != {}".format(l_bs, nb_dataset)
+        assert l_bs == nb_dataset, "batch_sizes must be the same length as the number of datasets in the source {} != {}".format(l_bs, nb_dataset)
         self.shuffle = shuffle
 
     def __iter__(self):
@@ -297,9 +299,9 @@ class MultiStreamBatchSampler(Sampler):
             val = min(val, len(self.data_source.cluster_indices[i]) // self.batch_sizes[i])
         return val
 
-
 def grouper(iterable, n):
-    "Collect data into fixed-length chunks or blocks"
-    # grouper('ABCDEFG', 3) --> ABC DEF"
+    '''
+    Collect data into fixed-length chunks or blocks
+    '''
     args = [iter(iterable)] * n
     return zip(*args)

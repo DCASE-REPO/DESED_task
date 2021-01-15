@@ -4,17 +4,15 @@ from dcase_util.data import DecisionEncoder
 
 
 class ManyHotEncoder:
-    """"
-        Adapted after DecisionEncoder.find_contiguous_regions method in
-        https://github.com/DCASE-REPO/dcase_util/blob/master/dcase_util/data/decisions.py
+    """ "
+    Adapted after DecisionEncoder.find_contiguous_regions method in
+    https://github.com/DCASE-REPO/dcase_util/blob/master/dcase_util/data/decisions.py
 
-        Encode labels into numpy arrays where 1 correspond to presence of the class and 0 absence.
-        Multiple 1 can appear on the same line, it is for multi label problem.
+    Encode labels into numpy arrays where 1 correspond to presence of the class and 0 absence.
+    Multiple 1 can appear on the same line, it is for multi label problem.
     """
-    def __init__(self, 
-        labels, 
-        n_frames=None
-        ):
+
+    def __init__(self, labels, n_frames=None):
         """
             Inizialization of ManyHotEncoder instance.
         Args:
@@ -27,7 +25,7 @@ class ManyHotEncoder:
         self.n_frames = n_frames
 
     def encode_weak(self, labels):
-        """ Encode a list of weak labels into a numpy array
+        """Encode a list of weak labels into a numpy array
 
         Args:
             labels: list, list of labels to encode (to a vector of 0 and 1)
@@ -67,9 +65,11 @@ class ManyHotEncoder:
             y: numpy.array, Encoded labels, 1 where the label is present, 0 otherwise
         """
 
-        assert self.n_frames is not None, "n_frames need to be specified when using strong encoder"
+        assert (
+            self.n_frames is not None
+        ), "n_frames need to be specified when using strong encoder"
         if type(label_df) is str:
-            if label_df == 'empty':
+            if label_df == "empty":
                 y = np.zeros((self.n_frames, len(self.labels))) - 1
                 return y
         y = np.zeros((self.n_frames, len(self.labels)))
@@ -80,11 +80,19 @@ class ManyHotEncoder:
                         i = self.labels.index(row["event_label"])
                         onset = int(row["onset"])
                         offset = int(row["offset"])
-                        y[onset:offset, i] = 1  # means offset not included (hypothesis of overlapping frames, so ok)
+                        y[
+                            onset:offset, i
+                        ] = 1  # means offset not included (hypothesis of overlapping frames, so ok)
 
-        elif type(label_df) in [pd.Series, list, np.ndarray]:  # list of list or list of strings
+        elif type(label_df) in [
+            pd.Series,
+            list,
+            np.ndarray,
+        ]:  # list of list or list of strings
             if type(label_df) is pd.Series:
-                if {"onset", "offset", "event_label"}.issubset(label_df.index):  # means only one value
+                if {"onset", "offset", "event_label"}.issubset(
+                    label_df.index
+                ):  # means only one value
                     if not pd.isna(label_df["event_label"]):
                         i = self.labels.index(label_df["event_label"])
                         onset = int(label_df["onset"])
@@ -108,16 +116,22 @@ class ManyHotEncoder:
                         y[onset:offset, i] = 1
 
                 else:
-                    raise NotImplementedError("cannot encode strong, type mismatch: {}".format(type(event_label)))
+                    raise NotImplementedError(
+                        "cannot encode strong, type mismatch: {}".format(
+                            type(event_label)
+                        )
+                    )
 
         else:
-            raise NotImplementedError("To encode_strong, type is pandas.Dataframe with onset, offset and event_label"
-                                      "columns, or it is a list or pandas Series of event labels, "
-                                      "type given: {}".format(type(label_df)))
+            raise NotImplementedError(
+                "To encode_strong, type is pandas.Dataframe with onset, offset and event_label"
+                "columns, or it is a list or pandas Series of event labels, "
+                "type given: {}".format(type(label_df))
+            )
         return y
 
     def decode_weak(self, labels):
-        """ Decode the encoded weak labels
+        """Decode the encoded weak labels
         Args:
             labels: numpy.array, the encoded labels to be decoded
 
@@ -133,7 +147,7 @@ class ManyHotEncoder:
         return result_labels
 
     def decode_strong(self, labels):
-        """ Decode the encoded strong labels
+        """Decode the encoded strong labels
         Args:
             labels: numpy.array, the encoded labels to be decoded
         Returns:
@@ -151,8 +165,7 @@ class ManyHotEncoder:
         return result_labels
 
     def state_dict(self):
-        return {"labels": self.labels,
-                "n_frames": self.n_frames}
+        return {"labels": self.labels, "n_frames": self.n_frames}
 
     @classmethod
     def load_state_dict(cls, state_dict):

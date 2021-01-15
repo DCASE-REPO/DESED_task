@@ -1,4 +1,4 @@
-# main file for the recipe in DCASE2021 
+# main file for the recipe in DCASE2021
 
 # -*- coding: utf-8 -*-
 import argparse
@@ -16,26 +16,37 @@ from torch.utils.data import DataLoader
 from torch import nn
 
 from TestModel import _load_crnn
-from evaluation_measures import get_predictions, psds_score, compute_psds_from_operating_points, compute_metrics
+from evaluation_measures import (
+    get_predictions,
+    psds_score,
+    compute_psds_from_operating_points,
+    compute_metrics,
+)
 from models.CRNN import CRNN
 import config as cfg
 from utils import ramps
 from utils.Logger import create_logger
 from utils.Scaler import ScalerPerAudio, Scaler
-from utils.utils import SaveBest, to_cuda_if_available, weights_init, AverageMeterSet, EarlyStopping, \
-    get_durations_df
+from utils.utils import (
+    SaveBest,
+    to_cuda_if_available,
+    weights_init,
+    AverageMeterSet,
+    EarlyStopping,
+    get_durations_df,
+)
 from utils.ManyHotEncoder import ManyHotEncoder
 from utils.Transforms import get_transforms
 
-from utils.utils import create_stored_data_folder 
+from utils.utils import create_stored_data_folder
 from utils_data.Desed import DESED
-from data_generation.feature_extraction import get_dataset, get_compose_transforms 
+from data_generation.feature_extraction import get_dataset, get_compose_transforms
 from utils_data.DataLoad import DataLoadDf, ConcatDataset, MultiStreamBatchSampler
 from Configuration import Configuration
 
 
 def adjust_learning_rate(optimizer, rampup_value, rampdown_value=1):
-    """ adjust the learning rate
+    """adjust the learning rate
     Args:
         optimizer: torch.Module, the optimizer to be updated
         rampup_value: float, the float value between 0 and 1 that should increases linearly
@@ -51,7 +62,7 @@ def adjust_learning_rate(optimizer, rampup_value, rampdown_value=1):
     # weight_decay = (1 - rampup_value) * cfg.weight_decay_during_rampup + cfg.weight_decay_after_rampup * rampup_value
 
     for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
+        param_group["lr"] = lr
         # param_group['betas'] = (beta1, beta2)
         # param_group['weight_decay'] = weight_decay
 
@@ -63,8 +74,17 @@ def update_ema_variables(model, ema_model, alpha, global_step):
         ema_params.data.mul_(alpha).add_(1 - alpha, params.data)
 
 
-def train(train_loader, model, optimizer, c_epoch, ema_model=None, mask_weak=None, mask_strong=None, adjust_lr=False):
-    """ One epoch of a Mean Teacher model
+def train(
+    train_loader,
+    model,
+    optimizer,
+    c_epoch,
+    ema_model=None,
+    mask_weak=None,
+    mask_strong=None,
+    adjust_lr=False,
+):
+    """One epoch of a Mean Teacher model
     Args:
         train_loader: torch.utils.data.DataLoader, iterator of training batches for an epoch.
             Should return a tuple: ((teacher input, student input), labels)
@@ -76,22 +96,31 @@ def train(train_loader, model, optimizer, c_epoch, ema_model=None, mask_weak=Non
         mask_strong: slice or list, mask the batch to get only the strong labeled data (used to calcultate the loss)
         adjust_lr: bool, Whether or not to adjust the learning rate during training (params in config)
     """
-    log = create_logger(__name__ + "/" + inspect.currentframe().f_code.co_name, terminal_level=cfg.terminal_level)
+    log = create_logger(
+        __name__ + "/" + inspect.currentframe().f_code.co_name,
+        terminal_level=cfg.terminal_level,
+    )
     class_criterion = nn.BCELoss()
     consistency_criterion = nn.MSELoss()
-    class_criterion, consistency_criterion = to_cuda_if_available(class_criterion, consistency_criterion)
+    class_criterion, consistency_criterion = to_cuda_if_available(
+        class_criterion, consistency_criterion
+    )
 
     meters = AverageMeterSet()
     log.debug("Nb batches: {}".format(len(train_loader)))
     start = time.time()
     for i, ((batch_input, ema_batch_input), target) in enumerate(train_loader):
         global_step = c_epoch * len(train_loader) + i
-        rampup_value = ramps.exp_rampup(global_step, cfg.n_epoch_rampup*len(train_loader))
+        rampup_value = ramps.exp_rampup(
+            global_step, cfg.n_epoch_rampup * len(train_loader)
+        )
 
         if adjust_lr:
             adjust_learning_rate(optimizer, rampup_value)
-        meters.update('lr', optimizer.param_groups[0]['lr'])
-        batch_input, ema_batch_input, target = to_cuda_if_available(batch_input, ema_batch_input, target)
+        meters.update("lr", optimizer.param_groups[0]["lr"])
+        batch_input, ema_batch_input, target = to_cuda_if_available(
+            batch_input, ema_batch_input, target
+        )
         # Outputs
         strong_pred_ema, weak_pred_ema = ema_model(ema_batch_input)
         strong_pred_ema = strong_pred_ema.detach()
@@ -102,26 +131,36 @@ def train(train_loader, model, optimizer, c_epoch, ema_model=None, mask_weak=Non
         # Weak BCE Loss
         target_weak = target.max(-2)[0]  # Take the max in the time axis
         if mask_weak is not None:
-            weak_class_loss = class_criterion(weak_pred[mask_weak], target_weak[mask_weak])
-            ema_class_loss = class_criterion(weak_pred_ema[mask_weak], target_weak[mask_weak])
+            weak_class_loss = class_criterion(
+                weak_pred[mask_weak], target_weak[mask_weak]
+            )
+            ema_class_loss = class_criterion(
+                weak_pred_ema[mask_weak], target_weak[mask_weak]
+            )
             loss = weak_class_loss
 
             if i == 0:
-                log.debug(f"target: {target.mean(-2)} \n Target_weak: {target_weak} \n "
-                          f"Target weak mask: {target_weak[mask_weak]} \n "
-                          f"Target strong mask: {target[mask_strong].sum(-2)}\n"
-                          f"weak loss: {weak_class_loss} \t rampup_value: {rampup_value}"
-                          f"tensor mean: {batch_input.mean()}")
-            meters.update('weak_class_loss', weak_class_loss.item())
-            meters.update('Weak EMA loss', ema_class_loss.item())
+                log.debug(
+                    f"target: {target.mean(-2)} \n Target_weak: {target_weak} \n "
+                    f"Target weak mask: {target_weak[mask_weak]} \n "
+                    f"Target strong mask: {target[mask_strong].sum(-2)}\n"
+                    f"weak loss: {weak_class_loss} \t rampup_value: {rampup_value}"
+                    f"tensor mean: {batch_input.mean()}"
+                )
+            meters.update("weak_class_loss", weak_class_loss.item())
+            meters.update("Weak EMA loss", ema_class_loss.item())
 
         # Strong BCE loss
         if mask_strong is not None:
-            strong_class_loss = class_criterion(strong_pred[mask_strong], target[mask_strong])
-            meters.update('Strong loss', strong_class_loss.item())
+            strong_class_loss = class_criterion(
+                strong_pred[mask_strong], target[mask_strong]
+            )
+            meters.update("Strong loss", strong_class_loss.item())
 
-            strong_ema_class_loss = class_criterion(strong_pred_ema[mask_strong], target[mask_strong])
-            meters.update('Strong EMA loss', strong_ema_class_loss.item())
+            strong_ema_class_loss = class_criterion(
+                strong_pred_ema[mask_strong], target[mask_strong]
+            )
+            meters.update("Strong EMA loss", strong_ema_class_loss.item())
 
             if loss is not None:
                 loss += strong_class_loss
@@ -131,26 +170,32 @@ def train(train_loader, model, optimizer, c_epoch, ema_model=None, mask_weak=Non
         # Teacher-student consistency cost
         if ema_model is not None:
             consistency_cost = cfg.max_consistency_cost * rampup_value
-            meters.update('Consistency weight', consistency_cost)
+            meters.update("Consistency weight", consistency_cost)
             # Take consistency about strong predictions (all data)
-            consistency_loss_strong = consistency_cost * consistency_criterion(strong_pred, strong_pred_ema)
-            meters.update('Consistency strong', consistency_loss_strong.item())
+            consistency_loss_strong = consistency_cost * consistency_criterion(
+                strong_pred, strong_pred_ema
+            )
+            meters.update("Consistency strong", consistency_loss_strong.item())
             if loss is not None:
                 loss += consistency_loss_strong
             else:
                 loss = consistency_loss_strong
-            meters.update('Consistency weight', consistency_cost)
+            meters.update("Consistency weight", consistency_cost)
             # Take consistency about weak predictions (all data)
-            consistency_loss_weak = consistency_cost * consistency_criterion(weak_pred, weak_pred_ema)
-            meters.update('Consistency weak', consistency_loss_weak.item())
+            consistency_loss_weak = consistency_cost * consistency_criterion(
+                weak_pred, weak_pred_ema
+            )
+            meters.update("Consistency weak", consistency_loss_weak.item())
             if loss is not None:
                 loss += consistency_loss_weak
             else:
                 loss = consistency_loss_weak
 
-        assert not (np.isnan(loss.item()) or loss.item() > 1e5), 'Loss explosion: {}'.format(loss.item())
-        assert not loss.item() < 0, 'Loss problem, cannot be negative'
-        meters.update('Loss', loss.item())
+        assert not (
+            np.isnan(loss.item()) or loss.item() > 1e5
+        ), "Loss explosion: {}".format(loss.item())
+        assert not loss.item() < 0, "Loss problem, cannot be negative"
+        meters.update("Loss", loss.item())
 
         # compute gradient and do optimizer step
         optimizer.zero_grad()
@@ -165,27 +210,42 @@ def train(train_loader, model, optimizer, c_epoch, ema_model=None, mask_weak=Non
     return loss
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-    # retrive all the default parameters 
+    # retrive all the default parameters
     config_params = Configuration()
 
-    # set random seed 
+    # set random seed
     torch.manual_seed(2020)
     np.random.seed(2020)
-    
-    # logger creation 
-    logger = create_logger(__name__ + "/" + inspect.currentframe().f_code.co_name, terminal_level=config_params.terminal_level)
+
+    # logger creation
+    logger = create_logger(
+        __name__ + "/" + inspect.currentframe().f_code.co_name,
+        terminal_level=config_params.terminal_level,
+    )
     logger.info("Baseline 2020")
     logger.info(f"Starting time: {datetime.datetime.now()}")
 
-    # parser 
+    # parser
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("-s", '--subpart_data', type=int, default=None, dest="subpart_data",
-                        help="Number of files to be used. Useful when testing on small number of files.")
+    parser.add_argument(
+        "-s",
+        "--subpart_data",
+        type=int,
+        default=None,
+        dest="subpart_data",
+        help="Number of files to be used. Useful when testing on small number of files.",
+    )
 
-    parser.add_argument("-n", '--no_synthetic', dest='no_synthetic', action='store_true', default=False,
-                        help="Not using synthetic labels during training")
+    parser.add_argument(
+        "-n",
+        "--no_synthetic",
+        dest="no_synthetic",
+        action="store_true",
+        default=False,
+        help="Not using synthetic labels during training",
+    )
     f_args = parser.parse_args()
     pprint(vars(f_args))
 
@@ -198,56 +258,88 @@ if __name__ == '__main__':
         add_dir_model_name = "_with_synthetic"
 
     # creating models and prediction folders to save models and predictions of the system
-    saved_model_dir, saved_pred_dir = create_stored_data_folder(add_dir_model_name, config_params.exp_out_path)
+    saved_model_dir, saved_pred_dir = create_stored_data_folder(
+        add_dir_model_name, config_params.exp_out_path
+    )
 
-    
     # ################################################################
     # PREPARE THE DATA (ETL PROCESS: EXTRACTION, PROCESSING AND LOAD)
     # ################################################################
 
-    dataset, dfs = get_dataset(config_params=config_params, nb_files=reduced_number_of_data)
+    dataset, dfs = get_dataset(
+        config_params=config_params, nb_files=reduced_number_of_data
+    )
 
-    # Meta path for psds 
+    # Meta path for psds
     # TODO: where this should go?
     durations_synth = get_durations_df(gtruth_path=config_params.synthetic)
-    many_hot_encoder = ManyHotEncoder(config_params.classes, n_frames=config_params.max_frames // config_params.pooling_time_ratio)
+    
+    many_hot_encoder = ManyHotEncoder(
+        config_params.classes,
+        n_frames=config_params.max_frames // config_params.pooling_time_ratio,
+    )
     encod_func = many_hot_encoder.encode_strong_df
 
-    transforms, transforms_valid, scaler, scaler_args = get_compose_transforms(dfs=dfs, 
-                                                        encod_func=encod_func, 
-                                                        config_params=config_params)
-    
+    transforms, transforms_valid, scaler, scaler_args = get_compose_transforms(
+        dfs=dfs, encod_func=encod_func, config_params=config_params
+    )
 
-    weak_data = DataLoadDf(dfs["weak"], encod_func, transforms, 
-                            in_memory=config_params.in_memory, 
-                            config_params=config_params,
-                            filenames_folder=os.path.join(config_params.audio_train_folder, "weak")
-                            )
+    weak_data = DataLoadDf(
+        dfs["weak"],
+        encod_func,
+        transforms,
+        in_memory=config_params.in_memory,
+        config_params=config_params,
+        filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
+    )
 
-    unlabel_data = DataLoadDf(dfs["unlabel"], encod_func, transforms, 
-                            in_memory=config_params.in_memory_unlab,
-                            config_params=config_params, 
-                            filenames_folder=os.path.join(config_params.audio_train_folder, "unlabel_in_domain")
-                            )
-    train_synth_data = DataLoadDf(dfs["train_synthetic"], encod_func, transforms, 
-                            in_memory=config_params.in_memory, 
-                            config_params=config_params,
-                            filenames_folder=os.path.join(config_params.audio_train_folder, "synthetic20/soundscapes")
-                            )
+    unlabel_data = DataLoadDf(
+        dfs["unlabel"],
+        encod_func,
+        transforms,
+        in_memory=config_params.in_memory_unlab,
+        config_params=config_params,
+        filenames_folder=os.path.join(
+            config_params.audio_train_folder, "unlabel_in_domain"
+        ),
+    )
+    train_synth_data = DataLoadDf(
+        dfs["train_synthetic"],
+        encod_func,
+        transforms,
+        in_memory=config_params.in_memory,
+        config_params=config_params,
+        filenames_folder=os.path.join(
+            config_params.audio_train_folder, "synthetic20/soundscapes"
+        ),
+    )
 
-    valid_synth_data = DataLoadDf(dfs["valid_synthetic"], encod_func, transforms_valid,
-                                  return_indexes=True, 
-                                  in_memory=config_params.in_memory,
-                                  config_params=config_params, 
-                                  filenames_folder=os.path.join(config_params.audio_train_folder, "synthetic20/soundscapes")
-                                  )
-    
-    logger.debug(f"len synth: {len(train_synth_data)}, len_unlab: {len(unlabel_data)}, len weak: {len(weak_data)}")
+    valid_synth_data = DataLoadDf(
+        dfs["valid_synthetic"],
+        encod_func,
+        transforms_valid,
+        return_indexes=True,
+        in_memory=config_params.in_memory,
+        config_params=config_params,
+        filenames_folder=os.path.join(
+            config_params.audio_train_folder, "synthetic20/soundscapes"
+        ),
+    )
+
+    logger.debug(
+        f"len synth: {len(train_synth_data)}, len_unlab: {len(unlabel_data)}, len weak: {len(weak_data)}"
+    )
 
     if not no_synthetic:
         list_dataset = [weak_data, unlabel_data, train_synth_data]
-        batch_sizes = [config_params.batch_size//4, config_params.batch_size//2, config_params.batch_size//4]
-        strong_mask = slice((3*config_params.batch_size)//4, config_params.batch_size)
+        batch_sizes = [
+            config_params.batch_size // 4,
+            config_params.batch_size // 2,
+            config_params.batch_size // 4,
+        ]
+        strong_mask = slice(
+            (3 * config_params.batch_size) // 4, config_params.batch_size
+        )
     else:
         list_dataset = [weak_data, unlabel_data]
         batch_sizes = [config_params.batch_size // 4, 3 * config_params.batch_size // 4]
@@ -256,90 +348,132 @@ if __name__ == '__main__':
 
     concat_dataset = ConcatDataset(list_dataset)
     sampler = MultiStreamBatchSampler(concat_dataset, batch_sizes=batch_sizes)
-    training_loader = DataLoader(dataset=concat_dataset, batch_sampler=sampler, num_workers=config_params.num_workers)
-    valid_synth_loader = DataLoader(dataset=valid_synth_data, batch_size=config_params.batch_size, num_workers=config_params.num_workers)
+    training_loader = DataLoader(
+        dataset=concat_dataset,
+        batch_sampler=sampler,
+        num_workers=config_params.num_workers,
+    )
+    valid_synth_loader = DataLoader(
+        dataset=valid_synth_data,
+        batch_size=config_params.batch_size,
+        num_workers=config_params.num_workers,
+    )
 
     # ##############
     # Model
     # ##############
-    crnn = CRNN(**config_params.crnn_kwargs) # TODO: Change this
+    crnn = CRNN(**config_params.crnn_kwargs)  # TODO: Change this
     pytorch_total_params = sum(p.numel() for p in crnn.parameters() if p.requires_grad)
     logger.info(crnn)
     logger.info("number of parameters in the model: {}".format(pytorch_total_params))
     crnn.apply(weights_init)
 
-    crnn_ema = CRNN(**config_params.crnn_kwargs) # TODO: Change this 
+    crnn_ema = CRNN(**config_params.crnn_kwargs)  # TODO: Change this
     crnn_ema.apply(weights_init)
     for param in crnn_ema.parameters():
         param.detach_()
 
     optim_kwargs = {"lr": config_params.default_learning_rate, "betas": (0.9, 0.999)}
-    optim = torch.optim.Adam(filter(lambda p: p.requires_grad, crnn.parameters()), **optim_kwargs)
+    optim = torch.optim.Adam(
+        filter(lambda p: p.requires_grad, crnn.parameters()), **optim_kwargs
+    )
 
-    # TODO: Change this 
+    # TODO: Change this
 
     state = {
-        'model': {"name": crnn.__class__.__name__,
-                  'args': '',
-                  "kwargs": config_params.crnn_kwargs, 
-                  'state_dict': crnn.state_dict()},
-        'model_ema': {"name": crnn_ema.__class__.__name__,
-                      'args': '',
-                      "kwargs": config_params.crnn_kwargs,
-                      'state_dict': crnn_ema.state_dict()},
-        'optimizer': {"name": optim.__class__.__name__,
-                      'args': '',
-                      "kwargs": optim_kwargs,
-                      'state_dict': optim.state_dict()},
+        "model": {
+            "name": crnn.__class__.__name__,
+            "args": "",
+            "kwargs": config_params.crnn_kwargs,
+            "state_dict": crnn.state_dict(),
+        },
+        "model_ema": {
+            "name": crnn_ema.__class__.__name__,
+            "args": "",
+            "kwargs": config_params.crnn_kwargs,
+            "state_dict": crnn_ema.state_dict(),
+        },
+        "optimizer": {
+            "name": optim.__class__.__name__,
+            "args": "",
+            "kwargs": optim_kwargs,
+            "state_dict": optim.state_dict(),
+        },
         "pooling_time_ratio": config_params.pooling_time_ratio,
         "scaler": {
             "type": type(scaler).__name__,
             "args": scaler_args,
-            "state_dict": scaler.state_dict()},
+            "state_dict": scaler.state_dict(),
+        },
         "many_hot_encoder": many_hot_encoder.state_dict(),
         "median_window": config_params.median_window,
-        "desed": dataset.state_dict()
+        "desed": dataset.state_dict(),
     }
 
     save_best_cb = SaveBest("sup")
     if config_params.early_stopping is not None:
-        early_stopping_call = EarlyStopping(patience=config_params.early_stopping, val_comp="sup", init_patience=config_params.es_init_wait)
+        early_stopping_call = EarlyStopping(
+            patience=config_params.early_stopping,
+            val_comp="sup",
+            init_patience=config_params.es_init_wait,
+        )
 
     # ##############
     # Train
     # ##############
-    
-    results = pd.DataFrame(columns=["loss", "valid_synth_f1", "weak_metric", "global_valid"])
+
+    results = pd.DataFrame(
+        columns=["loss", "valid_synth_f1", "weak_metric", "global_valid"]
+    )
     for epoch in range(config_params.n_epoch):
         crnn.train()
         crnn_ema.train()
         crnn, crnn_ema = to_cuda_if_available(crnn, crnn_ema)
 
-        loss_value = train(training_loader, crnn, optim, epoch,
-                           ema_model=crnn_ema, mask_weak=weak_mask, mask_strong=strong_mask, adjust_lr=config_params.adjust_lr)
+        loss_value = train(
+            training_loader,
+            crnn,
+            optim,
+            epoch,
+            ema_model=crnn_ema,
+            mask_weak=weak_mask,
+            mask_strong=strong_mask,
+            adjust_lr=config_params.adjust_lr,
+        )
 
         # Validation
         crnn = crnn.eval()
         logger.info("\n ### Valid synthetic metric ### \n")
-        predictions = get_predictions(crnn, valid_synth_loader, many_hot_encoder.decode_strong, config_params.pooling_time_ratio,
-                                      median_window=config_params.median_window, save_predictions=None)
+        predictions = get_predictions(
+            crnn,
+            valid_synth_loader,
+            many_hot_encoder.decode_strong,
+            config_params.pooling_time_ratio,
+            median_window=config_params.median_window,
+            save_predictions=None,
+        )
         # Validation with synthetic data (dropping feature_filename for psds)
         if config_params.save_features:
             valid_synth = dfs["valid_synthetic"].drop("feature_filename", axis=1)
         else:
             valid_synth = dfs["valid_synthetic"]
-        valid_synth_f1, psds_m_f1 = compute_metrics(predictions, valid_synth, durations_synth)
+        valid_synth_f1, psds_m_f1 = compute_metrics(
+            predictions, valid_synth, durations_synth
+        )
 
         # Update state
-        state['model']['state_dict'] = crnn.state_dict()
-        state['model_ema']['state_dict'] = crnn_ema.state_dict()
-        state['optimizer']['state_dict'] = optim.state_dict()
-        state['epoch'] = epoch
-        state['valid_metric'] = valid_synth_f1
-        state['valid_f1_psds'] = psds_m_f1
+        state["model"]["state_dict"] = crnn.state_dict()
+        state["model_ema"]["state_dict"] = crnn_ema.state_dict()
+        state["optimizer"]["state_dict"] = optim.state_dict()
+        state["epoch"] = epoch
+        state["valid_metric"] = valid_synth_f1
+        state["valid_f1_psds"] = psds_m_f1
 
         # Callbacks
-        if config_params.checkpoint_epochs is not None and (epoch + 1) % config_params.checkpoint_epochs == 0:
+        if (
+            config_params.checkpoint_epochs is not None
+            and (epoch + 1) % config_params.checkpoint_epochs == 0
+        ):
             model_fname = os.path.join(saved_model_dir, "baseline_epoch_" + str(epoch))
             torch.save(state, model_fname)
 
@@ -363,29 +497,53 @@ if __name__ == '__main__':
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
         logger.info("testing model of last epoch: {}".format(config_params.n_epoch))
-    results_df = pd.DataFrame(results).to_csv(os.path.join(saved_pred_dir, "results.tsv"),
-                                              sep="\t", index=False, float_format="%.4f")
+    results_df = pd.DataFrame(results).to_csv(
+        os.path.join(saved_pred_dir, "results.tsv"),
+        sep="\t",
+        index=False,
+        float_format="%.4f",
+    )
     # ##############
     # Validation
     # ##############
-    
+
     crnn.eval()
-    transforms_valid = get_transforms(config_params.max_frames, scaler, config_params.add_axis_conv)
+    transforms_valid = get_transforms(
+        config_params.max_frames, scaler, config_params.add_axis_conv
+    )
     predicitons_fname = os.path.join(saved_pred_dir, "baseline_validation.tsv")
 
-    validation_data = DataLoadDf(dfs["validation"], encod_func, transforms=transforms_valid, return_indexes=True,
-                                    config_params=config_params, filenames_folder=config_params.audio_validation_dir)
-    validation_dataloader = DataLoader(validation_data, batch_size=config_params.batch_size, shuffle=False, drop_last=False,
-                                       num_workers=config_params.num_workers)
+    validation_data = DataLoadDf(
+        dfs["validation"],
+        encod_func,
+        transforms=transforms_valid,
+        return_indexes=True,
+        config_params=config_params,
+        filenames_folder=config_params.audio_validation_dir,
+    )
+    validation_dataloader = DataLoader(
+        validation_data,
+        batch_size=config_params.batch_size,
+        shuffle=False,
+        drop_last=False,
+        num_workers=config_params.num_workers,
+    )
     if cfg.save_features:
         validation_labels_df = dfs["validation"].drop("feature_filename", axis=1)
     else:
         validation_labels_df = dfs["validation"]
-    durations_validation = get_durations_df(config_params.validation, config_params.audio_validation_dir)
+    durations_validation = get_durations_df(
+        config_params.validation, config_params.audio_validation_dir
+    )
     # Preds with only one value
-    valid_predictions = get_predictions(crnn, validation_dataloader, many_hot_encoder.decode_strong,
-                                        config_params.pooling_time_ratio, median_window=config_params.median_window,
-                                        save_predictions=predicitons_fname)
+    valid_predictions = get_predictions(
+        crnn,
+        validation_dataloader,
+        many_hot_encoder.decode_strong,
+        config_params.pooling_time_ratio,
+        median_window=config_params.median_window,
+        save_predictions=predicitons_fname,
+    )
     compute_metrics(valid_predictions, validation_labels_df, durations_validation)
 
     # ##########
@@ -395,9 +553,18 @@ if __name__ == '__main__':
     n_thresholds = 50
     # Example of 5 thresholds: 0.1, 0.3, 0.5, 0.7, 0.9
     list_thresholds = np.arange(1 / (n_thresholds * 2), 1, 1 / n_thresholds)
-    pred_ss_thresh = get_predictions(crnn, validation_dataloader, many_hot_encoder.decode_strong,
-                                     config_params.pooling_time_ratio, thresholds=list_thresholds, median_window=config_params.median_window,
-                                     save_predictions=predicitons_fname)
-    psds = compute_psds_from_operating_points(pred_ss_thresh, validation_labels_df, durations_validation)
-    psds_score(psds, filename_roc_curves=os.path.join(saved_pred_dir, "figures/psds_roc.png"))
- 
+    pred_ss_thresh = get_predictions(
+        crnn,
+        validation_dataloader,
+        many_hot_encoder.decode_strong,
+        config_params.pooling_time_ratio,
+        thresholds=list_thresholds,
+        median_window=config_params.median_window,
+        save_predictions=predicitons_fname,
+    )
+    psds = compute_psds_from_operating_points(
+        pred_ss_thresh, validation_labels_df, durations_validation
+    )
+    psds_score(
+        psds, filename_roc_curves=os.path.join(saved_pred_dir, "figures/psds_roc.png")
+    )

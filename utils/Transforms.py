@@ -16,7 +16,9 @@ class Transform:
 
     def _apply_transform(self, sample_no_index):
         data, label = sample_no_index
-        if type(data) is tuple:  # meaning there is more than one data_input (could be duet, triplet...)
+        if (
+            type(data) is tuple
+        ):  # meaning there is more than one data_input (could be duet, triplet...)
             data = list(data)
             for k in range(len(data)):
                 data[k] = self.transform_data(data[k])
@@ -27,7 +29,7 @@ class Transform:
         return data, label
 
     def __call__(self, sample):
-        """ Apply the transformation
+        """Apply the transformation
         Args:
             sample: tuple, a sample defined by a DataLoad class
 
@@ -35,7 +37,9 @@ class Transform:
             tuple
             The transformed tuple
         """
-        if type(sample[1]) is int:  # Means there is an index, may be another way to make it cleaner
+        if (
+            type(sample[1]) is int
+        ):  # Means there is an index, may be another way to make it cleaner
             sample_data, index = sample
             sample_data = self._apply_transform(sample_data)
             sample = sample_data, index
@@ -50,12 +54,12 @@ class ApplyLog(Transform):
     """
 
     def transform_data(self, data):
-        """ 
+        """
         Apply the transformation on data
         Args:
             data: np.array, the data to be modified
         Returns:
-            np.array: The transformed data     
+            np.array: The transformed data
         """
         return librosa.amplitude_to_db(data.T).T
 
@@ -74,7 +78,7 @@ def pad_trunc_seq(x, max_len):
     shape = x.shape
     if shape[-2] <= max_len:
         padded = max_len - shape[-2]
-        padded_shape = ((0, 0),)*len(shape[:-2]) + ((0, padded), (0, 0))
+        padded_shape = ((0, 0),) * len(shape[:-2]) + ((0, padded), (0, 0))
         x = np.pad(x, padded_shape, mode="constant")
     else:
         x = x[..., :max_len, :]
@@ -82,9 +86,10 @@ def pad_trunc_seq(x, max_len):
 
 
 class PadOrTrunc(Transform):
-    """ 
+    """
     Pad or truncate a sequence given a number of frames
     """
+
     def __init__(self, nb_frames, apply_to_label=False):
         """
         Inizialization of PadOrTrunc instance
@@ -101,7 +106,7 @@ class PadOrTrunc(Transform):
             return label
 
     def transform_data(self, data):
-        """ Apply the transformation on data
+        """Apply the transformation on data
         Args:
             data: np.array, the data to be modified
 
@@ -113,11 +118,11 @@ class PadOrTrunc(Transform):
 
 
 class AugmentGaussianNoise(Transform):
-    """ 
-    Pad or truncate a sequence given a number of frames       
+    """
+    Pad or truncate a sequence given a number of frames
     """
 
-    def __init__(self, mean=0., std=None, snr=None):
+    def __init__(self, mean=0.0, std=None, snr=None):
         """
         Inizialization of AugmentGaussianNoise instance
         Args:
@@ -133,13 +138,13 @@ class AugmentGaussianNoise(Transform):
     def gaussian_noise(features, snr):
         """Apply gaussian noise on each point of the data
 
-            Args:
-                features: numpy.array, features to be modified
-                snr: float, average snr to be used for data augmentation
-            Returns:
-                numpy.ndarray
-                Modified features
-                """
+        Args:
+            features: numpy.array, features to be modified
+            snr: float, average snr to be used for data augmentation
+        Returns:
+            numpy.ndarray
+            Modified features
+        """
         # If using source separation, using only the first audio (the mixture) to compute the gaussian noise,
         # Otherwise it just removes the first axis if it was an extended one
         if len(features.shape) == 3:
@@ -150,19 +155,21 @@ class AugmentGaussianNoise(Transform):
         try:
             noise = np.random.normal(0, std, features.shape)
         except Exception as e:
-            warnings.warn(f"the computed noise did not work std: {std}, using 0.5 for std instead")
+            warnings.warn(
+                f"the computed noise did not work std: {std}, using 0.5 for std instead"
+            )
             noise = np.random.normal(0, 0.5, features.shape)
 
         return features + noise
 
     def transform_data(self, data):
-        """ Apply the transformation on data
-            Args:
-                data: np.array, the data to be modified
+        """Apply the transformation on data
+        Args:
+            data: np.array, the data to be modified
 
-            Returns:
-                (np.array, np.array)
-                (original data, noisy_data (data + noise))
+        Returns:
+            (np.array, np.array)
+            (original data, noisy_data (data + noise))
         """
         if self.std is not None:
             noisy_data = data + np.abs(np.random.normal(0, 0.5 ** 2, data.shape))
@@ -177,9 +184,10 @@ class ToTensor(Transform):
     """
     Convert ndarrays in sample to Tensors.
     """
+
     def __init__(self, unsqueeze_axis=None):
         """
-        Inizialization of ToTensor instance. 
+        Inizialization of ToTensor instance.
         Args:
         unsqueeze_axis: int, (Default value = None) add an dimension to the axis mentioned.
                         Useful to add a channel axis to use CNN.
@@ -187,12 +195,12 @@ class ToTensor(Transform):
         self.unsqueeze_axis = unsqueeze_axis
 
     def transform_data(self, data):
-        """ 
+        """
         Apply the transformation on data
         Args:
             data: np.array, the data to be modified
         Returns:
-            res_data: np.array, The transformed data    
+            res_data: np.array, The transformed data
         """
         res_data = torch.from_numpy(data).float()
         if self.unsqueeze_axis is not None:
@@ -207,6 +215,7 @@ class Normalize(Transform):
     """
     Normalize inputs
     """
+
     def __init__(self, scaler):
         """
         Inizialization of Normalize class
@@ -216,23 +225,24 @@ class Normalize(Transform):
         self.scaler = scaler
 
     def transform_data(self, data):
-        """ 
+        """
         Apply the transformation on data
         Args:
             data: np.array, the data to be modified
         Returns:
-            np.array, The transformed data     
+            np.array, The transformed data
         """
         return self.scaler.normalize(data)
 
 
 class CombineChannels(Transform):
-    """ 
+    """
     Combine channels when using source separation (to remove the channels with low intensity)
     """
+
     def __init__(self, combine_on="max", n_channel_mix=2):
         """
-        Inizialization of CombineChannels instance 
+        Inizialization of CombineChannels instance
         Args:
             combine_on: str, in {"max", "min"}, the channel in which to combine the channels with the smallest energy
             n_channel_mix: int, the number of lowest energy channel to combine in another one
@@ -241,14 +251,14 @@ class CombineChannels(Transform):
         self.n_channel_mix = n_channel_mix
 
     def transform_data(self, data):
-        """ 
+        """
         Apply the transformation on data
         Args:
             data: np.array, the data to be modified, assuming the first values are the mixture,
                 and the other channels the sources
 
         Returns:
-            np.array: The transformed data     
+            np.array: The transformed data
         """
         mix = data[:1]  # :1 is just to keep the first axis
         sources = data[1:]
@@ -266,6 +276,7 @@ class Compose(object):
     """
     Composes several transforms together.
     """
+
     def __init__(self, transforms):
         """
         Inizialization of Compose class.
@@ -281,7 +292,7 @@ class Compose(object):
         Args:
             transform: transformer to be added to the list
         Return:
-            Compose instance of list of transformers 
+            Compose instance of list of transformers
         """
         t = self.transforms.copy()
         t.append(transform)
@@ -293,32 +304,34 @@ class Compose(object):
         return audio
 
     def __repr__(self):
-        format_string = self.__class__.__name__ + '('
+        format_string = self.__class__.__name__ + "("
         for t in self.transforms:
-            format_string += '\n'
-            format_string += '    {0}'.format(t)
-        format_string += '\n)'
+            format_string += "\n"
+            format_string += "    {0}".format(t)
+        format_string += "\n)"
 
         return format_string
 
 
-def get_transforms(frames=None, 
-    scaler=None, 
-    add_axis=0, 
-    noise_dict_params=None, 
-    combine_channels_args=None):
+def get_transforms(
+    frames=None,
+    scaler=None,
+    add_axis=0,
+    noise_dict_params=None,
+    combine_channels_args=None,
+):
     """
-        The functions gather all the transformers that are applied to the data. 
-    
+        The functions gather all the transformers that are applied to the data.
+
     Args:
         frames: number of frames to consider
         scaler: scaler
-        add_axis: dimensin to add 
-        noise_dict_params: dictionary with noise parameters 
+        add_axis: dimensin to add
+        noise_dict_params: dictionary with noise parameters
         combine_channel_args: combine channel arguments
 
     Return:
-        Compose(transf): composition of transformer appended to the list. 
+        Compose(transf): composition of transformer appended to the list.
 
     """
     transf = []
