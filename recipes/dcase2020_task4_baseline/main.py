@@ -39,8 +39,13 @@ from utils.Transforms import get_transforms
 
 from utils.utils import create_stored_data_folder
 from utils_data.Desed import DESED
-from data_generation.feature_extraction import get_dataset, get_compose_transforms
+from data_generation.feature_extraction import (
+    get_dataset,
+    get_compose_transforms,
+    get_ManyHotEncoder,
+)
 from utils_data.DataLoad import DataLoadDf, ConcatDataset, MultiStreamBatchSampler
+from training import get_batchsizes_and_masks
 from Configuration import Configuration
 
 
@@ -211,8 +216,11 @@ def train(
 
 if __name__ == "__main__":
 
+    # TODO: Set the path with your local path
+    workspace = "/srv/storage/talc3@talc-data.nancy/multispeech/calcul/users/fronchini/repo/DESED_task/recipes/dcase2020_task4_baseline"
+
     # retrive all the default parameters
-    config_params = Configuration()
+    config_params = Configuration(workspace)
 
     # set random seed
     torch.manual_seed(2020)
@@ -266,21 +274,42 @@ if __name__ == "__main__":
     # ################################################################
 
     dataset, dfs = get_dataset(
-        config_params=config_params, nb_files=reduced_number_of_data
+        base_feature_dir=os.path.join(
+            config_params.workspace, "data", "features"
+        ),  # should be set a default one?
+        path_dict=config_params.get_folder_path(),
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_min_max_freq=(config_params.mel_f_min, config_params.mel_f_max),
+        pooling_time_ratio=config_params.pooling_time_ratio,
+        save_features=config_params.save_features,
+        nb_files=reduced_number_of_data,
     )
 
     # Meta path for psds
     # TODO: where this should go?
     durations_synth = get_durations_df(gtruth_path=config_params.synthetic)
-    
-    many_hot_encoder = ManyHotEncoder(
+
+    # retrieve feature extraction process paramaters
+    feat_extr_params = config_params.get_feature_extraction_params()
+
+    # econde function
+    many_hot_encoder = get_ManyHotEncoder(
         config_params.classes,
         n_frames=config_params.max_frames // config_params.pooling_time_ratio,
     )
     encod_func = many_hot_encoder.encode_strong_df
 
     transforms, transforms_valid, scaler, scaler_args = get_compose_transforms(
-        dfs=dfs, encod_func=encod_func, config_params=config_params
+        dfs=dfs,
+        encod_func=encod_func,
+        scaler_type=config_params.scaler_type,
+        max_frames=config_params.max_frames,
+        add_axis_conv=config_params.add_axis_conv,
+        audio_train_folder=config_params.audio_train_folder,
+        feat_extr_params=feat_extr_params,
     )
 
     weak_data = DataLoadDf(
@@ -288,7 +317,7 @@ if __name__ == "__main__":
         encod_func,
         transforms,
         in_memory=config_params.in_memory,
-        config_params=config_params,
+        feat_extr_params=feat_extr_params,
         filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
     )
 
@@ -297,7 +326,7 @@ if __name__ == "__main__":
         encod_func,
         transforms,
         in_memory=config_params.in_memory_unlab,
-        config_params=config_params,
+        feat_extr_params=feat_extr_params,
         filenames_folder=os.path.join(
             config_params.audio_train_folder, "unlabel_in_domain"
         ),
@@ -307,7 +336,7 @@ if __name__ == "__main__":
         encod_func,
         transforms,
         in_memory=config_params.in_memory,
-        config_params=config_params,
+        feat_extr_params=feat_extr_params,
         filenames_folder=os.path.join(
             config_params.audio_train_folder, "synthetic20/soundscapes"
         ),
@@ -319,7 +348,7 @@ if __name__ == "__main__":
         transforms_valid,
         return_indexes=True,
         in_memory=config_params.in_memory,
-        config_params=config_params,
+        feat_extr_params=feat_extr_params,
         filenames_folder=os.path.join(
             config_params.audio_train_folder, "synthetic20/soundscapes"
         ),
@@ -329,24 +358,21 @@ if __name__ == "__main__":
         f"len synth: {len(train_synth_data)}, len_unlab: {len(unlabel_data)}, len weak: {len(weak_data)}"
     )
 
-    if not no_synthetic:
-        list_dataset = [weak_data, unlabel_data, train_synth_data]
-        batch_sizes = [
-            config_params.batch_size // 4,
-            config_params.batch_size // 2,
-            config_params.batch_size // 4,
-        ]
-        strong_mask = slice(
-            (3 * config_params.batch_size) // 4, config_params.batch_size
-        )
-    else:
-        list_dataset = [weak_data, unlabel_data]
-        batch_sizes = [config_params.batch_size // 4, 3 * config_params.batch_size // 4]
-        strong_mask = None
-    weak_mask = slice(batch_sizes[0])  # Assume weak data is always the first one
+    # get batch sizes and label masks depending on if synthetic data are used or not
+    weak_mask, strong_mask, batch_sizes = get_batchsizes_and_masks(
+        no_synthetic, config_params.batch_size
+    )
 
-    concat_dataset = ConcatDataset(list_dataset)
+    # concatenate dataset list depending on if synthetic data are used or not
+    concat_dataset = (
+        ConcatDataset([weak_data, unlabel_data])
+        if no_synthetic
+        else ConcatDataset([weak_data, unlabel_data, train_synth_data])
+    )
+
+    # concat_dataset = ConcatDataset(list_dataset)
     sampler = MultiStreamBatchSampler(concat_dataset, batch_sizes=batch_sizes)
+
     training_loader = DataLoader(
         dataset=concat_dataset,
         batch_sampler=sampler,
@@ -358,10 +384,12 @@ if __name__ == "__main__":
         num_workers=config_params.num_workers,
     )
 
-    # ##############
-    # Model
-    # ##############
-    crnn = CRNN(**config_params.crnn_kwargs)  # TODO: Change this
+    # ##################
+    # MODEL - TRAINING
+    # ##################
+
+    crnn = CRNN(**config_params.crnn_kwargs)
+
     pytorch_total_params = sum(p.numel() for p in crnn.parameters() if p.requires_grad)
     logger.info(crnn)
     logger.info("number of parameters in the model: {}".format(pytorch_total_params))
@@ -378,6 +406,9 @@ if __name__ == "__main__":
     )
 
     # TODO: Change this
+    # get models: CRNN and CRNN teacher already defined.
+    # Implement the set_state function, update function, etc
+    # Import the modules for the CRNN, RNN etc (utils_modules) -> until training loop!
 
     state = {
         "model": {
@@ -517,7 +548,7 @@ if __name__ == "__main__":
         encod_func,
         transforms=transforms_valid,
         return_indexes=True,
-        config_params=config_params,
+        feat_extr_params=feat_extr_params,
         filenames_folder=config_params.audio_validation_dir,
     )
     validation_dataloader = DataLoader(

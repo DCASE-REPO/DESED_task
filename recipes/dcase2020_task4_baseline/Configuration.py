@@ -11,14 +11,14 @@ class Configuration:
     model, training and post-processing
     """
 
-    def __init__(self):
+    def __init__(self, workspace="."):
         """
         Inizialization of Configuration instance
-        """
 
-        # TODO: Set the path with your local path
-        #self.workspace = "<path/to/workspace/folder>"
-        self.workspace = "/srv/storage/talc3@talc-data.nancy/multispeech/calcul/users/fronchini/repo/DESED_task/recipes/dcase2020_task4_baseline"
+        Args:
+            workspace: str, workspace path
+        """
+        self.workspace = workspace
 
         ######################
         # DESED dataset paths
@@ -97,7 +97,6 @@ class Configuration:
         self.ref_db = -55
         self.sample_rate = 16000
         self.max_len_seconds = 10.0
-        # features
         self.n_window = 2048
         self.hop_size = 255
         self.n_mels = 128
@@ -122,15 +121,16 @@ class Configuration:
             "n_in_channel": self.n_channel,
             "nclass": len(self.classes),
             "attention": True,
-            "n_RNN_cell": 128,
-            "n_layers_RNN": 2,
             "activation": "glu",
             "dropout": 0.5,
+            "batch_norm": True,
             "kernel_size": self.n_layers * [3],
             "padding": self.n_layers * [1],
             "stride": self.n_layers * [1],
             "nb_filters": [16, 32, 64, 128, 128, 128, 128],
             "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
+            "n_RNN_cell": 128,
+            "n_layers_RNN": 2,
         }
         # 2 * 2
         self.pooling_time_ratio = 4
@@ -151,7 +151,7 @@ class Configuration:
         self.batch_size = 24
         self.noise_snr = 30
 
-        self.n_epoch = 10
+        self.n_epoch = 200
         self.n_epoch_rampup = 50
 
         self.checkpoint_epochs = 1
@@ -168,3 +168,46 @@ class Configuration:
 
         # Logger
         self.terminal_level = logging.INFO
+
+    def get_folder_path(self):
+        """
+            Getting folders paths
+
+        Return:
+            path_dict: dict, dictionary containing the folders paths
+
+        """
+        path_dict = dict(
+            audio_validation_dir=self.audio_validation_dir,
+            weak_ss=self.weak_ss,
+            unlabel_ss=self.unlabel_ss,
+            validation_ss=self.validation_ss,
+            synthetic_ss=self.synthetic_ss,
+            tsv_path_weak=self.weak,
+            tsv_path_unlabel=self.unlabel,
+            tsv_path_synth=self.synthetic,
+            tsv_path_valid=self.validation,
+        )
+        return path_dict
+
+    def get_feature_extraction_params(self):
+        """
+            Getting features eextraction parameters
+
+        Return:
+            feat_extr_params: dict, dictionary containing features extraction parameters
+        """
+
+        feat_extr_params = dict(
+            save_features=self.save_features,
+            sample_rate=self.sample_rate,
+            n_window=self.n_window,
+            hop_size=self.hop_size,
+            n_mels=self.n_mels,
+            compute_log=self.compute_log,
+            noise_snr=self.noise_snr,
+            mel_f_min=self.mel_f_min,
+            mel_f_max=self.mel_f_max,
+        )
+
+        return feat_extr_params

@@ -19,8 +19,9 @@ import logging
 from utilities.Logger import create_logger
 from utils.utils import read_audio, meta_path_to_audio_dir, create_folder
 
-#logger = create_logger(__name__, terminal_level=cfg.terminal_level)
+# logger = create_logger(__name__, terminal_level=cfg.terminal_level)
 logger = create_logger(__name__, terminal_level=logging.INFO)
+
 
 class DESED:
     """
@@ -67,8 +68,12 @@ class DESED:
 
     def __init__(
         self,
-        config_params=None,
         base_feature_dir="features",
+        sample_rate=16000,
+        n_window=2048,
+        hop_size=255,
+        n_mels=128,
+        mel_min_max_freq=(0.0, 8000.0),
         recompute_features=False,
         compute_log=True,
     ):
@@ -76,19 +81,23 @@ class DESED:
         Inizialization of DESED class instance
 
         Args:
-            config_params: Configuration class, containing all the default params
             base_feature_dir: str, base directory to store the features
+            sample_rate: int, sample rate
+            n_window: int, window lenght
+            hop_size: int, hop size
+            n_mels: number of mels band
+            mel_min_max_freq: tuple, min and max frequency for mel band filter
             recompute_features: bool, whether or not to recompute features
             compute_log: bool, whether or not saving the logarithm of the feature or not
                         (particularly useful to put False to apply some data augmentation)
 
         """
         # Parameters, they're kept if we need to reproduce the dataset
-        self.sample_rate = config_params.sample_rate
-        self.n_window = config_params.n_window
-        self.hop_size = config_params.hop_size
-        self.n_mels = config_params.n_mels
-        self.mel_min_max_freq = (config_params.mel_f_min, config_params.mel_f_max)
+        self.sample_rate = sample_rate
+        self.n_window = n_window
+        self.hop_size = hop_size
+        self.n_mels = n_mels
+        self.mel_min_max_freq = mel_min_max_freq
 
         # Defined parameters
         self.recompute_features = recompute_features
@@ -228,6 +237,7 @@ class DESED:
             features_tsv = osp.join(meta_feat_dir, feat_fname)
             t = time.time()
             logger.info(f"Getting features ...")
+            # TODO: Check if the path are all correct
             df_features = self.extract_features_from_df(
                 df_meta,
                 audio_dir,
@@ -528,13 +538,16 @@ class DESED:
 
 
 # function out of classes
-def generate_feature_from_raw_file(filename, audio_dir, config_params):
+def generate_feature_from_raw_file(filename, audio_dir, feat_extr_params):
     """
     Create the path of the raw file and call the extract feature function
     Args:
         filename: str, name of the file to extract the feature from
         audio_dir: str, path of the audio folder containing the audio file
-        config_params: configuration parameters
+        feat_extr_params: dict, dictionary containing the parameters used for the feature extraction process
+
+    Return:
+        feature: numpy.array, exctracted feature (mel spectrogram)
     """
 
     wav_path = osp.join(audio_dir, filename)
@@ -549,22 +562,34 @@ def generate_feature_from_raw_file(filename, audio_dir, config_params):
         # we don't need to save the file but only to return the feature
         # out_filename = osp.join(osp.splitext(filename)[0] + ".npy")
         # out_path = osp.join(feature_dir, out_filename)
-        feature = extract_features(wav_path, config_params)
+        feature = extract_features(wav_path, feat_extr_params)
 
     return feature
 
 
-def extract_features(wav_path, config_params):
+def extract_features(wav_path, feat_extr_params):
     # TODO: maybe we can merge this with the next function?
     """
     Computing load and mel spectogram
     Args:
         wav_path: str, path of the file
-        config_params: configuration paramateres
+        feat_extr_params: dict, dictionary containing the parameters used for the feature extraction process
+
+    Return:
+        mel_spec: numpy.array, containing the mel spectrogram
 
     """
     try:
-        mel_spec = load_and_compute_mel_spec(wav_path, config_params)
+        mel_spec = load_and_compute_mel_spec(
+            wav_path,
+            feat_extr_params["sample_rate"],
+            feat_extr_params["n_window"],
+            feat_extr_params["hop_size"],
+            feat_extr_params["n_mels"],
+            feat_extr_params["mel_f_min"],
+            feat_extr_params["mel_f_max"],
+            feat_extr_params["compute_log"],
+        )
         # os.makedirs(osp.dirname(out_path), exist_ok=True)
         # np.save(out_path, mel_spec)
     except IOError as e:
@@ -573,31 +598,63 @@ def extract_features(wav_path, config_params):
     return mel_spec
 
 
-def load_and_compute_mel_spec(wav_path, config_params):
+def load_and_compute_mel_spec(
+    wav_path, sample_rate, n_window, hop_size, n_mels, mel_f_min, mel_f_max, compute_log
+):
+
     """
     Computing the mel spectrogram
     Args:
         wav_path:, str, path of the file
-        config_params: configuration parameters
+        sample_rate: str, sample_rate
+        n_window: int, window lenght
+        hop_size: int, window hop size
+        n_mels: int, number of mels band
+        mel_f_min: float, min frequyency for the mel band filter
+        mel_f_max: float, max frequency for the mel band filter
+        compute_log: bool, wheter to compute log or not
+
+    Return:
+        mel_spec: numpy.array, containing the mel spectrogram
 
     """
-    (audio, _) = read_audio(wav_path, config_params.sample_rate)
+    (audio, _) = read_audio(wav_path, sample_rate)
     if audio.shape[0] == 0:
         raise IOError("File {wav_path} is corrupted!")
     else:
         t1 = time.time()
         # mel_spec = self.calculate_mel_spec(audio, self.compute_log)
-        mel_spec = calculate_mel_spec(audio, config_params)
+        mel_spec = calculate_mel_spec(
+            audio,
+            sample_rate,
+            n_window,
+            hop_size,
+            n_mels,
+            mel_f_min,
+            mel_f_max,
+            compute_log,
+        )
+
         logger.debug(f"compute features time: {time.time() - t1}")
     return mel_spec
 
 
-def calculate_mel_spec(audio, config_params):
+def calculate_mel_spec(
+    audio, sample_rate, n_window, hop_size, n_mels, mel_f_min, mel_f_max, compute_log
+):
+
     """
     Calculate a mel spectrogram from raw audio waveform
     Note: The parameters of the spectrograms are in the config.py file.
+
     Args:
         audio : numpy.array, raw waveform to compute the spectrogram
+        sample_rate: str, sample_rate
+        n_window: int, window lenght
+        hop_size: int, window hop size
+        n_mels: int, number of mels band
+        mel_f_min: float, min frequyency for the mel band filter
+        mel_f_max: float, max frequency for the mel band filter
         compute_log: bool, whether to get the output in dB (log scale) or not
 
     Returns:
@@ -605,12 +662,12 @@ def calculate_mel_spec(audio, config_params):
     """
 
     # Compute spectrogram
-    ham_win = np.hamming(config_params.n_window)
+    ham_win = np.hamming(n_window)
 
     spec = librosa.stft(
         audio,
-        n_fft=config_params.n_window,
-        hop_length=config_params.hop_size,
+        n_fft=n_window,
+        hop_length=hop_size,
         window=ham_win,
         center=True,
         pad_mode="reflect",
@@ -620,15 +677,15 @@ def calculate_mel_spec(audio, config_params):
         S=np.abs(
             spec
         ),  # amplitude, for energy: spec**2 but don't forget to change amplitude_to_db.
-        sr=config_params.sample_rate,
-        n_mels=config_params.n_mels,
-        fmin=config_params.mel_f_min,
-        fmax=config_params.mel_f_max,
+        sr=sample_rate,
+        n_mels=n_mels,
+        fmin=mel_f_min,
+        fmax=mel_f_max,
         htk=False,
         norm=None,
     )
 
-    if config_params.compute_log:
+    if compute_log:
         mel_spec = librosa.amplitude_to_db(
             mel_spec
         )  # 10 * log10(S**2 / ref), ref default is 1

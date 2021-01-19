@@ -8,68 +8,83 @@ from utils_data.DataLoad import DataLoadDf, ConcatDataset
 from utils.Logger import create_logger
 from utils.Transforms import get_transforms
 from utils.Scaler import ScalerPerAudio, Scaler
+from utils.ManyHotEncoder import ManyHotEncoder
 import os
 import inspect
+import logging
 
 # Extraction of datasets
-def get_dfs(config_params, desed_dataset, nb_files=None, separated_sources=False):
+def get_dfs(
+    path_dict,
+    desed_dataset,
+    sample_rate,
+    hop_size,
+    pooling_time_ratio,
+    save_features,
+    nb_files=None,
+    separated_sources=False,
+):
     """
     The function inizialize and retrieve all the subset of the dataset.
 
     Args:
-        config_params: Configuration, configuration parameters
         desed_dataset: desed class instance
+        sample_rate: int, sample rate
+        hop_size: int, window hop size
+        pooling_time_ratio: int, pooling time ratio
+        save_features: bool, True if features need to be saved, False if features are not going to be saved
         nb_files: int, number of file to be considered (in case you want to consider only part of the dataset)
         separated source: bool, true if you want to consider separated source as well or not
     """
 
     log = create_logger(
         __name__ + "/" + inspect.currentframe().f_code.co_name,
-        terminal_level=config_params.terminal_level,
+        terminal_level=logging.INFO,
     )
+
     audio_weak_ss = None
     audio_unlabel_ss = None
     audio_validation_ss = None
     audio_synthetic_ss = None
 
     if separated_sources:
-        audio_weak_ss = config_params.weak_ss
-        audio_unlabel_ss = config_params.unlabel_ss
-        audio_validation_ss = config_params.validation_ss
-        audio_synthetic_ss = config_params.synthetic_ss
+        audio_weak_ss = path_dict["weak_ss"]
+        audio_unlabel_ss = path_dict["unlabel_ss"]
+        audio_validation_ss = path_dict["validation_ss"]
+        audio_synthetic_ss = path_dict["synthetic_ss"]
 
     # inizialiation of the dataset
     weak_df = desed_dataset.initialize_and_get_df(
-        tsv_path=config_params.weak,
+        tsv_path=path_dict["tsv_path_weak"],
         audio_dir_ss=audio_weak_ss,
         nb_files=nb_files,
-        save_features=config_params.save_features,
+        save_features=save_features,
     )
 
     unlabel_df = desed_dataset.initialize_and_get_df(
-        tsv_path=config_params.unlabel,
+        tsv_path=path_dict["tsv_path_unlabel"],
         audio_dir_ss=audio_unlabel_ss,
         nb_files=nb_files,
-        save_features=config_params.save_features,
+        save_features=save_features,
     )
 
     # Event if synthetic not used for training, used on validation purpose
     synthetic_df = desed_dataset.initialize_and_get_df(
-        tsv_path=config_params.synthetic,
+        tsv_path=path_dict["tsv_path_synth"],
         audio_dir_ss=audio_synthetic_ss,
         nb_files=nb_files,
         download=False,
-        save_features=config_params.save_features,
+        save_features=save_features,
     )
 
     # TODO: Make the systema already read for the evaluation set so to make things easier
     # dev_test dataset
     validation_df = desed_dataset.initialize_and_get_df(
-        tsv_path=config_params.validation,
-        audio_dir=config_params.audio_validation_dir,
+        tsv_path=path_dict["tsv_path_valid"],
+        audio_dir=path_dict["audio_validation_dir"],
         audio_dir_ss=audio_validation_ss,
         nb_files=nb_files,
-        save_features=config_params.save_features,
+        save_features=save_features,
     )
 
     # with evaluation dataset
@@ -88,16 +103,10 @@ def get_dfs(config_params, desed_dataset, nb_files=None, separated_sources=False
     # Put train_synth in frames so many_hot_encoder can work.
     # Not doing it for valid, because not using labels (when prediction) and event based metric expect sec.
     train_synth_df.onset = (
-        train_synth_df.onset
-        * config_params.sample_rate
-        // config_params.hop_size
-        // config_params.pooling_time_ratio
+        train_synth_df.onset * sample_rate // hop_size // pooling_time_ratio
     )
     train_synth_df.offset = (
-        train_synth_df.offset
-        * config_params.sample_rate
-        // config_params.hop_size
-        // config_params.pooling_time_ratio
+        train_synth_df.offset * sample_rate // hop_size // pooling_time_ratio
     )
     log.debug(valid_synth_df.event_label.value_counts())
 
@@ -113,13 +122,30 @@ def get_dfs(config_params, desed_dataset, nb_files=None, separated_sources=False
     return data_dfs
 
 
-def get_dataset(config_params, nb_files=None):
+def get_dataset(
+    base_feature_dir,
+    path_dict,
+    sample_rate,
+    n_window,
+    hop_size,
+    n_mels,
+    mel_min_max_freq,
+    pooling_time_ratio,
+    save_features,
+    nb_files=None,
+):
     """
         Function to get the dataset
 
     Args:
+        base_feature_dir: features directory
+        path_dict: dict, dictionary containing all the necessary paths
+        sample_rate: int, sample rate
+        n_window: int, window lenght
+        hop_size: int, hop size
+        n_mels: int, number of mels
+        mel_min_max_freq: tuple, min and max frequency to consider for the mel filter
         nb_files: int, number of files to retrieve and process (in case only part of dataset is used)
-        workspace: str, workspace path
 
     Return:
         desed_dataset: DESED instance
@@ -127,32 +153,48 @@ def get_dataset(config_params, nb_files=None):
 
     """
     desed_dataset = DESED(
-        config_params=config_params,
-        base_feature_dir=os.path.join(config_params.workspace, "data", "features"),
+        sample_rate=sample_rate,
+        n_window=n_window,
+        hop_size=hop_size,
+        n_mels=n_mels,
+        mel_min_max_freq=mel_min_max_freq,
+        base_feature_dir=base_feature_dir,
         compute_log=False,
-    )  ## to be set on the config maybe?
+    )
 
     # Separated sources paramete? # TODO
     dfs = get_dfs(
-        config_params=config_params,
+        path_dict=path_dict,
+        sample_rate=sample_rate,
+        hop_size=hop_size,
+        pooling_time_ratio=pooling_time_ratio,
         desed_dataset=desed_dataset,
+        save_features=save_features,
         nb_files=nb_files,
         separated_sources=False,
     )
     return desed_dataset, dfs
 
 
-def get_compose_transforms(dfs, encod_func, config_params):
+def get_compose_transforms(
+    dfs,
+    encod_func,
+    scaler_type,
+    max_frames,
+    add_axis_conv,
+    audio_train_folder,
+    feat_extr_params,
+):
     """
     The function performs all the operation needed to normalize the dataset.
 
     Args:
-        dataset: class dataset to get information regarding the dataset
         dfs: dict, dataset
         encod_funct: encode labels function
+        scaler_type: str, which type of scaler to consider, per audio or the full dataset
         max_frames: int, maximum number of frames
         add_axis_conv: int, axis to squeeze
-        noise_snr: int, snr
+        feat_extr_params: parameters regarding the feature extraction process
 
     Return:
         transorms: transforms to apply to training dataset
@@ -162,37 +204,35 @@ def get_compose_transforms(dfs, encod_func, config_params):
 
     log = create_logger(
         __name__ + "/" + inspect.currentframe().f_code.co_name,
-        terminal_level=config_params.terminal_level,
+        terminal_level=logging.INFO,
     )
 
-    if config_params.scaler_type == "dataset":
-        transforms = get_transforms(
-            frames=config_params.max_frames, add_axis=config_params.add_axis_conv
-        )
+    if scaler_type == "dataset":
+        transforms = get_transforms(frames=max_frames, add_axis=add_axis_conv)
 
         weak_data = DataLoadDf(
             df=dfs["weak"],
             encode_function=encod_func,
             transforms=transforms,
-            config_params=config_params,
-            filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
+            feat_extr_params=feat_extr_params,
+            filenames_folder=os.path.join(audio_train_folder, "weak"),
         )
 
         unlabel_data = DataLoadDf(
             df=dfs["unlabel"],
             encode_function=encod_func,
             transforms=transforms,
-            config_params=config_params,
-            filenames_folder=os.path.join(config_params.audio_train_folder, "unlabel_in_domain"),
+            feat_extr_params=feat_extr_params,
+            filenames_folder=os.path.join(audio_train_folder, "unlabel_in_domain"),
         )
 
         train_synth_data = DataLoadDf(
             df=dfs["train_synthetic"],
             encode_function=encod_func,
             transforms=transforms,
-            config_params=config_params,
+            feat_extr_params=feat_extr_params,
             filenames_folder=os.path.join(
-                config_params.audio_train_folder, "synthetic20/soundscapes"
+                audio_train_folder, "synthetic20/soundscapes"
             ),
         )
 
@@ -208,17 +248,24 @@ def get_compose_transforms(dfs, encod_func, config_params):
         scaler = ScalerPerAudio(*scaler_args)
 
     transforms = get_transforms(
-        frames=config_params.max_frames,
+        frames=max_frames,
         scaler=scaler,
-        add_axis=config_params.add_axis_conv,
-        noise_dict_params={"mean": 0.0, "snr": config_params.noise_snr},
+        add_axis=add_axis_conv,
+        noise_dict_params={"mean": 0.0, "snr": feat_extr_params["noise_snr"]},
     )
 
     transforms_valid = get_transforms(
-        frames=config_params.max_frames,
+        frames=max_frames,
         scaler=scaler,
-        add_axis=config_params.add_axis_conv,
+        add_axis=add_axis_conv,
     )
 
     # return transforms, transforms_valid, scaler
     return transforms, transforms_valid, scaler, scaler_args
+
+
+def get_ManyHotEncoder(classes, n_frames):
+
+    many_hot_encoder = ManyHotEncoder(classes, n_frames=n_frames)
+
+    return many_hot_encoder
