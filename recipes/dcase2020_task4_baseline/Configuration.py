@@ -13,7 +13,7 @@ class Configuration:
 
     def __init__(self, workspace="."):
         """
-        Inizialization of Configuration instance
+        Initialization of Configuration instance
 
         Args:
             workspace: str, workspace path
@@ -162,6 +162,9 @@ class Configuration:
         self.max_learning_rate = 0.001  # Used if adjust_lr is True
         self.default_learning_rate = 0.001  # Used if adjust_lr is False
 
+        # optimizer params
+        self.optim_kwargs = {"lr": self.default_learning_rate, "betas": (0.9, 0.999)}
+
         # Post processing
         self.median_window_s = 0.45
         self.median_window = max(int(self.median_window_s * self.out_nb_frames_1s), 1)
@@ -192,7 +195,7 @@ class Configuration:
 
     def get_feature_extraction_params(self):
         """
-            Getting features eextraction parameters
+            Getting features extraction parameters
 
         Return:
             feat_extr_params: dict, dictionary containing features extraction parameters

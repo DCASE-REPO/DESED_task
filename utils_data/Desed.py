@@ -29,7 +29,7 @@ class DESED:
     Data are organized in `audio/` and corresponding `metadata/` folders.
     audio folder contains wav files, and metadata folder contains .tsv files.
 
-    The organisation should always be the same in the audio and metadata folders. (See example)
+    The organization should always be the same in the audio and metadata folders. (See example)
     If there are multiple metadata files for a single audio files, add the name in the list of `merged_folders_name`.
     (See validation folder example). Be careful, it works only for one level of folder.
 
@@ -78,12 +78,12 @@ class DESED:
         compute_log=True,
     ):
         """
-        Inizialization of DESED class instance
+        Initialization of DESED class instance
 
         Args:
             base_feature_dir: str, base directory to store the features
             sample_rate: int, sample rate
-            n_window: int, window lenght
+            n_window: int, window length
             hop_size: int, hop size
             n_mels: number of mels band
             mel_min_max_freq: tuple, min and max frequency for mel band filter
@@ -547,7 +547,7 @@ def generate_feature_from_raw_file(filename, audio_dir, feat_extr_params):
         feat_extr_params: dict, dictionary containing the parameters used for the feature extraction process
 
     Return:
-        feature: numpy.array, exctracted feature (mel spectrogram)
+        feature: numpy.array, extracted feature (mel spectrogram)
     """
 
     wav_path = osp.join(audio_dir, filename)
@@ -607,12 +607,12 @@ def load_and_compute_mel_spec(
     Args:
         wav_path:, str, path of the file
         sample_rate: str, sample_rate
-        n_window: int, window lenght
+        n_window: int, window length
         hop_size: int, window hop size
         n_mels: int, number of mels band
-        mel_f_min: float, min frequyency for the mel band filter
+        mel_f_min: float, min frequency for the mel band filter
         mel_f_max: float, max frequency for the mel band filter
-        compute_log: bool, wheter to compute log or not
+        compute_log: bool, whether to compute log or not
 
     Return:
         mel_spec: numpy.array, containing the mel spectrogram
@@ -650,10 +650,10 @@ def calculate_mel_spec(
     Args:
         audio : numpy.array, raw waveform to compute the spectrogram
         sample_rate: str, sample_rate
-        n_window: int, window lenght
+        n_window: int, window length
         hop_size: int, window hop size
         n_mels: int, number of mels band
-        mel_f_min: float, min frequyency for the mel band filter
+        mel_f_min: float, min frequency for the mel band filter
         mel_f_max: float, max frequency for the mel band filter
         compute_log: bool, whether to get the output in dB (log scale) or not
 

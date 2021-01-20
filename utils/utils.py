@@ -34,7 +34,7 @@ def create_stored_data_folder(folder_ext, exp_out_path):
     such as model and predictions.
 
     Args:
-        folder_ext: str, extension to add to the MeanTaecher folder (sysnthetic or not synthetic data)
+        folder_ext: str, extension to add to the MeanTaecher folder (synthetic or not synthetic data)
         exp_out_path: folder path where the experiments output are saved
 
     Returns:
@@ -100,7 +100,9 @@ def weights_init(m):
 
 
 def to_cuda_if_available(*args):
-    """Transfer object (Module, Tensor) to GPU if GPU available
+    """
+    Transfer object (Module, Tensor) to GPU if GPU available
+
     Args:
         args: torch object to put on cuda if available (needs to have object.cuda() defined)
 
@@ -113,6 +115,7 @@ def to_cuda_if_available(*args):
             res[i] = torch_obj.cuda()
     if len(res) == 1:
         return res[0]
+
     return res
 
 
@@ -159,11 +162,9 @@ class SaveBest:
 
 
 class EarlyStopping:
-    """Callback to stop training if the metric have not improved during multiple epochs.
-    Args:
-        patience: int, number of epochs with no improvement before stopping the model
-        val_comp: str, (Default value = "inf") "inf" or "sup", inf when we store the lowest model, sup when we
-            store the highest model
+    """
+    Callback to stop training if the metric have not improved during multiple epochs.
+
     Attributes:
         patience: int, number of epochs with no improvement before stopping the model
         val_comp: str, "inf" or "sup", inf when we store the lowest model, sup when we
@@ -174,6 +175,15 @@ class EarlyStopping:
     """
 
     def __init__(self, patience, val_comp="inf", init_patience=0):
+        """
+        Initialization of EarlyStopping instance
+
+        Args:
+            patience: int, number of epochs with no improvement before stopping the model
+            val_comp: str, (Default value = "inf") "inf" or "sup", inf when we store the lowest model, sup when we
+                    store the highest model
+
+        """
         self.patience = patience
         self.first_early_wait = init_patience
         self.val_comp = val_comp

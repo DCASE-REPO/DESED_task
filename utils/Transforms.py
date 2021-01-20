@@ -92,7 +92,7 @@ class PadOrTrunc(Transform):
 
     def __init__(self, nb_frames, apply_to_label=False):
         """
-        Inizialization of PadOrTrunc instance
+        Initialization of PadOrTrunc instance
         Args:
             nb_frames: int, the number of frames to match
         """
@@ -124,7 +124,7 @@ class AugmentGaussianNoise(Transform):
 
     def __init__(self, mean=0.0, std=None, snr=None):
         """
-        Inizialization of AugmentGaussianNoise instance
+        Initialization of AugmentGaussianNoise instance
         Args:
             mean: float, mean of the Gaussian noise to add
             std: float, std of the Gaussian noise to add
@@ -187,7 +187,7 @@ class ToTensor(Transform):
 
     def __init__(self, unsqueeze_axis=None):
         """
-        Inizialization of ToTensor instance.
+        Initialization of ToTensor instance.
         Args:
         unsqueeze_axis: int, (Default value = None) add an dimension to the axis mentioned.
                         Useful to add a channel axis to use CNN.
@@ -218,7 +218,7 @@ class Normalize(Transform):
 
     def __init__(self, scaler):
         """
-        Inizialization of Normalize class
+        Initialization of Normalize class
         Args:
             scaler: Scaler object, the scaler to be used to normalize the data
         """
@@ -242,7 +242,7 @@ class CombineChannels(Transform):
 
     def __init__(self, combine_on="max", n_channel_mix=2):
         """
-        Inizialization of CombineChannels instance
+        Initialization of CombineChannels instance
         Args:
             combine_on: str, in {"max", "min"}, the channel in which to combine the channels with the smallest energy
             n_channel_mix: int, the number of lowest energy channel to combine in another one
@@ -279,7 +279,7 @@ class Compose(object):
 
     def __init__(self, transforms):
         """
-        Inizialization of Compose class.
+        Initialization of Compose class.
          Args:
             transforms: list of Transform objects, list of transforms to compose.
             Example of transform: ToTensor()
@@ -326,7 +326,7 @@ def get_transforms(
     Args:
         frames: number of frames to consider
         scaler: scaler
-        add_axis: dimensin to add
+        add_axis: dimension to add
         noise_dict_params: dictionary with noise parameters
         combine_channel_args: combine channel arguments
 

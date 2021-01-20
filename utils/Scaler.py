@@ -22,7 +22,7 @@ class Scaler:
 
     def mean(self, data, axis=-1):
         """
-        Compute the mean incrementaly.
+        Compute the mean incrementally.
 
         Args:
             data: batch to calculate the mean of.

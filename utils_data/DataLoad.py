@@ -39,19 +39,19 @@ class DataLoadDf(Dataset):
     ):
 
         """
-        Inizialization of DataLoadDf instance.
+        Initialization of DataLoadDf instance.
 
         Args:
-            df: pandas.DataFrame, the dataframe containing the set informations (feat_filenames, labels),
+            df: pandas.DataFrame, the dataframe containing the set information (feat_filenames, labels),
                 it should contain these columns :
                 "feature_filename" (unlabel dataset)
                 "feature_filename", "event_labels" (weak dataset)
-                "feature_filename", "onset", "offset", "event_label" (synthetica dataset)
+                "feature_filename", "onset", "offset", "event_label" (synthetic dataset)
                 (?, maybe ot the feature_filename anymore)
             encode_function: function(), function which encode labels
             transform: function(), (Default value = None), function or composition of transforms
                         to be applied to the sample (pytorch transformations)
-            in_memory: wheter to save the features is memory or not
+            in_memory: whether to save the features is memory or not
             feat_extr_params: dict, parameters used for the feature extraction process
             return_indexes: bool, (Default value = False) whether or not to return indexes when use __getitem__
         """
@@ -105,7 +105,7 @@ class DataLoadDf(Dataset):
     def __len__(self):
         """
         Returns:
-            length: int, lenght of the object
+            length: int, length of the object
         """
         # length = len(self.feat_filenames)
         length = len(self.filenames)
@@ -248,7 +248,7 @@ class ConcatDataset(Dataset):
 
     def __init__(self, datasets):
         """
-        Inizialization of ConcatDataset instance
+        Initialization of ConcatDataset instance
         Args:
             datasets : sequence, list of datasets to be concatenated
         """
@@ -293,7 +293,7 @@ class MultiStreamBatchSampler(Sampler):
 
     def __init__(self, data_source, batch_sizes, shuffle=True):
         """
-        Inizialization of MultiStreamBatchSampler class.
+        Initialization of MultiStreamBatchSampler class.
         Args:
             data_source : DESED, a DESED to sample from. Should have a cluster_indices property
             batch_size : int, a batch size that you would like to use later with Dataloader class

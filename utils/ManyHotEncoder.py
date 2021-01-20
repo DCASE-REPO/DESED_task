@@ -14,7 +14,7 @@ class ManyHotEncoder:
 
     def __init__(self, labels, n_frames=None):
         """
-            Inizialization of ManyHotEncoder instance.
+            Initialization of ManyHotEncoder instance.
         Args:
             labels: list, the classes which will be encoded
             n_frames: int, (Default value = None) only useful for strong labels. The number of frames of a segment.
@@ -147,13 +147,13 @@ class ManyHotEncoder:
         return result_labels
 
     def decode_strong(self, labels):
-        """Decode the encoded strong labels
+        """
+        Decode the encoded strong labels
+
         Args:
             labels: numpy.array, the encoded labels to be decoded
         Returns:
-            list
-            Decoded labels, list of list: [[label, onset offset], ...]
-
+            result_labels: list, Decoded labels, list of list: [[label, onset offset], ...]
         """
         result_labels = []
         for i, label_column in enumerate(labels.T):

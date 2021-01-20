@@ -25,7 +25,7 @@ def get_dfs(
     separated_sources=False,
 ):
     """
-    The function inizialize and retrieve all the subset of the dataset.
+    The function initializes and retrieves all the subset of the dataset.
 
     Args:
         desed_dataset: desed class instance
@@ -53,7 +53,7 @@ def get_dfs(
         audio_validation_ss = path_dict["validation_ss"]
         audio_synthetic_ss = path_dict["synthetic_ss"]
 
-    # inizialiation of the dataset
+    # initialization of the dataset
     weak_df = desed_dataset.initialize_and_get_df(
         tsv_path=path_dict["tsv_path_weak"],
         audio_dir_ss=audio_weak_ss,
@@ -77,7 +77,7 @@ def get_dfs(
         save_features=save_features,
     )
 
-    # TODO: Make the systema already read for the evaluation set so to make things easier
+    # TODO: Make the system already read for the evaluation set so to make things easier
     # dev_test dataset
     validation_df = desed_dataset.initialize_and_get_df(
         tsv_path=path_dict["tsv_path_valid"],
@@ -141,7 +141,7 @@ def get_dataset(
         base_feature_dir: features directory
         path_dict: dict, dictionary containing all the necessary paths
         sample_rate: int, sample rate
-        n_window: int, window lenght
+        n_window: int, window length
         hop_size: int, hop size
         n_mels: int, number of mels
         mel_min_max_freq: tuple, min and max frequency to consider for the mel filter
@@ -197,7 +197,7 @@ def get_compose_transforms(
         feat_extr_params: parameters regarding the feature extraction process
 
     Return:
-        transorms: transforms to apply to training dataset
+        transforms: transforms to apply to training dataset
         transforms_valid: transforms to apply to validation dataset
 
     """
