@@ -102,7 +102,6 @@ if __name__ == "__main__":
 
     # TODO: to change
     reduced_number_of_data = f_args.subpart_data
-    # reduced_number_of_data = 20
     no_synthetic = f_args.no_synthetic
 
     if no_synthetic:
@@ -304,7 +303,7 @@ if __name__ == "__main__":
             dataloader=valid_synth_loader,
             decoder=many_hot_encoder.decode_strong,
             sample_rate=config_params.sample_rate,
-            hop_size=config_params.sample_rate,
+            hop_size=config_params.hop_size,
             max_len_seconds=config_params.max_len_seconds,
             pooling_time_ratio=config_params.pooling_time_ratio,
             median_window=config_params.median_window,
@@ -355,6 +354,7 @@ if __name__ == "__main__":
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
         logger.info("testing model of last epoch: {}".format(config_params.n_epoch))
+
     results_df = pd.DataFrame(results).to_csv(
         os.path.join(saved_pred_dir, "results.tsv"),
         sep="\t",

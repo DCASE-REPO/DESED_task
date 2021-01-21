@@ -233,7 +233,7 @@ def train(
 
     meters = AverageMeterSet()
 
-    log.info(f"Nb batches: {len(train_loader)}")
+    log.debug(f"Nb batches: {len(train_loader)}")
 
     start = time.time()
 

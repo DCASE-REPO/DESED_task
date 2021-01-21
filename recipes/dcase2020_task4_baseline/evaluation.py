@@ -168,6 +168,7 @@ def get_predictions(
 
         with torch.no_grad():
             pred_strong, _ = model(input_data)
+
         pred_strong = pred_strong.cpu()
         pred_strong = pred_strong.detach().numpy()
 
