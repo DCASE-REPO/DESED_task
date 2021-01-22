@@ -15,7 +15,6 @@ import os
 
 torch.manual_seed(0)
 random.seed(0)
-# TODO: cfg configuration file
 
 logger = create_logger(__name__, terminal_level=logging.INFO)
 # logger = create_logger(__name__, terminal_level=cfg.terminal_level)

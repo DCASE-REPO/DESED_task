@@ -151,15 +151,3 @@ class CRNN(nn.Module):
         else:
             weak = strong.mean(1)
         return strong, weak
-
-
-if __name__ == "__main__":
-    CRNN(
-        64,
-        10,
-        kernel_size=[3, 3, 3],
-        padding=[1, 1, 1],
-        stride=[1, 1, 1],
-        nb_filters=[64, 64, 64],
-        pooling=[(1, 4), (1, 4), (1, 4)],
-    )

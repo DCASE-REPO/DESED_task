@@ -22,9 +22,14 @@ logger = create_logger(__name__, terminal_level=logging.INFO)
 def get_event_list_current_file(df, fname):
     """
     Get list of events for a given filename
-    :param df: pd.DataFrame, the dataframe to search on
-    :param fname: the filename to extract the value from the dataframe
-    :return: list of events (dictionaries) for the given filename
+
+
+    Args:
+        df: pd.DataFrame, the dataframe to search on
+        fname: the filename to extract the value from the dataframe
+
+    Return
+        event_list_for_current_file: list of events (dictionaries) for the given filename
     """
     event_file = df[df["filename"] == fname]
     if len(event_file) == 1:
@@ -41,7 +46,8 @@ def get_event_list_current_file(df, fname):
 def event_based_evaluation_df(
     reference, estimated, t_collar=0.200, percentage_of_length=0.2
 ):
-    """Calculate EventBasedMetric given a reference and estimated dataframe
+    """
+    Calculate EventBasedMetric given a reference and estimated dataframe
 
     Args:
         reference: pd.DataFrame containing "filename" "onset" "offset" and "event_label" columns which describe the
@@ -85,7 +91,8 @@ def event_based_evaluation_df(
 
 
 def segment_based_evaluation_df(reference, estimated, time_resolution=1.0):
-    """Calculate SegmentBasedMetrics given a reference and estimated dataframe
+    """
+    Calculate SegmentBasedMetrics given a reference and estimated dataframe
 
     Args:
         reference: pd.DataFrame containing "filename" "onset" "offset" and "event_label" columns which describe the
@@ -202,8 +209,8 @@ def get_predictions(
                 )
 
                 if i == 0 and j == 0:
-                    logger.debug("predictions: \n{}".format(pred))
-                    logger.debug("predictions strong: \n{}".format(pred_strong_it))
+                    logger.debug(f"predictions: \n{pred}")
+                    logger.debug(f"predictions strong: \n{pred_strong_it}")
 
     # Save predictions
     if save_predictions is not None:
@@ -272,12 +279,14 @@ def psds_score(psds, filename_roc_curves=None):
 
 
 def compute_sed_eval_metrics(predictions, groundtruth):
+
     metric_event = event_based_evaluation_df(
         groundtruth, predictions, t_collar=0.200, percentage_of_length=0.2
     )
     metric_segment = segment_based_evaluation_df(
         groundtruth, predictions, time_resolution=1.0
     )
+
     logger.info(metric_event)
     logger.info(metric_segment)
 
@@ -491,11 +500,21 @@ def compute_psds_from_operating_points(
 
 
 def compute_metrics(predictions, gtruth_df, meta_df):
+    """
+    Compute the metrics for the predictions
+
+    Args:
+        predictions: pd.Dataframe, predictions
+        gtruth_df: pd.Dataframe, ground truth
+        meta_df: pd.Dataframe: metadata, validation durations
+    """
     events_metric = compute_sed_eval_metrics(predictions, gtruth_df)
     macro_f1_event = events_metric.results_class_wise_average_metrics()["f_measure"][
         "f_measure"
     ]
+
     dtc_threshold, gtc_threshold, cttc_threshold = 0.5, 0.5, 0.3
+
     psds = PSDSEval(
         dtc_threshold,
         gtc_threshold,
@@ -503,6 +522,7 @@ def compute_metrics(predictions, gtruth_df, meta_df):
         ground_truth=gtruth_df,
         metadata=meta_df,
     )
+
     psds_macro_f1, psds_f1_classes = psds.compute_macro_f_score(predictions)
     logger.info(f"F1_score (psds_eval) accounting cross triggers: {psds_macro_f1}")
     return macro_f1_event, psds_macro_f1

@@ -15,7 +15,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch import nn
 
-from TestModel import _load_crnn
+from utils_model.TestModel import _load_crnn
 from evaluation import (
     get_predictions,
     psds_score,
@@ -100,8 +100,8 @@ if __name__ == "__main__":
     f_args = parser.parse_args()
     pprint(vars(f_args))
 
-    # TODO: to change
     reduced_number_of_data = f_args.subpart_data
+    # reduced_number_of_data = 20
     no_synthetic = f_args.no_synthetic
 
     if no_synthetic:
@@ -267,6 +267,7 @@ if __name__ == "__main__":
     # TRAINING
     # ##############
 
+    # TODO: ASK NICOLAS: Are we using the weak metric?
     results = pd.DataFrame(
         columns=["loss", "valid_synth_f1", "weak_metric", "global_valid"]
     )
@@ -324,8 +325,6 @@ if __name__ == "__main__":
             crnn, crnn_ema, optimizer, epoch, valid_synth_f1, psds_m_f1, state
         )
 
-        # TODO: Start from here
-
         # Callbacks
         if (
             config_params.checkpoint_epochs is not None
@@ -339,6 +338,8 @@ if __name__ == "__main__":
                 model_fname = os.path.join(saved_model_dir, "baseline_best")
                 torch.save(state, model_fname)
             results.loc[epoch, "global_valid"] = valid_synth_f1
+
+        # TODO: Ask Nicolas, do we need both?
         results.loc[epoch, "loss"] = loss_value.item()
         results.loc[epoch, "valid_synth_f1"] = valid_synth_f1
 
@@ -347,35 +348,39 @@ if __name__ == "__main__":
                 logger.warn("EARLY STOPPING")
                 break
 
-    if config_params.save_best:
-        model_fname = os.path.join(saved_model_dir, "baseline_best")
-        state = torch.load(model_fname)
-        crnn = _load_crnn(state)
-        logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
-    else:
-        logger.info("testing model of last epoch: {}".format(config_params.n_epoch))
-
+    # save the results on csv file
     results_df = pd.DataFrame(results).to_csv(
         os.path.join(saved_pred_dir, "results.tsv"),
         sep="\t",
         index=False,
         float_format="%.4f",
     )
+
+    if config_params.save_best:
+        model_fname = os.path.join(saved_model_dir, "baseline_best")
+        state = torch.load(model_fname)
+        crnn = _load_crnn(state)
+        logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
+    else:
+        logger.info(f"testing model of last epoch: {config_params.n_epoch}")
+
     # ##############
     # VALIDATION
     # ##############
 
     crnn.eval()
     transforms_valid = get_transforms(
-        config_params.max_frames, scaler, config_params.add_axis_conv
+        frames=config_params.max_frames,
+        scaler=scaler,
+        add_axis=config_params.add_axis_conv,
     )
 
     # TODO: Move it in the config file
     predictions_fname = os.path.join(saved_pred_dir, "baseline_validation.tsv")
 
     validation_data = DataLoadDf(
-        dfs["validation"],
-        encod_func,
+        df=dfs["validation"],
+        encode_function=encod_func,
         transforms=transforms_valid,
         return_indexes=True,
         feat_extr_params=feat_extr_params,
@@ -388,10 +393,12 @@ if __name__ == "__main__":
         drop_last=False,
         num_workers=config_params.num_workers,
     )
+
     if config_params.save_features:
         validation_labels_df = dfs["validation"].drop("feature_filename", axis=1)
     else:
         validation_labels_df = dfs["validation"]
+
     durations_validation = get_durations_df(
         config_params.validation, config_params.audio_validation_dir
     )
@@ -408,11 +415,13 @@ if __name__ == "__main__":
         median_window=config_params.median_window,
         save_predictions=predictions_fname,
     )
+
     compute_metrics(valid_predictions, validation_labels_df, durations_validation)
 
-    # ##########
+    # ########################
     # Optional but recommended
-    # ##########
+    # ########################
+
     # Compute psds scores with multiple thresholds (more accurate). n_thresholds could be increased.
     n_thresholds = 50
     # Example of 5 thresholds: 0.1, 0.3, 0.5, 0.7, 0.9
