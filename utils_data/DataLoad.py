@@ -33,7 +33,14 @@ class DataLoadDf(Dataset):
         transforms=None,
         return_indexes=False,
         in_memory=False,
-        feat_extr_params=None,
+        sample_rate=16000,
+        n_window=2048,
+        hop_size=255,
+        n_mels=128,
+        mel_f_min=0.0,
+        mel_f_max=8000.0,
+        compute_log=False,
+        save_features=False,
         filenames_folder=None,
     ):
 
@@ -51,7 +58,7 @@ class DataLoadDf(Dataset):
             transform: function(), (Default value = None), function or composition of transforms
                         to be applied to the sample (pytorch transformations)
             in_memory: whether to save the features is memory or not
-            feat_extr_params: dict, parameters used for the feature extraction process
+            save_features: bool, if True, the features are extracted and saved, if False, the features are extracted on-the-fly
             return_indexes: bool, (Default value = False) whether or not to return indexes when use __getitem__
         """
 
@@ -63,13 +70,20 @@ class DataLoadDf(Dataset):
         self.in_memory = in_memory
         self.filenames_folder = filenames_folder
 
-        if self.in_memory:
-            self.features = {}
+        # if self.in_memory:
+        self.features = {}
 
-        self.feat_extr_params = feat_extr_params
+        self.sample_rate = sample_rate
+        self.n_window = n_window
+        self.hop_size = hop_size
+        self.n_mels = n_mels
+        self.mel_f_min = mel_f_min
+        self.mel_f_max = mel_f_max
+        self.compute_log = compute_log
+        self.save_features = save_features
 
         # only if the features are going to be saved
-        if self.feat_extr_params["save_features"]:
+        if self.save_features:
             self.feat_filenames = df.feature_filename.drop_duplicates()
 
     def set_return_indexes(self, val):
@@ -120,14 +134,20 @@ class DataLoadDf(Dataset):
         Returns:
             sample: tuple, Tuple containing the features and the labels (numpy.array, numpy.array)
         """
-        if self.feat_extr_params["save_features"]:
+        if self.save_features:
             features = self.get_feature_file_func(self.feat_filenames.iloc[index])
         else:
-            if self.filenames_folder:  # check if it exists
+            if self.filenames_folder:
                 features = generate_feature_from_raw_file(
                     filename=self.filenames.iloc[index],
                     audio_dir=self.filenames_folder,
-                    feat_extr_params=self.feat_extr_params,
+                    sample_rate=self.sample_rate,
+                    n_window=self.n_window,
+                    hop_size=self.hop_size,
+                    n_mels=self.n_mels,
+                    mel_f_min=self.mel_f_min,
+                    mel_f_max=self.mel_f_max,
+                    compute_log=self.compute_log,
                 )
 
             else:

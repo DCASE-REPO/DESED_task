@@ -12,7 +12,7 @@ class ManyHotEncoder:
     Multiple 1 can appear on the same line, it is for multi label problem.
     """
 
-    def __init__(self, labels, n_frames=None):
+    def __init__(self, labels=None, n_frames=None):
         """
             Initialization of ManyHotEncoder instance.
         Args:

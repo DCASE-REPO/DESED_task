@@ -52,7 +52,7 @@ class Configuration:
         self.audio_folder = os.path.join(self.workspace, "data/desed/audio")
         self.audio_train_folder = os.path.join(self.audio_folder, "train")
         self.audio_valid_folder = os.path.join(self.audio_folder, "validation")
-        self.audio_eval_folder = os.path.join(self.audio_folder, "eval")
+        self.audio_eval_folder = os.path.join(self.audio_folder, "eval/public")
 
         # Source separation dataset path
         self.weak_ss = os.path.join(self.audio_train_folder, "weak")
@@ -68,7 +68,7 @@ class Configuration:
         self.eval_desed_ss = os.path.join(self.audio_eval_folder, "public/soundscapes")
 
         # validation dir (to change with the evaluation dataset path) # TODO: could be improved with a flag maybe,
-        # TODO: to be removed (in the future)
+        # TODO: to be removed (in the future) -> same path of audio_valid_folder
         self.audio_validation_dir = os.path.join(
             self.audio_folder, "validation"
         )  # in case of validation dataset
@@ -172,6 +172,9 @@ class Configuration:
         # Logger
         self.terminal_level = logging.INFO
 
+        # Evaluatin dataset information
+        self.evaluation = True
+
     def get_folder_path(self):
         """
             Getting folders paths
@@ -181,6 +184,7 @@ class Configuration:
 
         """
         path_dict = dict(
+            audio_evaluation_dir=self.audio_eval_folder,
             audio_validation_dir=self.audio_validation_dir,
             weak_ss=self.weak_ss,
             unlabel_ss=self.unlabel_ss,
@@ -190,27 +194,6 @@ class Configuration:
             tsv_path_unlabel=self.unlabel,
             tsv_path_synth=self.synthetic,
             tsv_path_valid=self.validation,
+            tsv_path_eval_deded=self.eval_desed,
         )
         return path_dict
-
-    def get_feature_extraction_params(self):
-        """
-            Getting features extraction parameters
-
-        Return:
-            feat_extr_params: dict, dictionary containing features extraction parameters
-        """
-
-        feat_extr_params = dict(
-            save_features=self.save_features,
-            sample_rate=self.sample_rate,
-            n_window=self.n_window,
-            hop_size=self.hop_size,
-            n_mels=self.n_mels,
-            compute_log=self.compute_log,
-            noise_snr=self.noise_snr,
-            mel_f_min=self.mel_f_min,
-            mel_f_max=self.mel_f_max,
-        )
-
-        return feat_extr_params

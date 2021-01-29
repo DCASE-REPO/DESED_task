@@ -42,7 +42,6 @@ from utils_data.Desed import DESED
 from data_generation.feature_extraction import (
     get_dataset,
     get_compose_transforms,
-    get_ManyHotEncoder,
 )
 from utils_data.DataLoad import DataLoadDf, ConcatDataset, MultiStreamBatchSampler
 from training import (
@@ -70,7 +69,7 @@ if __name__ == "__main__":
     torch.manual_seed(2020)
     np.random.seed(2020)
 
-    # logger creation
+    # logger creation: TODO: All the logger part
     logger = create_logger(
         __name__ + "/" + inspect.currentframe().f_code.co_name,
         terminal_level=config_params.terminal_level,
@@ -78,7 +77,7 @@ if __name__ == "__main__":
     logger.info("Baseline 2020")
     logger.info(f"Starting time: {datetime.datetime.now()}")
 
-    # parser
+    # parser -> TODO: move to another module
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
         "-s",
@@ -97,17 +96,32 @@ if __name__ == "__main__":
         default=False,
         help="Not using synthetic labels during training",
     )
+
+    parser.add_argument(
+        "-et",
+        "--experimental_test",
+        dest="experimental_test",
+        action="store_true",
+        default=False,
+        help="Test to verify that everything is running. Number of file considered: 40, number of epoch considered: 20.",
+    )
+
     f_args = parser.parse_args()
     pprint(vars(f_args))
+    logger.info(f"Saving features: {config_params.save_features}")
 
     reduced_number_of_data = f_args.subpart_data
-    # reduced_number_of_data = 20
     no_synthetic = f_args.no_synthetic
+    experimental_test = f_args.experimental_test
 
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic"
+        add_dir_model_name = "_with_synthetic_nosave_eval"
+
+    if experimental_test:
+        reduced_number_of_data = 20
+        config_params.n_epoch = 2
 
     # creating models and prediction folders to save models and predictions of the system
     saved_model_dir, saved_pred_dir = create_stored_data_folder(
@@ -129,70 +143,169 @@ if __name__ == "__main__":
         n_mels=config_params.n_mels,
         mel_min_max_freq=(config_params.mel_f_min, config_params.mel_f_max),
         pooling_time_ratio=config_params.pooling_time_ratio,
+        eval_dataset=config_params.evaluation,
         save_features=config_params.save_features,
         nb_files=reduced_number_of_data,
     )
 
-    # Meta path for psds
-    # durations_synth = get_durations_df(gtruth_path=config_params.synthetic)
-
-    # retrieve feature extraction process paramaters
-    feat_extr_params = config_params.get_feature_extraction_params()
-
     # encode function
-    many_hot_encoder = get_ManyHotEncoder(
-        config_params.classes,
+    many_hot_encoder = ManyHotEncoder(
+        labels=config_params.classes,
         n_frames=config_params.max_frames // config_params.pooling_time_ratio,
     )
     encod_func = many_hot_encoder.encode_strong_df
 
-    transforms, transforms_valid, scaler, scaler_args = get_compose_transforms(
-        dfs=dfs,
-        encod_func=encod_func,
-        scaler_type=config_params.scaler_type,
-        max_frames=config_params.max_frames,
-        add_axis_conv=config_params.add_axis_conv,
-        audio_train_folder=config_params.audio_train_folder,
-        feat_extr_params=feat_extr_params,
-    )
-
     weak_data = DataLoadDf(
-        dfs["weak"],
-        encod_func,
-        transforms,
-        in_memory=config_params.in_memory,
-        feat_extr_params=feat_extr_params,
+        df=dfs["weak"],
+        encode_function=encod_func,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
         filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
     )
 
     unlabel_data = DataLoadDf(
-        dfs["unlabel"],
-        encod_func,
-        transforms,
-        in_memory=config_params.in_memory_unlab,
-        feat_extr_params=feat_extr_params,
+        df=dfs["unlabel"],
+        encode_function=encod_func,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
         filenames_folder=os.path.join(
             config_params.audio_train_folder, "unlabel_in_domain"
         ),
     )
+
     train_synth_data = DataLoadDf(
-        dfs["train_synthetic"],
-        encod_func,
-        transforms,
-        in_memory=config_params.in_memory,
-        feat_extr_params=feat_extr_params,
+        df=dfs["train_synthetic"],
+        encode_function=encod_func,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
         filenames_folder=os.path.join(
             config_params.audio_train_folder, "synthetic20/soundscapes"
         ),
     )
 
+    training_dataset = {
+        "weak": weak_data,
+        "unlabel": unlabel_data,
+        "synthetic": train_synth_data,
+    }
+
+    transforms, transforms_valid, scaler, scaler_args = get_compose_transforms(
+        datasets=training_dataset,
+        scaler_type=config_params.scaler_type,
+        max_frames=config_params.max_frames,
+        add_axis_conv=config_params.add_axis_conv,
+        noise_snr=config_params.noise_snr,
+    )
+
+    """ logger.info(f"Dataset {weak_data}, transform parameter: {weak_data.transforms}")
+    logger.info(f"Dataset {unlabel_data}, transform parameter: {unlabel_data.transforms}")
+    logger.info(f"Dataset {train_synth_data}, transform parameter: {train_synth_data.transforms}")
+ """
+    weak_data.transforms = transforms
+    unlabel_data.transforms = transforms
+    train_synth_data.transforms = transforms
+
+    """ logger.info(f"Dataset {weak_data} after, transform parameter: {weak_data.transforms}")
+    logger.info(f"Dataset {unlabel_data} after, transform parameter: {unlabel_data.transforms}")
+    logger.info(f"Dataset {train_synth_data} after, transform parameter: {train_synth_data.transforms}")
+
+    logger.info(f"Dataset {weak_data}, in_memory parameter: {weak_data.in_memory}")
+    logger.info(f"Dataset {unlabel_data}, in_memory parameter: {unlabel_data.in_memory}")
+    logger.info(f"Dataset {train_synth_data}, in_memory parameter: {train_synth_data.in_memory}")
+ """
+    weak_data.in_memory = config_params.in_memory
+    train_synth_data.in_memory = config_params.in_memory
+    unlabel_data.in_memory = config_params.in_memory_unlab
+
+    """ logger.info(f"Dataset {weak_data} after, in_memory parameter: {weak_data.in_memory}")
+    logger.info(f"Dataset {unlabel_data} after, in_memory parameter: {unlabel_data.in_memory}")
+    logger.info(f"Dataset {train_synth_data} after, in_memory parameter: {train_synth_data.in_memory}")
+ """
+
+    """ weak_data = DataLoadDf(
+        df=dfs["weak"],
+        encode_function=encod_func,
+        transforms=transforms,
+        in_memory=config_params.in_memory,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
+        filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
+    ) """
+
+    """ unlabel_data = DataLoadDf(
+        df=dfs["unlabel"],
+        encode_function=encod_func,
+        transforms=transforms,
+        in_memory=config_params.in_memory_unlab,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
+        filenames_folder=os.path.join(
+            config_params.audio_train_folder, "unlabel_in_domain"
+        ),
+    ) """
+
+    """ train_synth_data = DataLoadDf(
+        df=dfs["train_synthetic"],
+        encode_function=encod_func,
+        transforms=transforms,
+        in_memory=config_params.in_memory,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
+        filenames_folder=os.path.join(
+            config_params.audio_train_folder, "synthetic20/soundscapes"
+        ),
+    ) """
+
     valid_synth_data = DataLoadDf(
-        dfs["valid_synthetic"],
-        encod_func,
-        transforms_valid,
+        df=dfs["valid_synthetic"],
+        encode_function=encod_func,
+        transforms=transforms_valid,
         return_indexes=True,
         in_memory=config_params.in_memory,
-        feat_extr_params=feat_extr_params,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
         filenames_folder=os.path.join(
             config_params.audio_train_folder, "synthetic20/soundscapes"
         ),
@@ -267,10 +380,7 @@ if __name__ == "__main__":
     # TRAINING
     # ##############
 
-    # TODO: ASK NICOLAS: Are we using the weak metric?
-    results = pd.DataFrame(
-        columns=["loss", "valid_synth_f1", "weak_metric", "global_valid"]
-    )
+    results = pd.DataFrame(columns=["loss", "valid_synth_f1", "global_valid"])
 
     # Meta path for psds
     durations_synth = get_durations_df(gtruth_path=config_params.synthetic)
@@ -339,7 +449,6 @@ if __name__ == "__main__":
                 torch.save(state, model_fname)
             results.loc[epoch, "global_valid"] = valid_synth_f1
 
-        # TODO: Ask Nicolas, do we need both?
         results.loc[epoch, "loss"] = loss_value.item()
         results.loc[epoch, "valid_synth_f1"] = valid_synth_f1
 
@@ -348,13 +457,17 @@ if __name__ == "__main__":
                 logger.warn("EARLY STOPPING")
                 break
 
-    # save the results on csv file
+        # save the results on csv file
     results_df = pd.DataFrame(results).to_csv(
         os.path.join(saved_pred_dir, "results.tsv"),
         sep="\t",
         index=False,
         float_format="%.4f",
     )
+
+    # ##############
+    # VALIDATION
+    # ##############
 
     if config_params.save_best:
         model_fname = os.path.join(saved_model_dir, "baseline_best")
@@ -363,10 +476,6 @@ if __name__ == "__main__":
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
         logger.info(f"testing model of last epoch: {config_params.n_epoch}")
-
-    # ##############
-    # VALIDATION
-    # ##############
 
     crnn.eval()
     transforms_valid = get_transforms(
@@ -383,8 +492,17 @@ if __name__ == "__main__":
         encode_function=encod_func,
         transforms=transforms_valid,
         return_indexes=True,
-        feat_extr_params=feat_extr_params,
-        filenames_folder=config_params.audio_validation_dir,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
+        filenames_folder=config_params.audio_eval_folder
+        if config_params.evaluation
+        else config_params.audio_validation_dir,
     )
     validation_dataloader = DataLoader(
         validation_data,

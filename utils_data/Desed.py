@@ -538,7 +538,17 @@ class DESED:
 
 
 # function out of classes
-def generate_feature_from_raw_file(filename, audio_dir, feat_extr_params):
+def generate_feature_from_raw_file(
+    filename,
+    audio_dir,
+    sample_rate,
+    n_window,
+    hop_size,
+    n_mels,
+    mel_f_min,
+    mel_f_max,
+    compute_log,
+):
     """
     Create the path of the raw file and call the extract feature function
     Args:
@@ -562,12 +572,24 @@ def generate_feature_from_raw_file(filename, audio_dir, feat_extr_params):
         # we don't need to save the file but only to return the feature
         # out_filename = osp.join(osp.splitext(filename)[0] + ".npy")
         # out_path = osp.join(feature_dir, out_filename)
-        feature = extract_features(wav_path, feat_extr_params)
+        feature = extract_features(
+            wav_path,
+            sample_rate,
+            n_window,
+            hop_size,
+            n_mels,
+            mel_f_min,
+            mel_f_max,
+            compute_log,
+        )
 
     return feature
 
 
-def extract_features(wav_path, feat_extr_params):
+def extract_features(
+    wav_path, sample_rate, n_window, hop_size, n_mels, mel_f_min, mel_f_max, compute_log
+):
+
     # TODO: maybe we can merge this with the next function?
     """
     Computing load and mel spectogram
@@ -582,13 +604,13 @@ def extract_features(wav_path, feat_extr_params):
     try:
         mel_spec = load_and_compute_mel_spec(
             wav_path,
-            feat_extr_params["sample_rate"],
-            feat_extr_params["n_window"],
-            feat_extr_params["hop_size"],
-            feat_extr_params["n_mels"],
-            feat_extr_params["mel_f_min"],
-            feat_extr_params["mel_f_max"],
-            feat_extr_params["compute_log"],
+            sample_rate,
+            n_window,
+            hop_size,
+            n_mels,
+            mel_f_min,
+            mel_f_max,
+            compute_log,
         )
         # os.makedirs(osp.dirname(out_path), exist_ok=True)
         # np.save(out_path, mel_spec)
