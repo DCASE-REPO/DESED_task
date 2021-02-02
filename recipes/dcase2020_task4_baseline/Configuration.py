@@ -136,7 +136,6 @@ class Configuration:
         self.transformer_kwargs = {
             "n_in_channel": self.n_channel,
             "n_class": len(self.classes),
-            "attention": True,
             "activation_cnn": "glu",
             "dropout_cnn": 0.5,
             "batch_norm": True,

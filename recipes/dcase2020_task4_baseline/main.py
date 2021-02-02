@@ -407,7 +407,8 @@ if __name__ == "__main__":
     if config_params.save_best:
         model_fname = os.path.join(saved_model_dir, "baseline_best")
         state = torch.load(model_fname)
-        #crnn = _load_crnn(state)
+        #TODO: From here
+        transformer = _load_transformer(state)
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
         logger.info(f"testing model of last epoch: {config_params.n_epoch}")

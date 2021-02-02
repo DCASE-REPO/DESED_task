@@ -30,9 +30,7 @@ class Transformer(nn.Module):
         self.transformer_block = TransformerEncoder(**transformer_kwargs)
 
         # position wise classifier - 3rd module 
-        self.ps_classifier = PSClassifier(**transformer_kwargs) # To Implement
-        
-
+        self.ps_classifier = PSClassifier(**transformer_kwargs) 
         
 
     def forward(self, x):
@@ -55,10 +53,10 @@ class Transformer(nn.Module):
 
         # getting prediction for weak label and strong label
         weak_label = self.ps_classifier(x[:, :157, :])
+        weak_label = weak_label.mean(1)
         strong_label = self.ps_classifier(x[:, 157:, :])
-        
-        return strong_label, weak_label 
 
+        return strong_label, weak_label 
 
 
     """ def load_cnn(self, state_dict):
@@ -92,5 +90,4 @@ class Transformer(nn.Module):
             "rnn": self.rnn.state_dict(),
             "dense": self.dense.state_dict(),
         }
-        torch.save(parameters, filename)
- """
+        torch.save(parameters, filename) """
