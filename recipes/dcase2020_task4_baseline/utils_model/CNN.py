@@ -42,6 +42,7 @@ class CNN(nn.Module):
         nb_filters=[64, 64, 64],
         pooling=[(1, 4), (1, 4), (1, 4)],
         batch_norm=True,
+        **transformer_kwargs
     ):
         """
             Initialization of CNN network s

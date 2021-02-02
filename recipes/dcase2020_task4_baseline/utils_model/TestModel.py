@@ -24,7 +24,7 @@ from utils.ManyHotEncoder import ManyHotEncoder
 from utils.Transforms import get_transforms
 from utils.Logger import create_logger
 from utils.Scaler import Scaler, ScalerPerAudio
-from utils_model.CRNN import CRNN
+#from utils_model.CRNN import CRNN
 
 
 logger = create_logger(__name__)

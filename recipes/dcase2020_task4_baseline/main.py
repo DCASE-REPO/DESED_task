@@ -22,7 +22,7 @@ from evaluation import (
     compute_psds_from_operating_points,
     compute_metrics,
 )
-from utils_model.CRNN import CRNN
+#from utils_model.CRNN import CRNN
 from utils import ramps
 from utils.Logger import create_logger
 from utils.Scaler import ScalerPerAudio, Scaler
@@ -47,8 +47,8 @@ from utils_data.DataLoad import DataLoadDf, ConcatDataset, MultiStreamBatchSampl
 from training import (
     get_batchsizes_and_masks,
     get_model_params,
-    get_student_model,
-    get_teacher_model,
+    get_student_model_transformer,
+    get_teacher_model_transformer,
     get_optimizer,
     set_state,
     train,
@@ -117,11 +117,13 @@ if __name__ == "__main__":
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic_nosave_eval"
+        add_dir_model_name = "_with_synthetic_transformer"
 
+    experimental_test=True
     if experimental_test:
         reduced_number_of_data = 20
         config_params.n_epoch = 2
+        
 
     # creating models and prediction folders to save models and predictions of the system
     saved_model_dir, saved_pred_dir = create_stored_data_folder(
@@ -215,83 +217,16 @@ if __name__ == "__main__":
         noise_snr=config_params.noise_snr,
     )
 
-    """ logger.info(f"Dataset {weak_data}, transform parameter: {weak_data.transforms}")
-    logger.info(f"Dataset {unlabel_data}, transform parameter: {unlabel_data.transforms}")
-    logger.info(f"Dataset {train_synth_data}, transform parameter: {train_synth_data.transforms}")
- """
     weak_data.transforms = transforms
     unlabel_data.transforms = transforms
     train_synth_data.transforms = transforms
 
-    """ logger.info(f"Dataset {weak_data} after, transform parameter: {weak_data.transforms}")
-    logger.info(f"Dataset {unlabel_data} after, transform parameter: {unlabel_data.transforms}")
-    logger.info(f"Dataset {train_synth_data} after, transform parameter: {train_synth_data.transforms}")
-
-    logger.info(f"Dataset {weak_data}, in_memory parameter: {weak_data.in_memory}")
-    logger.info(f"Dataset {unlabel_data}, in_memory parameter: {unlabel_data.in_memory}")
-    logger.info(f"Dataset {train_synth_data}, in_memory parameter: {train_synth_data.in_memory}")
- """
+   
     weak_data.in_memory = config_params.in_memory
     train_synth_data.in_memory = config_params.in_memory
     unlabel_data.in_memory = config_params.in_memory_unlab
 
-    """ logger.info(f"Dataset {weak_data} after, in_memory parameter: {weak_data.in_memory}")
-    logger.info(f"Dataset {unlabel_data} after, in_memory parameter: {unlabel_data.in_memory}")
-    logger.info(f"Dataset {train_synth_data} after, in_memory parameter: {train_synth_data.in_memory}")
- """
-
-    """ weak_data = DataLoadDf(
-        df=dfs["weak"],
-        encode_function=encod_func,
-        transforms=transforms,
-        in_memory=config_params.in_memory,
-        sample_rate=config_params.sample_rate,
-        n_window=config_params.n_window,
-        hop_size=config_params.hop_size,
-        n_mels=config_params.n_mels,
-        mel_f_min=config_params.mel_f_min,
-        mel_f_max=config_params.mel_f_max,
-        compute_log=config_params.compute_log,
-        save_features=config_params.save_features,
-        filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
-    ) """
-
-    """ unlabel_data = DataLoadDf(
-        df=dfs["unlabel"],
-        encode_function=encod_func,
-        transforms=transforms,
-        in_memory=config_params.in_memory_unlab,
-        sample_rate=config_params.sample_rate,
-        n_window=config_params.n_window,
-        hop_size=config_params.hop_size,
-        n_mels=config_params.n_mels,
-        mel_f_min=config_params.mel_f_min,
-        mel_f_max=config_params.mel_f_max,
-        compute_log=config_params.compute_log,
-        save_features=config_params.save_features,
-        filenames_folder=os.path.join(
-            config_params.audio_train_folder, "unlabel_in_domain"
-        ),
-    ) """
-
-    """ train_synth_data = DataLoadDf(
-        df=dfs["train_synthetic"],
-        encode_function=encod_func,
-        transforms=transforms,
-        in_memory=config_params.in_memory,
-        sample_rate=config_params.sample_rate,
-        n_window=config_params.n_window,
-        hop_size=config_params.hop_size,
-        n_mels=config_params.n_mels,
-        mel_f_min=config_params.mel_f_min,
-        mel_f_max=config_params.mel_f_max,
-        compute_log=config_params.compute_log,
-        save_features=config_params.save_features,
-        filenames_folder=os.path.join(
-            config_params.audio_train_folder, "synthetic20/soundscapes"
-        ),
-    ) """
-
+   
     valid_synth_data = DataLoadDf(
         df=dfs["valid_synthetic"],
         encode_function=encod_func,
@@ -345,17 +280,17 @@ if __name__ == "__main__":
     # INITIALIZATION OF MODELS
     # ####################################
 
-    crnn = get_student_model(**config_params.crnn_kwargs)
-    crnn_ema = get_teacher_model(**config_params.crnn_kwargs)
+    transformer = get_student_model_transformer(**config_params.transformer_kwargs)
+    transformer_ema = get_teacher_model_transformer(**config_params.transformer_kwargs)
 
-    logger.info(f"number of parameters in the model: {get_model_params(crnn)}")
+    logger.info(f"number of parameters in the model: {get_model_params(transformer)}")
 
-    optimizer = get_optimizer(crnn, **config_params.optim_kwargs)
+    optimizer = get_optimizer(transformer, **config_params.optim_kwargs)
 
     # TODO: This could also be a class inside this same main file maybe?
     state = set_state(
-        crnn=crnn,
-        crnn_ema=crnn_ema,
+        transformer=transformer,
+        transformer_ema=transformer_ema,
         optimizer=optimizer,
         dataset=dataset,
         pooling_time_ratio=config_params.pooling_time_ratio,
@@ -363,9 +298,9 @@ if __name__ == "__main__":
         scaler=scaler,
         scaler_args=scaler_args,
         median_window=config_params.median_window,
-        crnn_kwargs=config_params.crnn_kwargs,
+        transformer_kwargs=config_params.transformer_kwargs,
         optim_kwargs=config_params.optim_kwargs,
-    )
+    ) 
 
     save_best_cb = SaveBest("sup")
 
@@ -387,30 +322,30 @@ if __name__ == "__main__":
 
     for epoch in range(config_params.n_epoch):
 
-        crnn.train()
-        crnn_ema.train()
-        crnn, crnn_ema = to_cuda_if_available(crnn, crnn_ema)
+        transformer.train()
+        transformer_ema.train()
+        transformer, transformer_ema = to_cuda_if_available(transformer, transformer_ema)
 
         loss_value = train(
             train_loader=training_loader,
-            model=crnn,
+            model=transformer,
             optimizer=optimizer,
             c_epoch=epoch,
             max_consistency_cost=config_params.max_consistency_cost,
             n_epoch_rampup=config_params.n_epoch_rampup,
             max_learning_rate=config_params.max_learning_rate,
-            ema_model=crnn_ema,
+            ema_model=transformer_ema,
             mask_weak=weak_mask,
             mask_strong=strong_mask,
             adjust_lr=config_params.adjust_lr,
         )
 
         # Validation
-        crnn = crnn.eval()
+        transformer = transformer.eval()
         logger.info("\n ### Valid synthetic metric ### \n")
 
         predictions = get_predictions(
-            model=crnn,
+            model=transformer,
             dataloader=valid_synth_loader,
             decoder=many_hot_encoder.decode_strong,
             sample_rate=config_params.sample_rate,
@@ -432,7 +367,7 @@ if __name__ == "__main__":
 
         # Update state
         state = update_state(
-            crnn, crnn_ema, optimizer, epoch, valid_synth_f1, psds_m_f1, state
+            transformer, transformer_ema, optimizer, epoch, valid_synth_f1, psds_m_f1, state
         )
 
         # Callbacks
@@ -472,12 +407,12 @@ if __name__ == "__main__":
     if config_params.save_best:
         model_fname = os.path.join(saved_model_dir, "baseline_best")
         state = torch.load(model_fname)
-        crnn = _load_crnn(state)
+        #crnn = _load_crnn(state)
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
         logger.info(f"testing model of last epoch: {config_params.n_epoch}")
 
-    crnn.eval()
+    transformer.eval()
     transforms_valid = get_transforms(
         frames=config_params.max_frames,
         scaler=scaler,
@@ -523,7 +458,7 @@ if __name__ == "__main__":
 
     # Preds with only one value
     valid_predictions = get_predictions(
-        model=crnn,
+        model=transformer,
         dataloader=validation_dataloader,
         decoder=many_hot_encoder.decode_strong,
         sample_rate=config_params.sample_rate,
@@ -546,7 +481,7 @@ if __name__ == "__main__":
     list_thresholds = np.arange(1 / (n_thresholds * 2), 1, 1 / n_thresholds)
 
     pred_ss_thresh = get_predictions(
-        model=crnn,
+        model=transformer,
         dataloader=validation_dataloader,
         decoder=many_hot_encoder.decode_strong,
         sample_rate=config_params.sample_rate,

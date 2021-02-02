@@ -82,7 +82,7 @@ class Configuration:
         # saved_model_dir = os.path.join(store_dir, "model")
         # saved_pred_dir = os.path.join(store_dir, "predictions")
 
-        self.save_features = False
+        self.save_features = True
 
         ####################################
         # Model and data features parameters
@@ -131,6 +131,26 @@ class Configuration:
             "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
             "n_RNN_cell": 128,
             "n_layers_RNN": 2,
+        }
+
+        self.transformer_kwargs = {
+            "n_in_channel": self.n_channel,
+            "n_class": len(self.classes),
+            "attention": True,
+            "activation_cnn": "glu",
+            "dropout_cnn": 0.5,
+            "batch_norm": True,
+            "kernel_size": self.n_layers * [3],
+            "padding": self.n_layers * [1],
+            "stride": self.n_layers * [1],
+            "nb_filters": [16, 32, 64, 128, 128, 128, 128],
+            "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
+            "embed_dim": 128, 
+            "num_heads": 16, 
+            "transformer_dropout": 0.1, 
+            "n_layers": 6,
+            "forward_extension": 4,
+            "max_length": 157
         }
         # 2 * 2
         self.pooling_time_ratio = 4
