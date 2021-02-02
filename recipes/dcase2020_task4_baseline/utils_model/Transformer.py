@@ -39,15 +39,13 @@ class Transformer(nn.Module):
 
         
         x = self.cnn(x) # [b, chan, frames, f] -> 24, 128, 157, 1
-        
-        
 
         # reshape 
         x = x.squeeze(-1)
         x = x.permute(0, 2, 1)  # [bs, frames, chan] -> 24, 157, 128
 
         #adding the special tag with rand init value = 0.2
-        special_token = np.full_like(x, 0.2)
+        special_token = np.full_like(x.detach().numpy(), 0.2)
         special_token = torch.tensor(special_token)
         special_token = to_cuda_if_available(special_token)
         x = torch.cat([special_token, x], dim=1) # [bs, frames, ch] -> 24, 157*2, 128
