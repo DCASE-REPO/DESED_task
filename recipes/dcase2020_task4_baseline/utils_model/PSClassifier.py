@@ -6,7 +6,7 @@ class PSClassifier(nn.Module):
     def __init__(
         self,
         n_class=None,
-        embed_dim=512, 
+        embed_dim=128, 
         **transformer_kwargs,
         
     ):

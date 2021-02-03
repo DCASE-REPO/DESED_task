@@ -148,7 +148,7 @@ def set_state(
 
 
 def update_state(
-    crnn, crnn_ema, optimizer, epoch, valid_synth_f1, psds_m_f1, state=None
+    transformer, transformer_ema, optimizer, epoch, valid_synth_f1, psds_m_f1, state=None
 ):
     """
     Update the trainign state
@@ -161,8 +161,8 @@ def update_state(
         psds_m_f1:
         state: dictionary containing the current state of the system
     """
-    state["model"]["state_dict"] = crnn.state_dict()
-    state["model_ema"]["state_dict"] = crnn_ema.state_dict()
+    state["model"]["state_dict"] = transformer.state_dict()
+    state["model_ema"]["state_dict"] = transformer_ema.state_dict()
     state["optimizer"]["state_dict"] = optimizer.state_dict()
     state["epoch"] = epoch
     state["valid_metric"] = valid_synth_f1

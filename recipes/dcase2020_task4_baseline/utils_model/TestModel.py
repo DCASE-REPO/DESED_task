@@ -25,6 +25,8 @@ from utils.Transforms import get_transforms
 from utils.Logger import create_logger
 from utils.Scaler import Scaler, ScalerPerAudio
 #from utils_model.CRNN import CRNN
+from utils_model.Transformer import Transformer
+
 
 
 logger = create_logger(__name__)
@@ -42,6 +44,18 @@ def _load_crnn(state, model_name="model"):
     logger.info("Model loaded at epoch: {}".format(state["epoch"]))
     logger.info(crnn)
     return crnn
+
+def _load_transformer(state, model_name="model"):
+
+    transformers_args = state[model_name]["args"]
+    transformer_kwargs = state[model_name]["kwargs"]
+    transformer = Transformer(*transformers_args, **transformer_kwargs)
+    transformer.load_state_dict(state[model_name]["state_dict"])
+    transformer.eval()
+    transformer = to_cuda_if_available(transformer)
+    logger.info("Model loaded at epoch: {}".format(state["epoch"]))
+    logger.info(transformer)
+    return transformer
 
 
 def _load_scaler(state):

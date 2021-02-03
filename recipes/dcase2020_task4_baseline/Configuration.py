@@ -147,7 +147,7 @@ class Configuration:
             "embed_dim": 128, 
             "num_heads": 16, 
             "transformer_dropout": 0.1, 
-            "n_layers": 6,
+            "n_layers": 3,
             "forward_extension": 4,
             "max_length": 157
         }
@@ -192,7 +192,7 @@ class Configuration:
         self.terminal_level = logging.INFO
 
         # Evaluatin dataset information
-        self.evaluation = True
+        self.evaluation = False
 
     def get_folder_path(self):
         """

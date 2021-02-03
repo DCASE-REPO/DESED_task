@@ -42,18 +42,19 @@ class TransformerBlock(nn.Module):
 class TransformerEncoder(nn.Module):
 
     def __init__(self,
-        embed_dim=512, 
+        embed_dim=128, 
         num_heads=16, 
         transformer_dropout=0.1, 
-        num_layers=6, 
+        num_layers=3, 
         forward_extension=4, 
         max_length=157,
         **transformer_kwargs
     ):
 
         super(TransformerEncoder, self).__init__()
+        
         self.embed_dim = embed_dim
-        self.position_embedding = nn.Embedding(max_length * 2, embed_dim)
+        self.position_embedding = nn.Embedding(max_length+1, embed_dim)
 
         self.layers = nn.ModuleList(
             [
@@ -68,17 +69,17 @@ class TransformerEncoder(nn.Module):
         )
 
     def forward(self, x):
+
         N, seq_length, ch = x.shape 
         positions = torch.arange(0, seq_length).expand(N, seq_length)
         positions = to_cuda_if_available(positions)
 
         out = x + self.position_embedding(positions)
-        print(out.shape)
 
         for layer in self.layers:
-            out = layer(out, out, out)
+            x = layer(x, x, x)
         
-        return out
+        return x
         
 
 

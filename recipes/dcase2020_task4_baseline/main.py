@@ -15,7 +15,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch import nn
 
-from utils_model.TestModel import _load_crnn
+from utils_model.TestModel import _load_transformer
 from evaluation import (
     get_predictions,
     psds_score,
@@ -108,7 +108,7 @@ if __name__ == "__main__":
 
     f_args = parser.parse_args()
     pprint(vars(f_args))
-    logger.info(f"Saving features: {config_params.save_features}")
+    logger.info(f"Saving features: {config_params.save_features}, dataset_eval: {config_params.evaluation}")
 
     reduced_number_of_data = f_args.subpart_data
     no_synthetic = f_args.no_synthetic
@@ -117,12 +117,13 @@ if __name__ == "__main__":
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic_transformer"
+        add_dir_model_name = "_with_synthetic_transf_save_dev"
 
-    experimental_test=True
+    #experimental_test = True
     if experimental_test:
-        reduced_number_of_data = 20
+        reduced_number_of_data = 24
         config_params.n_epoch = 2
+        #config_params.save_features = False
         
 
     # creating models and prediction folders to save models and predictions of the system
@@ -407,7 +408,7 @@ if __name__ == "__main__":
     if config_params.save_best:
         model_fname = os.path.join(saved_model_dir, "baseline_best")
         state = torch.load(model_fname)
-        #TODO: From here
+        #TODO: Could be here
         transformer = _load_transformer(state)
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
