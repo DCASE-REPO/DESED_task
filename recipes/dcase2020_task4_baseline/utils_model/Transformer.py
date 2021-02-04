@@ -9,26 +9,6 @@ from utils_model.PSClassifier import PSClassifier
 from utils.utils import to_cuda_if_available
 
 
-
-class PositionalEncoding(nn.Module):
-
-    def __init__(self, d_model, dropout=0.1, max_len=157):
-        super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.transpose(0, 1).unsqueeze(0)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-
-        x = x + self.pe[..., :x.size(-1)]
-        return self.dropout(x)
-
 class Transformer(nn.Module):
     def __init__(self, 
         n_in_channel=1,
@@ -50,8 +30,6 @@ class Transformer(nn.Module):
             **transformer_kwargs
         )
 
-        self.position_embedding = nn.Embedding(max_length+1, embed_dim)
-
         # Transformer - 2nd module 
         self.transformer_block = TransformerEncoder(**transformer_kwargs)
 
@@ -71,15 +49,6 @@ class Transformer(nn.Module):
         token = torch.ones(x.size(0), 1, x.size(2)) * 0.2
         token = to_cuda_if_available(token)
         x = torch.cat([token, x], dim=1) # [bs, frames, ch] -> 24, 158, 128
-        
-        #self.pos_encs = PositionalEncoding(embed_dim, dropout=dropout, max_len=max_seq_len)
-        #positions = torch.arange(0, seq_length).expand(N, seq_length)
-        #positions = to_cuda_if_available(positions)
-
-        #pos= torch.arange(0, x.size(1)).expand(x.size(0), x.size(1))
-        #pos = to_cuda_if_available(pos)
-        #pos = self.position_embedding(pos) 
-        #x = pos + x
         
         # transformer block 
         x = self.transformer_block(x)

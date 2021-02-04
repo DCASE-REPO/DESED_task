@@ -117,15 +117,17 @@ if __name__ == "__main__":
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic_transf_save_dev"
+        add_dir_model_name = "_with_synthetic_transf3_1x158x128_noSize"
 
-    #experimental_test = True
+    logger.info(f"Model folder name extension: {add_dir_model_name}")
+    logger.info(f"Transformer block: 3")
+    logger.info(f"Encoder functions: pe = pe = pe.unsqueeze(0), x = x + self.pe")
+
     if experimental_test:
         reduced_number_of_data = 24
         config_params.n_epoch = 2
-        #config_params.save_features = False
         
-
+        
     # creating models and prediction folders to save models and predictions of the system
     saved_model_dir, saved_pred_dir = create_stored_data_folder(
         add_dir_model_name, config_params.exp_out_path
