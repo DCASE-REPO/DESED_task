@@ -22,6 +22,141 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe
         return self.dropout(x)
 
+class FeedForwardConf(nn.Module):
+
+    def __init__(self,
+        embed_dim=128, 
+        num_heads=16, 
+        transformer_dropout=0.1, 
+        ff_dropout=0.1,
+        forward_extension=4
+    ):
+
+        super(FeedForwardConf, self).__init__()
+
+        self.linear = nn.Sequential(
+            nn.Linear(embed_dim, forward_extension * embed_dim),
+            nn.SiLU(),
+            nn.Dropout(p=ff_dropout),
+            nn.Linear(embed_dim * forward_extension, embed_dim)
+        )
+
+        self.norm = nn.LayerNorm(embed_dim)
+        self.dropout(p=ff_dropout)
+
+    def forward(self, x):
+
+        out = self.norm(x)
+        out = self.linear(out)
+        out = out + x #residual connection
+
+        return self.norm(out) / 2
+
+class MultiHeadAttentionConf(nn.Module):
+    
+    def __init__(self,
+        embed_dim=128, 
+        num_heads=16, 
+        transformer_dropout=0.1, 
+        forward_extension=4
+    ):
+
+        super(MultiHeadAttentionConf, self).__init__()
+
+        self.norm = nn.LayerNorm(embed_dim)
+
+        self.multiheadattention = nn.MultiheadAttention(
+            embed_dim=embed_dim, 
+            num_heads=num_heads, 
+            )
+
+        self.dropout = nn.Dropout(p=transformer_dropout)
+
+    def forward(self, x):
+
+        norm = self.norm(x)
+        att, _ = self.multiheadattention(norm, norm, norm) # change position
+        #permute position again 
+        return self.dropout(att + x)
+
+class ConvBlock(nn.Module):
+
+    def __init__(self,
+        embed_dim=128, 
+        transformer_dropout=0.1, 
+        d_conv_size=256,
+        kernel_size=7, 
+        expansion_factor=2
+    ):
+
+        super(ConvBlock, self).__init__()
+
+        conv_dim = embed_dim * expansion_factor
+
+        self.conv = nn.Sequential(
+            nn.LayerNorm(embed_dim),
+            nn.Conv1d(embed_dim, conv_dim, 1),
+            nn.GLU(),
+            nn.Conv1d(conv_dim, conv_dim, kernel_size),
+            nn.BatchNorm1d(conv_dim),
+            nn.SiLU(),
+            nn.Conv1d(conv_dim, embed_dim, 1),
+            nn.Dropout(p=transformer_dropout)
+        )
+
+    def forward(self, x):
+
+        out = self.conv(x)
+        return out + x
+
+class ConformerBlock(nn.Module):
+
+    def __init__(self,
+        embed_dim=128, 
+        num_heads=16, 
+        transformer_dropout=0.1, 
+        forward_extension=4
+    ):
+
+        super(ConformerBlock, self).__init__()
+
+        # 1: feed-forward block
+        self.ff_conf = FeedForwardConf(embed_dim=embed_dim, forward_extension=forward_extension)
+        # 2: self-attention module
+        self.multiheadattention = MultiHeadAttentionConf(embed_dim=embed_dim, 
+            num_heads=num_heads, 
+            transformer_dropout=transformer_dropout, 
+            forward_extension=forward_extension)
+        
+        
+        """ MultiHeadAttentionConf(
+            embed_dim=embed_dim, 
+            num_heads=num_heads, 
+            transformer_dropout=transformer_dropout, 
+            forward_extension=forward_extension
+            )
+        
+        self.dropout = nn.Dropout(p=transformer_dropout)
+        self.norm = nn.LayerNorm(embed_dim) """
+        # 3: convolutional module
+        self.conv = ConvBlock()
+
+    def forward(self, x):
+
+        # first module
+        x1 = self.ff_conf(x)
+
+        # second module 
+        x2 = self.multiheadattention(x1)
+
+        # third module
+        x3 = self.conv(x2)
+
+        # fourth module 
+        out = self.ff_conf(x3)
+        return self.norm(out)
+        
+
 class TransformerBlock(nn.Module):
 
     def __init__(self,
@@ -51,22 +186,27 @@ class TransformerBlock(nn.Module):
         self.norm2 = nn.LayerNorm(embed_dim)
         
 
-    def forward(self, value, key, query):
+    def forward(self, x):
 
-        attention = self.dropout1(self.multiheadattention(value, key, query)[0])
-        x = self.norm1(attention + query) # skip connection
-        forward = self.dropout2(self.feed_forward(x))
-        out = self.norm2(forward + x) # skip connection
+        input_att = x.permute(1, 0, 2) # [frames, bs, chan]
+
+        attention = self.dropout1(self.multiheadattention(input_att, input_att, input_att)[0]) #TODO:Write more elegante
+        attention = attention.permute(1, 0, 2) # [bs, frames, chan]
+
+        forw_in = self.norm1(attention + x) # skip connection
+
+        forward_out = self.dropout2(self.feed_forward(forw_in))
+        out = self.norm2(forward_out + forw_in) # skip connection
 
         return out
         
 class TransformerEncoder(nn.Module):
 
     def __init__(self,
-        embed_dim=128, 
+        att_units=512, 
         num_heads=16, 
         transformer_dropout=0.1, 
-        num_layers=3, 
+        n_layers=3, 
         forward_extension=4, 
         max_length=157,
         **transformer_kwargs
@@ -74,28 +214,27 @@ class TransformerEncoder(nn.Module):
 
         super(TransformerEncoder, self).__init__()
         
-        self.embed_dim = embed_dim
-        self.positional_embedding = PositionalEncoding(d_model=embed_dim, dropout=0.0, max_len=max_length+1)
+        self.att_units = att_units
+        self.positional_embedding = PositionalEncoding(d_model=att_units, dropout=0.0, max_len=max_length+1)
 
         self.layers = nn.ModuleList(
             [
                 TransformerBlock(
-                    embed_dim=embed_dim, 
+                    embed_dim=att_units, 
                     num_heads=num_heads, 
                     transformer_dropout=transformer_dropout, 
                     forward_extension=forward_extension
                 )
-                for i in range(num_layers)
+                for i in range(n_layers)
             ]
         )
 
     def forward(self, x):
 
-        N, seq_length, ch = x.shape 
-        out = self.positional_embedding(x)
-
+        out = self.positional_embedding(x) # [bs, frames, ch] -> 24, 158, 512
+        
         for layer in self.layers:
-            out = layer(out, out, out)
+            out = layer(out)
         
         return out
         

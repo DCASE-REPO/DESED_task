@@ -117,10 +117,11 @@ if __name__ == "__main__":
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic_transf3_1x158x128_noSize"
+        add_dir_model_name = "_with_synthetic_test_tranf4"
 
     logger.info(f"Model folder name extension: {add_dir_model_name}")
-    logger.info(f"Transformer block: 3")
+    logger.info(f"Transformer block: 4")
+    logger.info(f"Batch size: {config_params.batch_size}")
     logger.info(f"Encoder functions: pe = pe = pe.unsqueeze(0), x = x + self.pe")
 
     if experimental_test:

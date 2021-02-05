@@ -6,14 +6,14 @@ class PSClassifier(nn.Module):
     def __init__(
         self,
         n_class=None,
-        embed_dim=128, 
+        att_units=512, 
         **transformer_kwargs,
         
     ):
 
         super(PSClassifier, self).__init__()
 
-        self.fc = nn.Linear(embed_dim, n_class)
+        self.fc = nn.Linear(att_units, n_class)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):

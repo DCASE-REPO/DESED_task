@@ -1,6 +1,7 @@
 # ignore output files
 oar_job_*
 OAR*
+recipes/dcase2020_task4_baseline/logs/*
 
 #ignore data folders
 recipes/dcase2020_task4_baseline/data/desed/audio

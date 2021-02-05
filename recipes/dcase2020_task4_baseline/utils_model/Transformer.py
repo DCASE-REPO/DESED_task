@@ -16,6 +16,7 @@ class Transformer(nn.Module):
         dropout_cnn=0.5,
         max_length=157, 
         embed_dim=128,
+        att_units=512,
         **transformer_kwargs,
         ):
         super(Transformer, self).__init__()
@@ -30,8 +31,10 @@ class Transformer(nn.Module):
             **transformer_kwargs
         )
 
+        self.feature_embedding = nn.Linear(embed_dim, att_units)
         # Transformer - 2nd module 
         self.transformer_block = TransformerEncoder(**transformer_kwargs)
+
 
         # position wise classifier - 3rd module 
         self.ps_classifier = PSClassifier(**transformer_kwargs) 
@@ -49,9 +52,10 @@ class Transformer(nn.Module):
         token = torch.ones(x.size(0), 1, x.size(2)) * 0.2
         token = to_cuda_if_available(token)
         x = torch.cat([token, x], dim=1) # [bs, frames, ch] -> 24, 158, 128
-        
+        x = self.feature_embedding(x) # [bs, frames, ch] -> 24, 158, 512
+         
         # transformer block 
-        x = self.transformer_block(x)
+        x = self.transformer_block(x) 
 
         # getting prediction for weak label and strong label
         weak_label = self.ps_classifier(x[:, :1, :])
