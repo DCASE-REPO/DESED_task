@@ -15,7 +15,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch import nn
 
-from utils_model.TestModel import _load_transformer
+from utils_model.TestModel import _load_transformer, _load_conformer
 from evaluation import (
     get_predictions,
     psds_score,
@@ -49,6 +49,8 @@ from training import (
     get_model_params,
     get_student_model_transformer,
     get_teacher_model_transformer,
+    get_student_model_conformer,
+    get_teacher_model_conformer,
     get_optimizer,
     set_state,
     train,
@@ -117,13 +119,16 @@ if __name__ == "__main__":
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic_test_tranf4"
+        add_dir_model_name = "_with_synthetic_0812_conf"
 
     logger.info(f"Model folder name extension: {add_dir_model_name}")
-    logger.info(f"Transformer block: 4")
+    logger.info(f"Transformer block: 3")
     logger.info(f"Batch size: {config_params.batch_size}")
-    logger.info(f"Encoder functions: pe = pe = pe.unsqueeze(0), x = x + self.pe")
+    logger.info(f"Encoder functions: pe = pe.unsqueeze(0).transpose(0, 1), x = x + self.pe[:x.size(0), :]")
+    logger.info("512 -> 10, no linear layer after transformer block to decrease from 512 to 128")
 
+    #experimental_test = True
+    transformer = False
     if experimental_test:
         reduced_number_of_data = 24
         config_params.n_epoch = 2
@@ -284,8 +289,13 @@ if __name__ == "__main__":
     # INITIALIZATION OF MODELS
     # ####################################
 
-    transformer = get_student_model_transformer(**config_params.transformer_kwargs)
-    transformer_ema = get_teacher_model_transformer(**config_params.transformer_kwargs)
+    if transformer:
+        transformer = get_student_model_transformer(**config_params.transformer_kwargs)
+        transformer_ema = get_teacher_model_transformer(**config_params.transformer_kwargs)
+    else:
+        transformer = get_student_model_conformer(**config_params.confomer_kwargs)
+        transformer_ema = get_teacher_model_conformer(**config_params.confomer_kwargs)
+
 
     logger.info(f"number of parameters in the model: {get_model_params(transformer)}")
 
@@ -302,7 +312,7 @@ if __name__ == "__main__":
         scaler=scaler,
         scaler_args=scaler_args,
         median_window=config_params.median_window,
-        transformer_kwargs=config_params.transformer_kwargs,
+        transformer_kwargs=config_params.confomer_kwargs,
         optim_kwargs=config_params.optim_kwargs,
     ) 
 
@@ -396,7 +406,7 @@ if __name__ == "__main__":
                 logger.warn("EARLY STOPPING")
                 break
 
-        # save the results on csv file
+    # save the results on csv file
     results_df = pd.DataFrame(results).to_csv(
         os.path.join(saved_pred_dir, "results.tsv"),
         sep="\t",
@@ -411,8 +421,7 @@ if __name__ == "__main__":
     if config_params.save_best:
         model_fname = os.path.join(saved_model_dir, "baseline_best")
         state = torch.load(model_fname)
-        #TODO: Could be here
-        transformer = _load_transformer(state)
+        transformer = _load_conformer(state)
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
         logger.info(f"testing model of last epoch: {config_params.n_epoch}")

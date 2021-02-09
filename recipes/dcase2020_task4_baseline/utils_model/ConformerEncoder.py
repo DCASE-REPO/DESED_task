@@ -14,27 +14,40 @@ class PositionalEncoding(nn.Module):
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
-        #pe = pe.unsqueeze(0)
+        #pe = pe.unsqueeze(0).transpose(0, 1)
+        pe = pe.unsqueeze(0)
         self.register_buffer('pe', pe)
 
     def forward(self, x):
 
-        x = x + self.pe[:x.size(0), :]
-        #x = x +  self.pe
+        #x = x + self.pe[:x.size(0), :]
+        x = x +  self.pe
         return self.dropout(x)
 
-class FeedForwardConf(nn.Module):
+class GLU(nn.Module):
+    def __init__(self, input_num):
+        super(GLU, self).__init__()
+        
+        self.sigmoid = nn.Sigmoid()
+        self.linear = nn.Conv1d(input_num, input_num, 1)
+        #torch.nn.init.xavier_normal(self.linear.weight)
+
+    def forward(self, x):
+
+        lin = self.linear(x)
+        sig = self.sigmoid(x)
+        res = lin * sig
+        return res
+
+class FeedForward(nn.Module):
 
     def __init__(self,
         embed_dim=128, 
-        num_heads=16, 
-        transformer_dropout=0.1, 
         ff_dropout=0.1,
         forward_extension=4
     ):
 
-        super(FeedForwardConf, self).__init__()
+        super(FeedForward, self).__init__()
 
         self.linear = nn.Sequential(
             nn.Linear(embed_dim, forward_extension * embed_dim),
@@ -44,17 +57,17 @@ class FeedForwardConf(nn.Module):
         )
 
         self.norm = nn.LayerNorm(embed_dim)
-        self.dropout(p=ff_dropout)
+        #self.dropout(p=ff_dropout)
 
     def forward(self, x):
 
         out = self.norm(x)
-        out = self.linear(out)
+        out = self.linear(out / 2)
         out = out + x #residual connection
 
-        return self.norm(out) / 2
+        return out
 
-class MultiHeadAttentionConf(nn.Module):
+class MultiHeadAttention(nn.Module):
     
     def __init__(self,
         embed_dim=128, 
@@ -63,7 +76,7 @@ class MultiHeadAttentionConf(nn.Module):
         forward_extension=4
     ):
 
-        super(MultiHeadAttentionConf, self).__init__()
+        super(MultiHeadAttention, self).__init__()
 
         self.norm = nn.LayerNorm(embed_dim)
 
@@ -76,10 +89,10 @@ class MultiHeadAttentionConf(nn.Module):
 
     def forward(self, x):
 
-        norm = self.norm(x)
-        att, _ = self.multiheadattention(norm, norm, norm) # change position
-        #permute position again 
-        return self.dropout(att + x)
+        norm = self.norm(x).permute(1, 0, 2)
+        att, _ = self.multiheadattention(norm, norm, norm) 
+        out = att.permute(1, 0, 2)
+        return out + x
 
 class ConvBlock(nn.Module):
 
@@ -94,21 +107,38 @@ class ConvBlock(nn.Module):
         super(ConvBlock, self).__init__()
 
         conv_dim = embed_dim * expansion_factor
+        self.norm = nn.LayerNorm(embed_dim)
 
-        self.conv = nn.Sequential(
-            nn.LayerNorm(embed_dim),
+        """ self.conv = nn.Sequential(
             nn.Conv1d(embed_dim, conv_dim, 1),
             nn.GLU(),
-            nn.Conv1d(conv_dim, conv_dim, kernel_size),
+            nn.Conv1d(conv_dim, conv_dim, kernel_size, groups=conv_dim),
             nn.BatchNorm1d(conv_dim),
             nn.SiLU(),
             nn.Conv1d(conv_dim, embed_dim, 1),
             nn.Dropout(p=transformer_dropout)
-        )
+        ) """
+
+        self.conv = nn.Conv1d(embed_dim, conv_dim, 1)
+        self.glu = GLU(conv_dim)
+        self.conv1 = nn.Conv1d(conv_dim, conv_dim, kernel_size, groups=conv_dim, padding = (kernel_size // 2))
+        self.batch = nn.BatchNorm1d(conv_dim)
+        self.silu = nn.SiLU()
+        self.conv2 = nn.Conv1d(conv_dim, embed_dim, 1)
+        self.dropout = nn.Dropout(p=transformer_dropout)
+
 
     def forward(self, x):
 
-        out = self.conv(x)
+        #out = self.conv(self.norm(x).permute(0, 2, 1))
+        out = self.conv(self.norm(x).permute(0, 2, 1))
+        out = self.glu(out)
+        out = self.conv1(out)
+        out = self.batch(out)
+        out = self.silu(out)
+        out = self.dropout(out)
+        out = self.conv2(out)
+        out = out.permute(0, 2, 1) 
         return out + x
 
 class ConformerBlock(nn.Module):
@@ -123,16 +153,24 @@ class ConformerBlock(nn.Module):
         super(ConformerBlock, self).__init__()
 
         # 1: feed-forward block
-        self.ff_conf = FeedForwardConf(embed_dim=embed_dim, forward_extension=forward_extension)
+        self.ff_conf = FeedForward(embed_dim=embed_dim, forward_extension=forward_extension)
+        
         # 2: self-attention module
-        self.multiheadattention = MultiHeadAttentionConf(embed_dim=embed_dim, 
+        self.multiheadattention = MultiHeadAttention(embed_dim=embed_dim, 
             num_heads=num_heads, 
             transformer_dropout=transformer_dropout, 
             forward_extension=forward_extension)
-        
-        # 3: convolutional module
-        self.conv = ConvBlock()
 
+        # 3: convolutional module
+        self.conv = ConvBlock(embed_dim=embed_dim, 
+            transformer_dropout=0.1, 
+            d_conv_size=256,
+            kernel_size=7, 
+            expansion_factor=2)
+
+        self.ff_conf2 = FeedForward(embed_dim=embed_dim, forward_extension=forward_extension)        
+        
+    
     def forward(self, x):
 
         # first module
@@ -146,85 +184,29 @@ class ConformerBlock(nn.Module):
 
         # fourth module 
         out = self.ff_conf(x3)
-        return self.norm(out)
-        
-
-class TransformerBlock(nn.Module):
-
-    def __init__(self,
-        embed_dim=128, 
-        num_heads=16, 
-        transformer_dropout=0.1, 
-        forward_extension=4
-    ):
-
-        super(TransformerBlock, self).__init__()
-
-        self.multiheadattention = nn.MultiheadAttention(
-            embed_dim=embed_dim, 
-            num_heads=num_heads, 
-            dropout=transformer_dropout
-            )
-        
-        #self.dropout1 = nn.Dropout(p=transformer_dropout)
-        self.norm1 = nn.LayerNorm(embed_dim)
-        
-        self.feed_forward = nn.Sequential(
-            nn.Linear(embed_dim, forward_extension * embed_dim),
-            nn.ReLU(),
-            nn.Dropout(p=transformer_dropout),
-            nn.Linear(embed_dim * forward_extension, embed_dim)
-        )
-
-        #self.dropout2 = nn.Dropout(p=transformer_dropout)
-        self.norm2 = nn.LayerNorm(embed_dim)
-        
-
-    def forward(self, x):
-
-        #input_att = x.permute(1, 0, 2) # [frames, bs, chan]
-
-        # multiheadattention module 
-        out = self.norm1(x).permute(1, 0, 2)
-        out, _ = self.multiheadattention(out, out, out)
-        forw_in = out.permute(1, 0, 2) + x # skip connection
-
-        # feed forward sub-layer
-        forw_out = self.norm2(forw_in) 
-        out = self.feed_forward(forw_out) + forw_in
-
-        """ 
-        attention = self.dropout1(self.multiheadattention(input_att, input_att, input_att)[0]) 
-        attention = attention.permute(1, 0, 2) # [bs, frames, chan]
-
-        forw_in = self.norm1(attention + x) # skip connection
-
-        forward_out = self.dropout2(self.feed_forward(forw_in))
-        out = self.norm2(forward_out + forw_in) # skip connection 
-        
-        """
         return out
         
-class TransformerEncoder(nn.Module):
+
+class ConformerEncoder(nn.Module):
 
     def __init__(self,
-        att_units=512, 
-        num_heads=16, 
+        att_units=144, 
+        num_heads=4, 
         transformer_dropout=0.1, 
         n_layers=3, 
         forward_extension=4, 
         max_length=157,
-        **transformer_kwargs
+        **confomer_kwargs
     ):
 
-        super(TransformerEncoder, self).__init__()
+        super(ConformerEncoder, self).__init__()
         
         self.att_units = att_units
         self.positional_embedding = PositionalEncoding(d_model=att_units, dropout=0.1, max_len=max_length+1)
 
         self.layers = nn.ModuleList(
             [
-                TransformerBlock(
+                ConformerBlock(
                     embed_dim=att_units, 
                     num_heads=num_heads, 
                     transformer_dropout=transformer_dropout, 
@@ -236,7 +218,7 @@ class TransformerEncoder(nn.Module):
 
     def forward(self, x):
 
-        out = self.positional_embedding(x) # [bs, frames, ch] -> 24, 158, 512
+        out = self.positional_embedding(x) # [bs, frames, ch] -> 24, 158, 144
         
         for layer in self.layers:
             out = layer(out)

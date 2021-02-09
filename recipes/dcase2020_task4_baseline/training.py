@@ -1,5 +1,6 @@
 #from utils_model.CRNN import CRNN
 from utils_model.Transformer import Transformer
+from utils_model.Conformer import Conformer
 from utils.utils import weights_init
 from utils.Logger import create_logger
 from utils import ramps
@@ -92,6 +93,22 @@ def get_teacher_model_transformer(**transformer_kwargs):
         param.detach_()
 
     return transformer_ema
+
+def get_student_model_conformer(**conformer_kwargs):
+
+    conformer = Conformer(**conformer_kwargs)
+    logger.info(conformer)
+    conformer.apply(weights_init)
+    return conformer
+    
+
+def get_teacher_model_conformer(**conformer_kwargs):
+    conformer_ema = Conformer(**conformer_kwargs)
+    conformer_ema.apply(weights_init)
+    for param in conformer_ema.parameters():
+        param.detach_()
+
+    return conformer_ema
 
 
 def get_optimizer(model, **optim_kwargs):

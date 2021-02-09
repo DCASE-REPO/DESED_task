@@ -4,12 +4,12 @@ import numpy as np
 import math
 
 from utils_model.CNN import CNN
-from utils_model.TransformerEncoder import TransformerEncoder
+from utils_model.ConformerEncoder import ConformerEncoder
 from utils_model.PSClassifier import PSClassifier
 from utils.utils import to_cuda_if_available
 
 
-class Transformer(nn.Module):
+class Conformer(nn.Module):
     def __init__(self, 
         n_in_channel=1,
         activation_cnn="glu",
@@ -17,9 +17,9 @@ class Transformer(nn.Module):
         max_length=157, 
         embed_dim=128,
         att_units=512,
-        **transformer_kwargs,
+        **confomer_kwargs,
         ):
-        super(Transformer, self).__init__()
+        super(Conformer, self).__init__()
 
         self.n_in_channel = n_in_channel
 
@@ -28,17 +28,17 @@ class Transformer(nn.Module):
             n_in_channel=self.n_in_channel, 
             activation=activation_cnn, 
             conv_dropout=dropout_cnn, 
-            **transformer_kwargs
+            **confomer_kwargs
         )
 
         self.feature_embedding = nn.Linear(embed_dim, att_units)
         # Transformer - 2nd module 
-        self.transformer_block = TransformerEncoder(**transformer_kwargs)
+        self.conformer_block = ConformerEncoder(**confomer_kwargs)
 
-        self.feature_embedding2 = nn.Linear(att_units, embed_dim)
+        #self.feature_embedding2 = nn.Linear(att_units, embed_dim)
 
         # position wise classifier - 3rd module 
-        self.ps_classifier = PSClassifier(**transformer_kwargs) 
+        self.ps_classifier = PSClassifier(**confomer_kwargs) 
         
 
     def forward(self, x):
@@ -55,8 +55,8 @@ class Transformer(nn.Module):
         x = torch.cat([token, x], dim=1) # [bs, frames, ch] -> 24, 158, 128
         x = self.feature_embedding(x) # [bs, frames, ch] -> 24, 158, 512
          
-        # transformer block 
-        x = self.transformer_block(x) 
+        # conformer block 
+        x = self.conformer_block(x) 
 
         # go back to 128 dimensions
         #x = self.feature_embedding2(x) # [bs, frames, ch] -> 24, 158, 128
@@ -77,7 +77,7 @@ class Transformer(nn.Module):
 
     def load_state_dict(self, state_dict, strict=True):
         self.cnn.load_state_dict(state_dict["cnn"])
-        self.transformer_block.load_state_dict(state_dict["transformer_block"])
+        self.conformer_block.load_state_dict(state_dict["conformer_block"])
         self.ps_classifier.load_state_dict(state_dict["ps_classifier"])
 
     def state_dict(self, destination=None, prefix="", keep_vars=False):
@@ -85,7 +85,7 @@ class Transformer(nn.Module):
             "cnn": self.cnn.state_dict(
                 destination=destination, prefix=prefix, keep_vars=keep_vars
             ),
-            "transformer_block": self.transformer_block.state_dict(
+            "conformer_block": self.conformer_block.state_dict(
                 destination=destination, prefix=prefix, keep_vars=keep_vars
             ),
             "ps_classifier": self.ps_classifier.state_dict(
@@ -97,7 +97,7 @@ class Transformer(nn.Module):
     def save(self, filename):
         parameters = {
             "cnn": self.cnn.state_dict(),
-            "transformer_block": self.transformer_block.state_dict(),
+            "conformer_block": self.conformer_block.state_dict(),
             "ps_classifier": self.ps_classifier.state_dict(),
         }
         torch.save(parameters, filename) 
