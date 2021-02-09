@@ -1,4 +1,4 @@
-#from utils_model.CRNN import CRNN
+# from utils_model.CRNN import CRNN
 from utils_model.Transformer import Transformer
 from utils_model.Conformer import Conformer
 from utils.utils import weights_init
@@ -78,13 +78,14 @@ def get_teacher_model(**crnn_kwargs):
     return crnn_ema
  """
 
+
 def get_student_model_transformer(**transformer_kwargs):
 
     transformer = Transformer(**transformer_kwargs)
     logger.info(transformer)
     transformer.apply(weights_init)
     return transformer
-    
+
 
 def get_teacher_model_transformer(**transformer_kwargs):
     transformer_ema = Transformer(**transformer_kwargs)
@@ -94,13 +95,14 @@ def get_teacher_model_transformer(**transformer_kwargs):
 
     return transformer_ema
 
+
 def get_student_model_conformer(**conformer_kwargs):
 
     conformer = Conformer(**conformer_kwargs)
     logger.info(conformer)
     conformer.apply(weights_init)
     return conformer
-    
+
 
 def get_teacher_model_conformer(**conformer_kwargs):
     conformer_ema = Conformer(**conformer_kwargs)
@@ -165,7 +167,13 @@ def set_state(
 
 
 def update_state(
-    transformer, transformer_ema, optimizer, epoch, valid_synth_f1, psds_m_f1, state=None
+    transformer,
+    transformer_ema,
+    optimizer,
+    epoch,
+    valid_synth_f1,
+    psds_m_f1,
+    state=None,
 ):
     """
     Update the trainign state

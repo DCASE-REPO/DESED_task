@@ -144,13 +144,13 @@ class Configuration:
             "stride": self.n_layers * [1],
             "nb_filters": [16, 32, 64, 128, 128, 128, 128],
             "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
-            "embed_dim": 128, 
+            "embed_dim": 128,
             "att_units": 512,
-            "num_heads": 16, 
-            "transformer_dropout": 0.1, 
+            "num_heads": 16,
+            "transformer_dropout": 0.1,
             "n_layers": 3,
             "forward_extension": 4,
-            "max_length": 157
+            "max_length": 157,
         }
 
         self.confomer_kwargs = {
@@ -164,14 +164,14 @@ class Configuration:
             "stride": self.n_layers * [1],
             "nb_filters": [16, 32, 64, 128, 128, 128, 128],
             "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
-            "embed_dim": 128, 
+            "embed_dim": 128,
             "att_units": 144,
-            "num_heads": 4, 
-            "transformer_dropout": 0.1, 
+            "num_heads": 4,
+            "transformer_dropout": 0.1,
             "n_layers": 3,
             "forward_extension": 4,
-            "max_length": 157, 
-            "conv_block_ks": 7
+            "max_length": 157,
+            "conv_block_ks": 7,
         }
 
         # 2 * 2
@@ -191,7 +191,7 @@ class Configuration:
         self.in_memory_unlab = False
         self.num_workers = 8
         self.batch_size = 24
-        #self.batch_size = 126
+        # self.batch_size = 126
         self.noise_snr = 30
 
         self.n_epoch = 200

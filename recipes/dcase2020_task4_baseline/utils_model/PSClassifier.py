@@ -1,14 +1,13 @@
 import torch.nn as nn
 import torch
 
-class PSClassifier(nn.Module):
 
+class PSClassifier(nn.Module):
     def __init__(
         self,
         n_class=None,
-        att_units=144, 
+        att_units=144,
         **transformer_kwargs,
-        
     ):
 
         super(PSClassifier, self).__init__()
@@ -20,12 +19,5 @@ class PSClassifier(nn.Module):
 
         out = self.fc(x)
         out = self.sigmoid(out)
-        
+
         return out
-        
-
-
-
-
-
-        

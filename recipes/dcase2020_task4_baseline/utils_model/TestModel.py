@@ -24,10 +24,10 @@ from utils.ManyHotEncoder import ManyHotEncoder
 from utils.Transforms import get_transforms
 from utils.Logger import create_logger
 from utils.Scaler import Scaler, ScalerPerAudio
-#from utils_model.CRNN import CRNN
+
+# from utils_model.CRNN import CRNN
 from utils_model.Transformer import Transformer
 from utils_model.Conformer import Conformer
-
 
 
 logger = create_logger(__name__)
@@ -46,6 +46,7 @@ def _load_crnn(state, model_name="model"):
     logger.info(crnn)
     return crnn
 
+
 def _load_transformer(state, model_name="model"):
 
     transformers_args = state[model_name]["args"]
@@ -57,6 +58,7 @@ def _load_transformer(state, model_name="model"):
     logger.info("Model loaded at epoch: {}".format(state["epoch"]))
     logger.info(transformer)
     return transformer
+
 
 def _load_conformer(state, model_name="model"):
 

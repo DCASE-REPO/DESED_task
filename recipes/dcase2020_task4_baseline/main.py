@@ -22,7 +22,8 @@ from evaluation import (
     compute_psds_from_operating_points,
     compute_metrics,
 )
-#from utils_model.CRNN import CRNN
+
+# from utils_model.CRNN import CRNN
 from utils import ramps
 from utils.Logger import create_logger
 from utils.Scaler import ScalerPerAudio, Scaler
@@ -110,7 +111,9 @@ if __name__ == "__main__":
 
     f_args = parser.parse_args()
     pprint(vars(f_args))
-    logger.info(f"Saving features: {config_params.save_features}, dataset_eval: {config_params.evaluation}")
+    logger.info(
+        f"Saving features: {config_params.save_features}, dataset_eval: {config_params.evaluation}"
+    )
 
     reduced_number_of_data = f_args.subpart_data
     no_synthetic = f_args.no_synthetic
@@ -119,21 +122,23 @@ if __name__ == "__main__":
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic_0812_conf"
+        add_dir_model_name = "_with_synthetic_speed"
 
     logger.info(f"Model folder name extension: {add_dir_model_name}")
     logger.info(f"Transformer block: 3")
-    logger.info(f"Batch size: {config_params.batch_size}")
-    logger.info(f"Encoder functions: pe = pe.unsqueeze(0).transpose(0, 1), x = x + self.pe[:x.size(0), :]")
-    logger.info("512 -> 10, no linear layer after transformer block to decrease from 512 to 128")
+    logger.info(
+        f"Encoder functions: pe = pe.unsqueeze(0).transpose(0, 1), x = x + self.pe[:x.size(0), :]"
+    )
+    logger.info(
+        "Testing the conformer model on the validation set to check if the performance are the same"
+    )
 
-    #experimental_test = True
+    # experimental_test = True
     transformer = False
     if experimental_test:
         reduced_number_of_data = 24
         config_params.n_epoch = 2
-        
-        
+
     # creating models and prediction folders to save models and predictions of the system
     saved_model_dir, saved_pred_dir = create_stored_data_folder(
         add_dir_model_name, config_params.exp_out_path
@@ -230,12 +235,10 @@ if __name__ == "__main__":
     unlabel_data.transforms = transforms
     train_synth_data.transforms = transforms
 
-   
     weak_data.in_memory = config_params.in_memory
     train_synth_data.in_memory = config_params.in_memory
     unlabel_data.in_memory = config_params.in_memory_unlab
 
-   
     valid_synth_data = DataLoadDf(
         df=dfs["valid_synthetic"],
         encode_function=encod_func,
@@ -291,11 +294,12 @@ if __name__ == "__main__":
 
     if transformer:
         transformer = get_student_model_transformer(**config_params.transformer_kwargs)
-        transformer_ema = get_teacher_model_transformer(**config_params.transformer_kwargs)
+        transformer_ema = get_teacher_model_transformer(
+            **config_params.transformer_kwargs
+        )
     else:
         transformer = get_student_model_conformer(**config_params.confomer_kwargs)
         transformer_ema = get_teacher_model_conformer(**config_params.confomer_kwargs)
-
 
     logger.info(f"number of parameters in the model: {get_model_params(transformer)}")
 
@@ -314,7 +318,7 @@ if __name__ == "__main__":
         median_window=config_params.median_window,
         transformer_kwargs=config_params.confomer_kwargs,
         optim_kwargs=config_params.optim_kwargs,
-    ) 
+    )
 
     save_best_cb = SaveBest("sup")
 
@@ -338,7 +342,9 @@ if __name__ == "__main__":
 
         transformer.train()
         transformer_ema.train()
-        transformer, transformer_ema = to_cuda_if_available(transformer, transformer_ema)
+        transformer, transformer_ema = to_cuda_if_available(
+            transformer, transformer_ema
+        )
 
         loss_value = train(
             train_loader=training_loader,
@@ -381,7 +387,13 @@ if __name__ == "__main__":
 
         # Update state
         state = update_state(
-            transformer, transformer_ema, optimizer, epoch, valid_synth_f1, psds_m_f1, state
+            transformer,
+            transformer_ema,
+            optimizer,
+            epoch,
+            valid_synth_f1,
+            psds_m_f1,
+            state,
         )
 
         # Callbacks
@@ -427,6 +439,7 @@ if __name__ == "__main__":
         logger.info(f"testing model of last epoch: {config_params.n_epoch}")
 
     transformer.eval()
+
     transforms_valid = get_transforms(
         frames=config_params.max_frames,
         scaler=scaler,
@@ -473,6 +486,7 @@ if __name__ == "__main__":
     # Preds with only one value
     valid_predictions = get_predictions(
         model=transformer,
+        # dataloader=valid_synth_loader, # to try if the validation gives the same results
         dataloader=validation_dataloader,
         decoder=many_hot_encoder.decode_strong,
         sample_rate=config_params.sample_rate,
@@ -496,6 +510,7 @@ if __name__ == "__main__":
 
     pred_ss_thresh = get_predictions(
         model=transformer,
+        # dataloader=valid_synth_loader,
         dataloader=validation_dataloader,
         decoder=many_hot_encoder.decode_strong,
         sample_rate=config_params.sample_rate,
