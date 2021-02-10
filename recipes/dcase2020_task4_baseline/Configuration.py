@@ -216,7 +216,7 @@ class Configuration:
         self.terminal_level = logging.INFO
 
         # Evaluatin dataset information
-        self.evaluation = False
+        self.evaluation = True
 
     def get_folder_path(self):
         """

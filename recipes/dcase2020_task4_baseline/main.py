@@ -6,6 +6,7 @@ import datetime
 import inspect
 import os
 import time
+import ipdb
 from pprint import pprint
 
 import pandas as pd
@@ -134,7 +135,7 @@ if __name__ == "__main__":
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic_nosave_eval"
+        add_dir_model_name = "_with_synthetic_conf2"
 
     logger.info(f"Model folder name extension: {add_dir_model_name}")
     logger.info(f"Transformer block: 3")
@@ -297,6 +298,7 @@ if __name__ == "__main__":
     # INITIALIZATION OF MODELS
     # ####################################
 
+    #ipdb.set_trace()
     logger.info(f"Model retrived: {model_type}")
     if model_type == "conf":
         kw_args = config_params.confomer_kwargs
@@ -447,10 +449,10 @@ if __name__ == "__main__":
         state = torch.load(model_fname)
 
         if model_type == "conf":
-            model = _load_conformer
+            model = _load_conformer(state)
             logger.info(f"retrived model: {model_type}")
         elif model_type == "trans":
-            model = _load_transformer
+            model = _load_transformer(state)
             logger.info(f"retrived model: {model_type}")
         elif model_type == "crnn":
             model = _load_crnn(state) # to change
@@ -508,8 +510,7 @@ if __name__ == "__main__":
     # Preds with only one value
     valid_predictions = get_predictions(
         model=model,
-        dataloader=valid_synth_loader, # to try if the validation gives the same results
-        #dataloader=validation_dataloader,
+        dataloader=validation_dataloader,
         decoder=many_hot_encoder.decode_strong,
         sample_rate=config_params.sample_rate,
         hop_size=config_params.hop_size,
@@ -532,8 +533,7 @@ if __name__ == "__main__":
 
     pred_ss_thresh = get_predictions(
         model=model,
-        dataloader=valid_synth_loader,
-        #dataloader=validation_dataloader,
+        dataloader=validation_dataloader,
         decoder=many_hot_encoder.decode_strong,
         sample_rate=config_params.sample_rate,
         hop_size=config_params.hop_size,
