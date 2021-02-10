@@ -103,12 +103,20 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "-et",
-        "--experimental_test",
-        dest="experimental_test",
+        "-t",
+        "--test",
+        dest="test",
         action="store_true",
         default=False,
         help="Test to verify that everything is running. Number of file considered: 40, number of epoch considered: 20.",
+    )
+
+    parser.add_argument(
+        "-m",
+        "--model",
+        dest="model_type",
+        default="conf",
+        help="Which kind of model we want to use",
     )
 
     f_args = parser.parse_args()
@@ -119,22 +127,20 @@ if __name__ == "__main__":
 
     reduced_number_of_data = f_args.subpart_data
     no_synthetic = f_args.no_synthetic
-    experimental_test = f_args.experimental_test
+    experimental_test = f_args.test
+    test = f_args.test
+    model_type = f_args.model_type
 
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic_conf2"
+        add_dir_model_name = "_with_synthetic_nosave_eval"
 
     logger.info(f"Model folder name extension: {add_dir_model_name}")
     logger.info(f"Transformer block: 3")
-    logger.info(
-        f"Encoder functions: pe = pe.unsqueeze(0).transpose(0, 1), x = x + self.pe[:x.size(0), :]"
-    )
     
     #experimental_test = True
-    transformer = False
-    if experimental_test:
+    if test:
         reduced_number_of_data = 24
         config_params.n_epoch = 2
 
@@ -291,19 +297,21 @@ if __name__ == "__main__":
     # INITIALIZATION OF MODELS
     # ####################################
 
-    if transformer:
-        model = get_student_model_transformer(**config_params.transformer_kwargs)
+    logger.info(f"Model retrived: {model_type}")
+    if model_type == "conf":
+        kw_args = config_params.confomer_kwargs
+        model = get_student_model_conformer(**kw_args)
+        model_ema = get_teacher_model_conformer(**kw_args)
+    elif model_type == "trans":
+        kw_args = config_params.transformer_kwargs
+        model = get_student_model_transformer(**kw_args)
         model_ema = get_teacher_model_transformer(
-            **config_params.transformer_kwargs
+            **kw_args
         )
-    else:
-        model = get_student_model_conformer(**config_params.confomer_kwargs)
-        model_ema = get_teacher_model_conformer(**config_params.confomer_kwargs) 
- 
-
-    #model = get_student_model(**config_params.crnn_kwargs)
-    #model_ema = get_teacher_model(**config_params.crnn_kwargs)
-    
+    elif model_type == "crnn":
+        kw_args = config_params.crnn_kwargs
+        model = get_student_model(**kw_args)
+        model_ema = get_teacher_model(**kw_args)    
 
     logger.info(f"number of parameters in the model: {get_model_params(model)}")
 
@@ -320,7 +328,7 @@ if __name__ == "__main__":
         scaler=scaler,
         scaler_args=scaler_args,
         median_window=config_params.median_window,
-        model_kwargs=config_params.confomer_kwargs, # to change 
+        model_kwargs=kw_args, # to change 
         optim_kwargs=config_params.optim_kwargs,
     )
 
@@ -342,7 +350,7 @@ if __name__ == "__main__":
     # Meta path for psds
     durations_synth = get_durations_df(gtruth_path=config_params.synthetic)
 
-    for epoch in range(config_params.n_epoch):
+    """ for epoch in range(config_params.n_epoch):
 
         model.train()
         model_ema.train()
@@ -421,7 +429,7 @@ if __name__ == "__main__":
             if early_stopping_call.apply(valid_synth_f1):
                 logger.warn("EARLY STOPPING")
                 break
-
+ """
     # save the results on csv file
     results_df = pd.DataFrame(results).to_csv(
         os.path.join(saved_pred_dir, "results.tsv"),
@@ -437,7 +445,17 @@ if __name__ == "__main__":
     if config_params.save_best:
         model_fname = os.path.join(saved_model_dir, "baseline_best")
         state = torch.load(model_fname)
-        model = _load_conformer(state) # to change
+
+        if model_type == "conf":
+            model = _load_conformer
+            logger.info(f"retrived model: {model_type}")
+        elif model_type == "trans":
+            model = _load_transformer
+            logger.info(f"retrived model: {model_type}")
+        elif model_type == "crnn":
+            model = _load_crnn(state) # to change
+            logger.info(f"retrived model: {model_type}")
+        
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
         logger.info(f"testing model of last epoch: {config_params.n_epoch}")
