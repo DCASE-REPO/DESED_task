@@ -15,7 +15,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch import nn
 
-from utils_model.TestModel import _load_transformer, _load_conformer
+from utils_model.TestModel import _load_transformer, _load_conformer, _load_crnn
 from evaluation import (
     get_predictions,
     psds_score,
@@ -23,7 +23,7 @@ from evaluation import (
     compute_metrics,
 )
 
-# from utils_model.CRNN import CRNN
+from utils_model.CRNN import CRNN
 from utils import ramps
 from utils.Logger import create_logger
 from utils.Scaler import ScalerPerAudio, Scaler
@@ -48,6 +48,8 @@ from utils_data.DataLoad import DataLoadDf, ConcatDataset, MultiStreamBatchSampl
 from training import (
     get_batchsizes_and_masks,
     get_model_params,
+    get_student_model,
+    get_teacher_model,
     get_student_model_transformer,
     get_teacher_model_transformer,
     get_student_model_conformer,
@@ -122,18 +124,15 @@ if __name__ == "__main__":
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic_speed"
+        add_dir_model_name = "_with_synthetic_conf2"
 
     logger.info(f"Model folder name extension: {add_dir_model_name}")
     logger.info(f"Transformer block: 3")
     logger.info(
         f"Encoder functions: pe = pe.unsqueeze(0).transpose(0, 1), x = x + self.pe[:x.size(0), :]"
     )
-    logger.info(
-        "Testing the conformer model on the validation set to check if the performance are the same"
-    )
-
-    # experimental_test = True
+    
+    #experimental_test = True
     transformer = False
     if experimental_test:
         reduced_number_of_data = 24
@@ -293,22 +292,27 @@ if __name__ == "__main__":
     # ####################################
 
     if transformer:
-        transformer = get_student_model_transformer(**config_params.transformer_kwargs)
-        transformer_ema = get_teacher_model_transformer(
+        model = get_student_model_transformer(**config_params.transformer_kwargs)
+        model_ema = get_teacher_model_transformer(
             **config_params.transformer_kwargs
         )
     else:
-        transformer = get_student_model_conformer(**config_params.confomer_kwargs)
-        transformer_ema = get_teacher_model_conformer(**config_params.confomer_kwargs)
+        model = get_student_model_conformer(**config_params.confomer_kwargs)
+        model_ema = get_teacher_model_conformer(**config_params.confomer_kwargs) 
+ 
 
-    logger.info(f"number of parameters in the model: {get_model_params(transformer)}")
+    #model = get_student_model(**config_params.crnn_kwargs)
+    #model_ema = get_teacher_model(**config_params.crnn_kwargs)
+    
 
-    optimizer = get_optimizer(transformer, **config_params.optim_kwargs)
+    logger.info(f"number of parameters in the model: {get_model_params(model)}")
+
+    optimizer = get_optimizer(model, **config_params.optim_kwargs)
 
     # TODO: This could also be a class inside this same main file maybe?
     state = set_state(
-        transformer=transformer,
-        transformer_ema=transformer_ema,
+        model=model, #to change 
+        model_ema=model_ema, #to change
         optimizer=optimizer,
         dataset=dataset,
         pooling_time_ratio=config_params.pooling_time_ratio,
@@ -316,7 +320,7 @@ if __name__ == "__main__":
         scaler=scaler,
         scaler_args=scaler_args,
         median_window=config_params.median_window,
-        transformer_kwargs=config_params.confomer_kwargs,
+        model_kwargs=config_params.confomer_kwargs, # to change 
         optim_kwargs=config_params.optim_kwargs,
     )
 
@@ -340,32 +344,32 @@ if __name__ == "__main__":
 
     for epoch in range(config_params.n_epoch):
 
-        transformer.train()
-        transformer_ema.train()
-        transformer, transformer_ema = to_cuda_if_available(
-            transformer, transformer_ema
+        model.train()
+        model_ema.train()
+        model, model_ema = to_cuda_if_available(
+            model, model_ema
         )
 
         loss_value = train(
             train_loader=training_loader,
-            model=transformer,
+            model=model,
             optimizer=optimizer,
             c_epoch=epoch,
             max_consistency_cost=config_params.max_consistency_cost,
             n_epoch_rampup=config_params.n_epoch_rampup,
             max_learning_rate=config_params.max_learning_rate,
-            ema_model=transformer_ema,
+            ema_model=model_ema,
             mask_weak=weak_mask,
             mask_strong=strong_mask,
             adjust_lr=config_params.adjust_lr,
         )
 
         # Validation
-        transformer = transformer.eval()
+        model = model.eval()
         logger.info("\n ### Valid synthetic metric ### \n")
 
         predictions = get_predictions(
-            model=transformer,
+            model=model,
             dataloader=valid_synth_loader,
             decoder=many_hot_encoder.decode_strong,
             sample_rate=config_params.sample_rate,
@@ -387,8 +391,8 @@ if __name__ == "__main__":
 
         # Update state
         state = update_state(
-            transformer,
-            transformer_ema,
+            model,
+            model_ema,
             optimizer,
             epoch,
             valid_synth_f1,
@@ -425,7 +429,7 @@ if __name__ == "__main__":
         index=False,
         float_format="%.4f",
     )
-
+    
     # ##############
     # VALIDATION
     # ##############
@@ -433,12 +437,12 @@ if __name__ == "__main__":
     if config_params.save_best:
         model_fname = os.path.join(saved_model_dir, "baseline_best")
         state = torch.load(model_fname)
-        transformer = _load_conformer(state)
+        model = _load_conformer(state) # to change
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
         logger.info(f"testing model of last epoch: {config_params.n_epoch}")
 
-    transformer.eval()
+    model.eval()
 
     transforms_valid = get_transforms(
         frames=config_params.max_frames,
@@ -485,9 +489,9 @@ if __name__ == "__main__":
 
     # Preds with only one value
     valid_predictions = get_predictions(
-        model=transformer,
-        # dataloader=valid_synth_loader, # to try if the validation gives the same results
-        dataloader=validation_dataloader,
+        model=model,
+        dataloader=valid_synth_loader, # to try if the validation gives the same results
+        #dataloader=validation_dataloader,
         decoder=many_hot_encoder.decode_strong,
         sample_rate=config_params.sample_rate,
         hop_size=config_params.hop_size,
@@ -509,9 +513,9 @@ if __name__ == "__main__":
     list_thresholds = np.arange(1 / (n_thresholds * 2), 1, 1 / n_thresholds)
 
     pred_ss_thresh = get_predictions(
-        model=transformer,
-        # dataloader=valid_synth_loader,
-        dataloader=validation_dataloader,
+        model=model,
+        dataloader=valid_synth_loader,
+        #dataloader=validation_dataloader,
         decoder=many_hot_encoder.decode_strong,
         sample_rate=config_params.sample_rate,
         hop_size=config_params.hop_size,

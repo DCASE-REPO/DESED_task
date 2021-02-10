@@ -1,4 +1,4 @@
-# from utils_model.CRNN import CRNN
+from utils_model.CRNN import CRNN
 from utils_model.Transformer import Transformer
 from utils_model.Conformer import Conformer
 from utils.utils import weights_init
@@ -59,7 +59,7 @@ def get_model_params(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-""" def get_student_model(**crnn_kwargs):
+def get_student_model(**crnn_kwargs):
 
     crnn = CRNN(**crnn_kwargs)
     logger.info(crnn)
@@ -76,7 +76,7 @@ def get_teacher_model(**crnn_kwargs):
         param.detach_()
 
     return crnn_ema
- """
+
 
 
 def get_student_model_transformer(**transformer_kwargs):
@@ -120,8 +120,8 @@ def get_optimizer(model, **optim_kwargs):
 
 
 def set_state(
-    transformer,
-    transformer_ema,
+    model,
+    model_ema,
     optimizer,
     dataset,
     pooling_time_ratio,
@@ -129,22 +129,22 @@ def set_state(
     scaler,
     scaler_args,
     median_window,
-    transformer_kwargs,
+    model_kwargs,
     optim_kwargs,
 ):
 
     state = {
         "model": {
-            "name": transformer.__class__.__name__,
+            "name": model.__class__.__name__,
             "args": "",
-            "kwargs": transformer_kwargs,
-            "state_dict": transformer.state_dict(),
+            "kwargs": model_kwargs,
+            "state_dict": model.state_dict(),
         },
         "model_ema": {
-            "name": transformer_ema.__class__.__name__,
+            "name": model_ema.__class__.__name__,
             "args": "",
-            "kwargs": transformer_kwargs,
-            "state_dict": transformer_ema.state_dict(),
+            "kwargs": model_kwargs,
+            "state_dict": model_ema.state_dict(),
         },
         "optimizer": {
             "name": optimizer.__class__.__name__,
@@ -167,8 +167,8 @@ def set_state(
 
 
 def update_state(
-    transformer,
-    transformer_ema,
+    model,
+    model_ema,
     optimizer,
     epoch,
     valid_synth_f1,
@@ -186,8 +186,8 @@ def update_state(
         psds_m_f1:
         state: dictionary containing the current state of the system
     """
-    state["model"]["state_dict"] = transformer.state_dict()
-    state["model_ema"]["state_dict"] = transformer_ema.state_dict()
+    state["model"]["state_dict"] = model.state_dict()
+    state["model_ema"]["state_dict"] = model_ema.state_dict()
     state["optimizer"]["state_dict"] = optimizer.state_dict()
     state["epoch"] = epoch
     state["valid_metric"] = valid_synth_f1

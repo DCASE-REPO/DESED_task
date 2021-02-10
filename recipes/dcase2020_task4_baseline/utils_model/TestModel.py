@@ -25,7 +25,7 @@ from utils.Transforms import get_transforms
 from utils.Logger import create_logger
 from utils.Scaler import Scaler, ScalerPerAudio
 
-# from utils_model.CRNN import CRNN
+from utils_model.CRNN import CRNN
 from utils_model.Transformer import Transformer
 from utils_model.Conformer import Conformer
 
