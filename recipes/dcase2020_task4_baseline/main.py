@@ -6,7 +6,6 @@ import datetime
 import inspect
 import os
 import time
-import ipdb
 from pprint import pprint
 
 import pandas as pd
@@ -128,7 +127,6 @@ if __name__ == "__main__":
 
     reduced_number_of_data = f_args.subpart_data
     no_synthetic = f_args.no_synthetic
-    experimental_test = f_args.test
     test = f_args.test
     model_type = f_args.model_type
 
@@ -140,7 +138,7 @@ if __name__ == "__main__":
     logger.info(f"Model folder name extension: {add_dir_model_name}")
     logger.info(f"Transformer block: 3")
     
-    #experimental_test = True
+    #test = True
     if test:
         reduced_number_of_data = 24
         config_params.n_epoch = 2
@@ -280,7 +278,6 @@ if __name__ == "__main__":
         else ConcatDataset([weak_data, unlabel_data, train_synth_data])
     )
 
-    # concat_dataset = ConcatDataset(list_dataset)
     sampler = MultiStreamBatchSampler(concat_dataset, batch_sizes=batch_sizes)
 
     training_loader = DataLoader(
@@ -298,7 +295,6 @@ if __name__ == "__main__":
     # INITIALIZATION OF MODELS
     # ####################################
 
-    #ipdb.set_trace()
     logger.info(f"Model retrived: {model_type}")
     if model_type == "conf":
         kw_args = config_params.confomer_kwargs

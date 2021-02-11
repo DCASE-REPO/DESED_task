@@ -147,3 +147,62 @@ def get_variables(args):
         meta_dur_df = generate_tsv_wav_durations(gt_audio_pth, meta_gt)
 
     return model_pth, median_win, gt_audio_pth, groundtruth, meta_dur_df
+
+""" if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("-m", '--model_path', type=str, required=True,
+                        help="Path of the model to be evaluated")
+    parser.add_argument("-g", '--groundtruth_tsv', type=str, required=True,
+                        help="Path of the groundtruth tsv file")
+
+    # Not required after that, but recommended to defined
+    parser.add_argument("-mw", "--median_window", type=int, default=None,
+                        help="Nb of frames for the median window, "
+                             "if None the one defined for testing after training is used")
+
+    # Next groundtruth variable could be ommited if same organization than DESED dataset
+    parser.add_argument('--meta_gt', type=str, default=None,
+                        help="Path of the groundtruth description of feat_filenames and durations")
+    parser.add_argument("-ga", '--groundtruth_audio_dir', type=str, default=None,
+                        help="Path of the groundtruth filename, (see in config, at dataset folder)")
+    parser.add_argument("-s", '--save_predictions_path', type=str, default=None,
+                        help="Path for the predictions to be saved (if needed)")
+
+    # Dev
+    parser.add_argument("-n", '--nb_files', type=int, default=None,
+                        help="Number of files to be used. Useful when testing on small number of files.")
+    f_args = parser.parse_args()
+
+    # Get variables from f_args
+    model_path, median_window, gt_audio_dir, groundtruth, durations = get_variables(f_args)
+
+    # Model
+    expe_state = torch.load(model_path, map_location="cpu")
+    dataset = DESED(base_feature_dir=osp.join(cfg.workspace, "dataset", "features"), compute_log=False)
+
+    gt_df_feat = dataset.initialize_and_get_df(f_args.groundtruth_tsv, gt_audio_dir, nb_files=f_args.nb_files)
+    params = _load_state_vars(expe_state, gt_df_feat, median_window)
+
+    # Preds with only one value
+    single_predictions = get_predictions(params["model"], params["dataloader"],
+                                         params["many_hot_encoder"].decode_strong, params["pooling_time_ratio"],
+                                         median_window=params["median_window"],
+                                         save_predictions=f_args.save_predictions_path)
+    compute_metrics(single_predictions, groundtruth, durations)
+
+    # ##########
+    # Optional but recommended
+    # ##########
+    # Compute psds scores with multiple thresholds (more accurate). n_thresholds could be increased.
+    n_thresholds = 50
+    # Example of 5 thresholds: 0.1, 0.3, 0.5, 0.7, 0.9
+    list_thresholds = np.arange(1 / (n_thresholds * 2), 1, 1 / n_thresholds)
+    pred_ss_thresh = get_predictions(params["model"], params["dataloader"],
+                                     params["many_hot_encoder"].decode_strong, params["pooling_time_ratio"],
+                                     thresholds=list_thresholds, median_window=params["median_window"],
+                                     save_predictions=f_args.save_predictions_path)
+    psds = compute_psds_from_operating_points(pred_ss_thresh, groundtruth, durations)
+    fname_roc = None
+    if f_args.save_predictions_path is not None:
+        fname_roc = osp.splitext(f_args.save_predictions_path)[0] + "_roc.png"
+    psds_score(psds, filename_roc_curves=fname_roc) """

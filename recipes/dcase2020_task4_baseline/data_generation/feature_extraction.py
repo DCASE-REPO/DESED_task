@@ -77,7 +77,7 @@ def get_dfs(
         save_features=save_features,
     )
 
-    # TODO: Make the system already read for the evaluation set so to make things easier
+    # TODO: Make the system already ready for the evaluation set so to make things easier
     # dev_test dataset
     if eval_dataset:
         validation_df = desed_dataset.initialize_and_get_df(
@@ -246,5 +246,4 @@ def get_compose_transforms(datasets, scaler_type, max_frames, add_axis_conv, noi
         add_axis=add_axis_conv,
     )
 
-    # return transforms, transforms_valid, scaler
     return transforms, transforms_valid, scaler, scaler_args
