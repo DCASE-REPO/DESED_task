@@ -62,6 +62,7 @@ from training import (
 from Configuration import Configuration
 
 
+
 if __name__ == "__main__":
 
     # TODO: Set the path with your local path
@@ -115,7 +116,7 @@ if __name__ == "__main__":
         "-m",
         "--model",
         dest="model_type",
-        default="conf",
+        default="crnn",
         help="Which kind of model we want to use",
     )
 
@@ -295,7 +296,8 @@ if __name__ == "__main__":
     # INITIALIZATION OF MODELS
     # ####################################
 
-    logger.info(f"Model retrived: {model_type}")
+    
+    logger.info(f"Selected model: {model_type}")
     if model_type == "conf":
         kw_args = config_params.confomer_kwargs
         model = get_student_model_conformer(**kw_args)
@@ -348,7 +350,7 @@ if __name__ == "__main__":
     # Meta path for psds
     durations_synth = get_durations_df(gtruth_path=config_params.synthetic)
 
-    """ for epoch in range(config_params.n_epoch):
+    for epoch in range(config_params.n_epoch):
 
         model.train()
         model_ema.train()
@@ -427,7 +429,7 @@ if __name__ == "__main__":
             if early_stopping_call.apply(valid_synth_f1):
                 logger.warn("EARLY STOPPING")
                 break
- """
+        
     # save the results on csv file
     results_df = pd.DataFrame(results).to_csv(
         os.path.join(saved_pred_dir, "results.tsv"),

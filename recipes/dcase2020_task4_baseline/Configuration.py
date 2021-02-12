@@ -194,7 +194,7 @@ class Configuration:
         # self.batch_size = 126
         self.noise_snr = 30
 
-        self.n_epoch = 200
+        self.n_epoch = 40
         self.n_epoch_rampup = 50
 
         self.checkpoint_epochs = 1
