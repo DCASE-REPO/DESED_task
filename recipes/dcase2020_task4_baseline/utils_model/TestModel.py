@@ -148,6 +148,7 @@ def get_variables(args):
 
     return model_pth, median_win, gt_audio_pth, groundtruth, meta_dur_df
 
+
 """ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("-m", '--model_path', type=str, required=True,

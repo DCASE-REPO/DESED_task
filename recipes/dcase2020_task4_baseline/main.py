@@ -11,6 +11,7 @@ from pprint import pprint
 import pandas as pd
 import numpy as np
 
+
 import torch
 from torch.utils.data import DataLoader
 from torch import nn
@@ -21,6 +22,10 @@ from evaluation import (
     psds_score,
     compute_psds_from_operating_points,
     compute_metrics,
+    bootstrap,
+    get_f_measure_by_class,
+    get_f1_psds,
+    get_f1_sed_score,
 )
 
 from utils_model.CRNN import CRNN
@@ -59,8 +64,8 @@ from training import (
     train,
     update_state,
 )
-from Configuration import Configuration
 
+from Configuration import Configuration
 
 
 if __name__ == "__main__":
@@ -134,12 +139,20 @@ if __name__ == "__main__":
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        add_dir_model_name = "_with_synthetic_conf2"
+        if model_type == "crnn":
+            add_dir_model_name = "_with_synthetic_crnn_new"
+        elif model_type == "conf":
+            add_dir_model_name = "_with_synthetic_conf_new"
+        elif model_type == "tran":
+            add_dir_model_name = "_with_synthetic_tran"
 
     logger.info(f"Model folder name extension: {add_dir_model_name}")
-    logger.info(f"Transformer block: 3")
-    
-    #test = True
+    logger.info(f"Model selected: {model_type}")
+    logger.info(
+        f"Evaluation: {config_params.evaluation}, save_features: {config_params.save_features}"
+        ""
+    )
+
     if test:
         reduced_number_of_data = 24
         config_params.n_epoch = 2
@@ -218,9 +231,28 @@ if __name__ == "__main__":
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
         filenames_folder=os.path.join(
+            config_params.audio_train_folder,
+            "synthetic2021_train/soundscapes",  # to change, to clean
+        ),
+    )
+
+    """
+    train_synth_data = DataLoadDf(
+        df=dfs["train_synthetic"],
+        encode_function=encod_func,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
+        filenames_folder=os.path.join(
             config_params.audio_train_folder, "synthetic20/soundscapes"
         ),
     )
+    """
 
     training_dataset = {
         "weak": weak_data,
@@ -259,8 +291,25 @@ if __name__ == "__main__":
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
         filenames_folder=os.path.join(
-            config_params.audio_train_folder, "synthetic20/soundscapes"
+            config_params.audio_train_folder, "synthetic2021_validation/soundscapes"
         ),
+    )
+
+    valid_weak_data = DataLoadDf(
+        df=dfs["valid_weak"],
+        encode_function=encod_func,
+        transforms=transforms_valid,
+        return_indexes=True,
+        in_memory=config_params.in_memory,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
+        filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
     )
 
     logger.debug(
@@ -291,36 +340,38 @@ if __name__ == "__main__":
         batch_size=config_params.batch_size,
         num_workers=config_params.num_workers,
     )
+    valid_weak_loader = DataLoader(
+        dataset=valid_weak_data,
+        batch_size=config_params.batch_size,
+        num_workers=config_params.num_workers,
+    )
 
     # ####################################
     # INITIALIZATION OF MODELS
     # ####################################
 
-    
     logger.info(f"Selected model: {model_type}")
     if model_type == "conf":
         kw_args = config_params.confomer_kwargs
         model = get_student_model_conformer(**kw_args)
         model_ema = get_teacher_model_conformer(**kw_args)
-    elif model_type == "trans":
+    elif model_type == "tran":
         kw_args = config_params.transformer_kwargs
         model = get_student_model_transformer(**kw_args)
-        model_ema = get_teacher_model_transformer(
-            **kw_args
-        )
+        model_ema = get_teacher_model_transformer(**kw_args)
     elif model_type == "crnn":
         kw_args = config_params.crnn_kwargs
         model = get_student_model(**kw_args)
-        model_ema = get_teacher_model(**kw_args)    
+        model_ema = get_teacher_model(**kw_args)
 
     logger.info(f"number of parameters in the model: {get_model_params(model)}")
 
-    optimizer = get_optimizer(model, **config_params.optim_kwargs)
+    optimizer = get_optimizer(model, config_params.optim, **config_params.optim_kwargs)
 
     # TODO: This could also be a class inside this same main file maybe?
     state = set_state(
-        model=model, #to change 
-        model_ema=model_ema, #to change
+        model=model,  # to change
+        model_ema=model_ema,  # to change
         optimizer=optimizer,
         dataset=dataset,
         pooling_time_ratio=config_params.pooling_time_ratio,
@@ -328,7 +379,7 @@ if __name__ == "__main__":
         scaler=scaler,
         scaler_args=scaler_args,
         median_window=config_params.median_window,
-        model_kwargs=kw_args, # to change 
+        model_kwargs=kw_args,  # to change
         optim_kwargs=config_params.optim_kwargs,
     )
 
@@ -341,27 +392,25 @@ if __name__ == "__main__":
             init_patience=config_params.es_init_wait,
         )
 
-    # ##############
-    # TRAINING
-    # ##############
-
     results = pd.DataFrame(columns=["loss", "valid_synth_f1", "global_valid"])
 
     # Meta path for psds
     durations_synth = get_durations_df(gtruth_path=config_params.synthetic)
 
-    for epoch in range(config_params.n_epoch):
+    # ##############
+    # TRAINING
+    # ##############
 
+    for epoch in range(config_params.n_epoch):
         model.train()
         model_ema.train()
-        model, model_ema = to_cuda_if_available(
-            model, model_ema
-        )
+        model, model_ema = to_cuda_if_available(model, model_ema)
 
         loss_value = train(
             train_loader=training_loader,
             model=model,
             optimizer=optimizer,
+            optimizer_type=config_params.optim,
             c_epoch=epoch,
             max_consistency_cost=config_params.max_consistency_cost,
             n_epoch_rampup=config_params.n_epoch_rampup,
@@ -392,21 +441,54 @@ if __name__ == "__main__":
             valid_synth = dfs["valid_synthetic"].drop("feature_filename", axis=1)
         else:
             valid_synth = dfs["valid_synthetic"]
-
+        """
         valid_synth_f1, psds_m_f1 = compute_metrics(
             predictions, valid_synth, durations_synth
         )
+        """
+        valid_synth_f1, lvf1, hvf1 = bootstrap(
+            predictions, valid_synth, get_f1_sed_score
+        )
+        psds_f1_valid, lvps, hvps = bootstrap(
+            predictions, valid_synth, get_f1_psds, meta_df=durations_synth
+        )
+
+        logger.info(
+            f"F1 event_based: {valid_synth_f1}, +- {max(valid_synth_f1-lvf1, hvf1 - valid_synth_f1)},\n"
+            f"Psds ct: {psds_f1_valid}, +- {max(psds_f1_valid - lvps, hvps - psds_f1_valid)}"
+        )
+
+        valid_weak_f1_pc = get_f_measure_by_class(
+            model, len(many_hot_encoder.labels), valid_weak_loader
+        )
+        valid_weak_f1 = np.mean(valid_weak_f1_pc)
+        logger.info(
+            f"\n ### Valid weak metric \n F1 per class: {valid_weak_f1_pc} \n Macro average: {valid_weak_f1}"
+        )
 
         # Update state
+        """state = update_state(
+            model,
+            model_ema,
+            optimizer,
+            epoch,
+            valid_synth_f1,
+            psds_f1_valid,
+            state,
+        )"""
+
         state = update_state(
             model,
             model_ema,
             optimizer,
             epoch,
             valid_synth_f1,
-            psds_m_f1,
+            psds_f1_valid,
+            valid_weak_f1,
             state,
         )
+
+        global_valid = valid_weak_f1 + valid_synth_f1
 
         # Callbacks
         if (
@@ -429,7 +511,7 @@ if __name__ == "__main__":
             if early_stopping_call.apply(valid_synth_f1):
                 logger.warn("EARLY STOPPING")
                 break
-        
+
     # save the results on csv file
     results_df = pd.DataFrame(results).to_csv(
         os.path.join(saved_pred_dir, "results.tsv"),
@@ -437,7 +519,7 @@ if __name__ == "__main__":
         index=False,
         float_format="%.4f",
     )
-    
+
     # ##############
     # VALIDATION
     # ##############
@@ -448,14 +530,14 @@ if __name__ == "__main__":
 
         if model_type == "conf":
             model = _load_conformer(state)
-            logger.info(f"retrived model: {model_type}")
-        elif model_type == "trans":
+            logger.info(f"model retrieved: {model_type}")
+        elif model_type == "tran":
             model = _load_transformer(state)
-            logger.info(f"retrived model: {model_type}")
+            logger.info(f"model retrieved: {model_type}")
         elif model_type == "crnn":
-            model = _load_crnn(state) # to change
-            logger.info(f"retrived model: {model_type}")
-        
+            model = _load_crnn(state)
+            logger.info(f"model retrieved: {model_type}")
+
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
         logger.info(f"testing model of last epoch: {config_params.n_epoch}")
@@ -472,7 +554,7 @@ if __name__ == "__main__":
     predictions_fname = os.path.join(saved_pred_dir, "baseline_validation.tsv")
 
     validation_data = DataLoadDf(
-        df=dfs["validation"],
+        df=dfs["validation"],  # change the name of the synthetic
         encode_function=encod_func,
         transforms=transforms_valid,
         return_indexes=True,
@@ -484,10 +566,11 @@ if __name__ == "__main__":
         mel_f_max=config_params.mel_f_max,
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
-        filenames_folder=config_params.audio_eval_folder
+        filenames_folder=config_params.audio_eval_folder  # change filename folder
         if config_params.evaluation
         else config_params.audio_validation_dir,
     )
+
     validation_dataloader = DataLoader(
         validation_data,
         batch_size=config_params.batch_size,
@@ -518,7 +601,12 @@ if __name__ == "__main__":
         save_predictions=predictions_fname,
     )
 
-    compute_metrics(valid_predictions, validation_labels_df, durations_validation)
+    # compute_metrics(valid_predictions, validation_labels_df, durations_validation)
+    get_f1_sed_score(valid_predictions, validation_labels_df, verbose=True)
+    f1, low_f1, high_f1 = bootstrap(
+        valid_predictions, validation_labels_df, get_f1_sed_score
+    )
+    logger.info(f"F1 event_based: {f1}, +- {max(f1 - low_f1, high_f1 - f1)}")
 
     # ########################
     # Optional but recommended

@@ -69,6 +69,7 @@ def get_dfs(
     )
 
     # Event if synthetic not used for training, used on validation purpose
+    """
     synthetic_df = desed_dataset.initialize_and_get_df(
         tsv_path=path_dict["tsv_path_synth"],
         audio_dir_ss=audio_synthetic_ss,
@@ -76,6 +77,31 @@ def get_dfs(
         download=False,
         save_features=save_features,
     )
+    """
+
+    train_synth_df = desed_dataset.initialize_and_get_df(
+        tsv_path=path_dict["tsv_path_train_synth"],
+        audio_dir_ss=audio_synthetic_ss,
+        nb_files=nb_files,
+        download=False,
+        save_features=save_features,
+    )
+
+    valid_synth_df = desed_dataset.initialize_and_get_df(
+        tsv_path=path_dict["tsv_path_valid_synth"],
+        audio_dir=path_dict["audio_valid_synth"],
+        audio_dir_ss=audio_synthetic_ss,
+        nb_files=nb_files,
+        download=False,
+        save_features=save_features,
+    )
+
+    # divide weak label for training and validation
+    filenames_train = weak_df.filename.drop_duplicates().sample(
+        frac=0.9, random_state=26
+    )
+    train_weak_df = weak_df[weak_df.filename.isin(filenames_train)]
+    valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
 
     # TODO: Make the system already ready for the evaluation set so to make things easier
     # dev_test dataset
@@ -104,11 +130,13 @@ def get_dfs(
     # log.info(f"validation_df: {validation_df.head()}")
 
     # Divide synthetic in train and valid
+    """
     filenames_train = synthetic_df.filename.drop_duplicates().sample(
         frac=0.8, random_state=26
     )
     train_synth_df = synthetic_df[synthetic_df.filename.isin(filenames_train)]
     valid_synth_df = synthetic_df.drop(train_synth_df.index).reset_index(drop=True)
+    """
 
     # Put train_synth in frames so many_hot_encoder can work.
     # Not doing it for valid, because not using labels (when prediction) and event based metric expect sec.
@@ -120,12 +148,23 @@ def get_dfs(
     )
     log.debug(valid_synth_df.event_label.value_counts())
 
+    """
     data_dfs = {
         "weak": weak_df,
         "unlabel": unlabel_df,
         "synthetic": synthetic_df,
         "train_synthetic": train_synth_df,
         "valid_synthetic": valid_synth_df,
+        "validation": validation_df,  # TODO: Proper name for the dataset
+    }
+    """
+    # new split of data
+    data_dfs = {
+        "weak": train_weak_df,
+        "unlabel": unlabel_df,
+        "train_synthetic": train_synth_df,
+        "valid_synthetic": valid_synth_df,
+        "valid_weak": valid_weak_df,
         "validation": validation_df,  # TODO: Proper name for the dataset
     }
 

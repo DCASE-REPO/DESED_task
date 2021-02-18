@@ -2,12 +2,16 @@
 oar_job_*
 OAR*
 recipes/dcase2020_task4_baseline/logs/*
+recipes/dcase2020_task4_baseline/logs*
 
 #ignore data folders
 recipes/dcase2020_task4_baseline/data/desed/audio
 recipes/dcase2020_task4_baseline/data/desed/metadata
 recipes/dcase2020_task4_baseline/data/features/sr*
 recipes/dcase2020_task4_baseline/exp_out/Mean*
+# to remove this line
+recipes/dcase2020_task4_baseline/data/desed2021 
+
 
 #visual studio files
 .vscode/

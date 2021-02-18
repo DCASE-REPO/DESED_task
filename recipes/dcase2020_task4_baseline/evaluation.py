@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import os
 from os import path as osp
+import functools
+import multiprocessing
+from contextlib import closing
 
 import psds_eval
 import scipy
@@ -339,7 +342,7 @@ def get_f_measure_by_class(torch_model, nb_tags, dataloader_, thresholds_=None):
     tn = np.zeros(nb_tags)
     fp = np.zeros(nb_tags)
     fn = np.zeros(nb_tags)
-    for counter, (batch_x, y) in enumerate(dataloader_):
+    for counter, ((batch_x, y), i) in enumerate(dataloader_):
         if torch.cuda.is_available():
             batch_x = batch_x.cuda()
 
@@ -499,6 +502,43 @@ def compute_psds_from_operating_points(
     return psds
 
 
+# added for the new split
+def get_f1_sed_score(predictions, gtruth_df, verbose=False):
+    events_metric = event_based_evaluation_df(
+        gtruth_df, predictions, t_collar=0.200, percentage_of_length=0.2
+    )
+    if verbose:
+        logger.info(events_metric)
+    macro_f1_event = events_metric.results_class_wise_average_metrics()["f_measure"][
+        "f_measure"
+    ]
+    return macro_f1_event
+
+
+def get_f1_psds(predictions, gtruth_df, meta_df, verbose=False):
+    dtc_threshold, gtc_threshold, cttc_threshold = 0.5, 0.5, 0.3
+    psds = PSDSEval(
+        dtc_threshold,
+        gtc_threshold,
+        cttc_threshold,
+        ground_truth=gtruth_df,
+        metadata=meta_df,
+    )
+    psds_macro_f1, psds_f1_classes = psds.compute_macro_f_score(predictions)
+    if verbose:
+        logger.info(f"F1_score (psds_eval) accounting cross triggers: {psds_macro_f1}")
+    return psds_macro_f1
+
+
+def get_psds_ct(predictions, gtruth_df, meta_df, verbose=False):
+    psds = compute_psds_from_operating_points(predictions, gtruth_df, meta_df)
+    psds_ct_score = psds.psds(alpha_ct=1, alpha_st=0, max_efpr=100).value
+    if verbose:
+        logger.info(f"PSDS (1, 0, 100) accounting cross triggers: {psds_ct_score}")
+    return psds_ct_score
+
+
+# added for the new split
 def compute_metrics(predictions, gtruth_df, meta_df):
     """
     Compute the metrics for the predictions
@@ -526,3 +566,77 @@ def compute_metrics(predictions, gtruth_df, meta_df):
     psds_macro_f1, psds_f1_classes = psds.compute_macro_f_score(predictions)
     logger.info(f"F1_score (psds_eval) accounting cross triggers: {psds_macro_f1}")
     return macro_f1_event, psds_macro_f1
+
+
+# added for the new split of data
+# Bootstrap in multiprocessing
+class NoDaemonProcess(multiprocessing.Process):
+    # make 'daemon' attribute always return False
+    def _get_daemon(self):
+        return False
+
+    def _set_daemon(self, value):
+        pass
+
+    daemon = property(_get_daemon, _set_daemon)
+
+
+class MyPool(multiprocessing.pool.Pool):
+    # We sub-class multiprocessing.pool.Pool instead of multiprocessing.Pool
+    # because the latter is only a wrapper function, not a proper class.
+    Process = NoDaemonProcess
+
+
+def _bootstrap_iter(pred, gtruth, metric, frac, random_state=None, **kwargs):
+    """Every call of the bootstrap function
+    Args:
+        pred: pd.DataFrame, the dataframe containing the predictions
+        gtruth: pd.DataFrame, the dataframe containing the groundtruth
+        metric: function, a function that will be called like this: f(pred, gtruth, **kwargs)
+            and return the value of the metric wanted
+        frac: float, in [0,1], the amount of data for each loop of bootstrap
+        random_state: int or numpy.random.RandomState, to seed the random generator when sampling the data
+            (allow reproducibility)
+        **kwargs: additional arguments of `metric`
+    Returns:
+        The metric returned by the function metric
+    """
+    names_kept = gtruth.filename.drop_duplicates().sample(
+        frac=frac, random_state=random_state
+    )
+    if isinstance(pred, list):
+        pred_bt = []
+        for pdf in pred:
+            pred_bt.append(pdf[pdf.filename.isin(names_kept)])
+    else:
+        pred_bt = pred[pred.filename.isin(names_kept)]
+    gt_bt = gtruth[gtruth.filename.isin(names_kept)]
+    m = metric(pred_bt, gt_bt, **kwargs)
+    return m
+
+
+def bootstrap(
+    pred, gtruth, metric, n_iterations=200, frac=0.8, confidence=0.9, **kwargs
+):
+    """Apply bootstrap over a metric
+    Args:
+        pred: pd.DataFrame, the dataframe containing the predictions
+        gtruth: pd.DataFrame, the dataframe containing the groundtruth
+        metric: function, a function that will be called like this: f(pred, gtruth, **kwargs)
+            and return the value of the metric wanted
+        n_iterations: int, the number of iterations to apply bootstrap
+        frac: float, in [0,1], the amount of data for each loop of bootstrap
+        confidence: float, in [0,1], the confidence interval to be used.
+        **kwargs: additional arguments of `metric`
+    Returns:
+        (float, float, float)
+        (Mean value, the lower value of the interval, the upper value of the interval)
+    """
+    bt_iter = functools.partial(_bootstrap_iter, pred, gtruth, metric, frac, **kwargs)
+    with closing(MyPool(multiprocessing.cpu_count() - 1)) as pool:
+        result_metrics = pool.map(bt_iter, range(n_iterations))
+    result_metrics.sort()
+    mean_val = np.mean(result_metrics)
+    lower = np.percentile(result_metrics, ((1 - confidence) / 2) * 100)
+    upper = np.percentile(result_metrics, (confidence + ((1 - confidence) / 2)) * 100)
+    return mean_val, lower, upper

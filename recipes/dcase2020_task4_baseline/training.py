@@ -10,6 +10,7 @@ import torch
 from torch import nn
 import time
 import numpy as np
+import radam
 
 
 from utils.utils import (
@@ -56,7 +57,6 @@ def get_batchsizes_and_masks(no_synthetic, batch_size):
 
 
 def get_model_params(model):
-    # logger.info(f"number of parameters in the model: {pytorch_total_params}")
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
@@ -77,7 +77,6 @@ def get_teacher_model(**crnn_kwargs):
         param.detach_()
 
     return crnn_ema
-
 
 
 def get_student_model_transformer(**transformer_kwargs):
@@ -114,10 +113,15 @@ def get_teacher_model_conformer(**conformer_kwargs):
     return conformer_ema
 
 
-def get_optimizer(model, **optim_kwargs):
-    return torch.optim.Adam(
-        filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
-    )
+def get_optimizer(model, optim="a", **optim_kwargs):
+    if optim == "a":
+        return torch.optim.Adam(
+            filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
+        )
+    elif optim == "ra":
+        return radam.RAdam(
+            filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
+        )
 
 
 def set_state(
@@ -174,6 +178,7 @@ def update_state(
     epoch,
     valid_synth_f1,
     psds_m_f1,
+    valid_weak_f1,
     state=None,
 ):
     """
@@ -193,6 +198,7 @@ def update_state(
     state["epoch"] = epoch
     state["valid_metric"] = valid_synth_f1
     state["valid_f1_psds"] = psds_m_f1
+    state["valid_weak_f1"] = valid_weak_f1
 
     return state
 
@@ -221,6 +227,15 @@ def adjust_learning_rate(optimizer, rampup_value, max_learning_rate, rampdown_va
         # param_group['weight_decay'] = weight_decay
 
 
+def adjust_learning_rate_ra(optimizer, max_learning_rate):
+    """
+    doc_string
+    """
+    for param_group in optimizer.param_groups:
+        print(param_group["lr"])
+        param_group["lr"] = param_group["lr"] * 0.1
+
+
 def update_ema_variables(model, ema_model, alpha, global_step):
     """
     Update teache model weights. It uses the true average until the exponential average is more correct.
@@ -241,6 +256,7 @@ def train(
     train_loader,
     model,
     optimizer,
+    optimizer_type,
     c_epoch,
     max_consistency_cost,
     n_epoch_rampup,
@@ -287,8 +303,17 @@ def train(
 
         rampup_value = ramps.exp_rampup(global_step, n_epoch_rampup * len(train_loader))
 
-        if adjust_lr:
-            adjust_learning_rate(optimizer, rampup_value, max_learning_rate)
+        # changing the learning rate according to the type of optimizer
+        if optimizer_type == "a":
+
+            if adjust_lr:
+                adjust_learning_rate(optimizer, rampup_value, max_learning_rate)
+
+        elif optimizer_type == "ra":
+
+            if c_epoch % 100 == 0 and c_epoch > 0:
+                # log.info("Multiply lr * 0.1")
+                adjust_learning_rate_ra(optimizer, max_learning_rate)
 
         meters.update("lr", optimizer.param_groups[0]["lr"])
 

@@ -36,8 +36,6 @@ class Conformer(nn.Module):
         # Transformer - 2nd module
         self.conformer_block = ConformerEncoder(**confomer_kwargs)
 
-        # self.feature_embedding2 = nn.Linear(att_units, embed_dim)
-
         # position wise classifier - 3rd module
         self.ps_classifier = PSClassifier(**confomer_kwargs)
 
@@ -57,9 +55,6 @@ class Conformer(nn.Module):
 
         # conformer block
         x = self.conformer_block(x)
-
-        # go back to 128 dimensions
-        # x = self.feature_embedding2(x) # [bs, frames, ch] -> 24, 158, 128
 
         # getting prediction for weak label and strong label
         weak_label = self.ps_classifier(x[:, :1, :])
@@ -85,7 +80,6 @@ class Conformer(nn.Module):
             "cnn": self.cnn.state_dict(
                 destination=destination, prefix=prefix, keep_vars=keep_vars
             ),
-
             "feature_embedding": self.feature_embedding.state_dict(
                 destination=destination, prefix=prefix, keep_vars=keep_vars
             ),

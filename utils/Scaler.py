@@ -134,6 +134,7 @@ class Scaler:
         return self.mean_, self.std_
 
     def normalize(self, batch):
+        
         if type(batch) is torch.Tensor:
             batch_ = batch.numpy()
             batch_ = (batch_ - self.mean_) / self.std_

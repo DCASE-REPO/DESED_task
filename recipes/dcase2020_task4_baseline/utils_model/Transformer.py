@@ -24,22 +24,21 @@ class Transformer(nn.Module):
 
         self.n_in_channel = n_in_channel
 
-        # CNN-based feature embedding 
+        # CNN-based feature embedding
         self.cnn = CNN(
             n_in_channel=self.n_in_channel,
             activation=activation_cnn,
             conv_dropout=dropout_cnn,
             **transformer_kwargs,
         )
-        
+
         # Transformer
-         # feature embedding: 128 -> 512
+        # feature embedding: 128 -> 512
         self.feature_embedding = nn.Linear(embed_dim, att_units)
         self.transformer_block = TransformerEncoder(**transformer_kwargs)
 
-        # position wise classifier 
-        self.ps_classifier_weak = PSClassifier(**transformer_kwargs)
-        self.ps_classifier_strong = PSClassifier(**transformer_kwargs)
+        # position wise classifier
+        self.ps_classifier = PSClassifier(**transformer_kwargs)
 
     def forward(self, x):
 

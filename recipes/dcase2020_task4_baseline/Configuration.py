@@ -8,7 +8,8 @@ class Configuration:
 
     """
     Configuration class defining the default parameteres regarding the processing of data,
-    model, training and post-processing
+    model, training and post-processing of the paper:
+    "CONVOLUTION-AUGMENTED TRANSFORMER FOR SEMI-SUPERVISED SOUND EVENT DETECTION"
     """
 
     def __init__(self, workspace="."):
@@ -36,9 +37,21 @@ class Configuration:
         self.synthetic = os.path.join(
             self.metadata_train_folder, "synthetic20/soundscapes.tsv"
         )
+        # self.train_synth = os.path.join(
+        #   self.metadata_train_folder, "synthetic20_train/soundscapes.tsv"
+        # )
+        self.train_synth = os.path.join(
+            self.metadata_train_folder, "synthetic2021_train/soundscapes.csv"
+        )
 
         # validation dataset metadata paths
         self.validation = os.path.join(self.metadata_valid_folder, "validation.tsv")
+
+        # synthetic dataset metadata path
+        # self.valid_synth = os.path.join(self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv")
+        self.valid_synth = os.path.join(
+            self.metadata_valid_folder, "synthetic2021_validation/validation.csv"
+        )
 
         # 2018 dataset metadata path
         self.test2018 = os.path.join(self.metadata_valid_folder, "test_dcase2018.tsv")
@@ -53,6 +66,11 @@ class Configuration:
         self.audio_train_folder = os.path.join(self.audio_folder, "train")
         self.audio_valid_folder = os.path.join(self.audio_folder, "validation")
         self.audio_eval_folder = os.path.join(self.audio_folder, "eval/public")
+        # to check
+        # self.audio_valid_synth = os.path.join(self.audio_train_folder, "synthetic20_validation/soundscapes")
+        self.audio_valid_synth = os.path.join(
+            self.audio_train_folder, "synthetic2021_validation/soundscapes"
+        )
 
         # Source separation dataset path
         self.weak_ss = os.path.join(self.audio_train_folder, "weak")
@@ -82,7 +100,7 @@ class Configuration:
         # saved_model_dir = os.path.join(store_dir, "model")
         # saved_pred_dir = os.path.join(store_dir, "predictions")
 
-        self.save_features = True
+        self.save_features = False
 
         ####################################
         # Model and data features parameters
@@ -194,7 +212,7 @@ class Configuration:
         # self.batch_size = 126
         self.noise_snr = 30
 
-        self.n_epoch = 40
+        self.n_epoch = 200
         self.n_epoch_rampup = 50
 
         self.checkpoint_epochs = 1
@@ -204,6 +222,7 @@ class Configuration:
         self.adjust_lr = True
         self.max_learning_rate = 0.001  # Used if adjust_lr is True
         self.default_learning_rate = 0.001  # Used if adjust_lr is False
+        self.optim = "a"
 
         # optimizer params
         self.optim_kwargs = {"lr": self.default_learning_rate, "betas": (0.9, 0.999)}
@@ -216,7 +235,7 @@ class Configuration:
         self.terminal_level = logging.INFO
 
         # Evaluatin dataset information
-        self.evaluation = True
+        self.evaluation = False
 
     def get_folder_path(self):
         """
@@ -229,6 +248,7 @@ class Configuration:
         path_dict = dict(
             audio_evaluation_dir=self.audio_eval_folder,
             audio_validation_dir=self.audio_validation_dir,
+            audio_valid_synth=self.audio_valid_synth,
             weak_ss=self.weak_ss,
             unlabel_ss=self.unlabel_ss,
             validation_ss=self.validation_ss,
@@ -238,5 +258,8 @@ class Configuration:
             tsv_path_synth=self.synthetic,
             tsv_path_valid=self.validation,
             tsv_path_eval_deded=self.eval_desed,
+            # added with the new split
+            tsv_path_train_synth=self.train_synth,
+            tsv_path_valid_synth=self.valid_synth,
         )
         return path_dict
