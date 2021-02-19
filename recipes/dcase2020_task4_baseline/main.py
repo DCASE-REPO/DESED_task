@@ -215,82 +215,13 @@ if __name__ == "__main__":
         noise_snr=config_params.noise_snr,
     )
 
-    """ logger.info(f"Dataset {weak_data}, transform parameter: {weak_data.transforms}")
-    logger.info(f"Dataset {unlabel_data}, transform parameter: {unlabel_data.transforms}")
-    logger.info(f"Dataset {train_synth_data}, transform parameter: {train_synth_data.transforms}")
- """
     weak_data.transforms = transforms
     unlabel_data.transforms = transforms
     train_synth_data.transforms = transforms
 
-    """ logger.info(f"Dataset {weak_data} after, transform parameter: {weak_data.transforms}")
-    logger.info(f"Dataset {unlabel_data} after, transform parameter: {unlabel_data.transforms}")
-    logger.info(f"Dataset {train_synth_data} after, transform parameter: {train_synth_data.transforms}")
-
-    logger.info(f"Dataset {weak_data}, in_memory parameter: {weak_data.in_memory}")
-    logger.info(f"Dataset {unlabel_data}, in_memory parameter: {unlabel_data.in_memory}")
-    logger.info(f"Dataset {train_synth_data}, in_memory parameter: {train_synth_data.in_memory}")
- """
     weak_data.in_memory = config_params.in_memory
     train_synth_data.in_memory = config_params.in_memory
     unlabel_data.in_memory = config_params.in_memory_unlab
-
-    """ logger.info(f"Dataset {weak_data} after, in_memory parameter: {weak_data.in_memory}")
-    logger.info(f"Dataset {unlabel_data} after, in_memory parameter: {unlabel_data.in_memory}")
-    logger.info(f"Dataset {train_synth_data} after, in_memory parameter: {train_synth_data.in_memory}")
- """
-
-    """ weak_data = DataLoadDf(
-        df=dfs["weak"],
-        encode_function=encod_func,
-        transforms=transforms,
-        in_memory=config_params.in_memory,
-        sample_rate=config_params.sample_rate,
-        n_window=config_params.n_window,
-        hop_size=config_params.hop_size,
-        n_mels=config_params.n_mels,
-        mel_f_min=config_params.mel_f_min,
-        mel_f_max=config_params.mel_f_max,
-        compute_log=config_params.compute_log,
-        save_features=config_params.save_features,
-        filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
-    ) """
-
-    """ unlabel_data = DataLoadDf(
-        df=dfs["unlabel"],
-        encode_function=encod_func,
-        transforms=transforms,
-        in_memory=config_params.in_memory_unlab,
-        sample_rate=config_params.sample_rate,
-        n_window=config_params.n_window,
-        hop_size=config_params.hop_size,
-        n_mels=config_params.n_mels,
-        mel_f_min=config_params.mel_f_min,
-        mel_f_max=config_params.mel_f_max,
-        compute_log=config_params.compute_log,
-        save_features=config_params.save_features,
-        filenames_folder=os.path.join(
-            config_params.audio_train_folder, "unlabel_in_domain"
-        ),
-    ) """
-
-    """ train_synth_data = DataLoadDf(
-        df=dfs["train_synthetic"],
-        encode_function=encod_func,
-        transforms=transforms,
-        in_memory=config_params.in_memory,
-        sample_rate=config_params.sample_rate,
-        n_window=config_params.n_window,
-        hop_size=config_params.hop_size,
-        n_mels=config_params.n_mels,
-        mel_f_min=config_params.mel_f_min,
-        mel_f_max=config_params.mel_f_max,
-        compute_log=config_params.compute_log,
-        save_features=config_params.save_features,
-        filenames_folder=os.path.join(
-            config_params.audio_train_folder, "synthetic20/soundscapes"
-        ),
-    ) """
 
     valid_synth_data = DataLoadDf(
         df=dfs["valid_synthetic"],

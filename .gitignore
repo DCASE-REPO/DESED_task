@@ -3,10 +3,11 @@ oar_job_*
 OAR*
 
 #ignore data folders
-recipes/dcase2020_task4_baseline/data/desed/audio
-recipes/dcase2020_task4_baseline/data/desed/metadata
-recipes/dcase2020_task4_baseline/data/features/sr*
+recipes/dcase2020_task4_baseline/data
 recipes/dcase2020_task4_baseline/exp_out/Mean*
+recipes/dcase2020_task4_baseline/logs*
+recipes/dcase2020_task4_baseline/logs
+
 
 #visual studio files
 .vscode/

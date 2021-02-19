@@ -218,70 +218,10 @@ def get_compose_transforms(datasets, scaler_type, max_frames, add_axis_conv, noi
         unlabel_data = datasets["unlabel"]
         train_synth_data = datasets["synthetic"]
 
-        """ log.info(f"Dataset {weak_data}, transform parameter: {weak_data.transforms}")
-        log.info(f"Dataset {unlabel_data}, transform parameter: {unlabel_data.transforms}")
-        log.info(f"Dataset {train_synth_data}, transform parameter: {train_synth_data.transforms}")
-  """
         weak_data.transforms = transforms
         unlabel_data.transforms = transforms
         train_synth_data.transforms = transforms
 
-        """ log.info(f"Dataset {weak_data} after, transform parameter: {weak_data.transforms}")
-        log.info(f"Dataset {unlabel_data} after, transform parameter: {unlabel_data.transforms}")
-        log.info(f"Dataset {train_synth_data} after, transform parameter: {train_synth_data.transforms}")
- 
-        log.info(f"Dataset {weak_data}, in_memory parameter: {weak_data.in_memory}")
-        log.info(f"Dataset {unlabel_data}, in_memory parameter: {unlabel_data.in_memory}")
-        log.info(f"Dataset {train_synth_data}, in_memory parameter: {train_synth_data.in_memory}")
- """
-
-        """ weak_data = DataLoadDf(
-            df=dfs["weak"],
-            encode_function=encod_func,
-            transforms=transforms,
-            sample_rate=sample_rate,
-            n_window=n_window,
-            hop_size=hop_size,
-            n_mels=n_mels,
-            mel_f_min=mel_f_min,
-            mel_f_max=mel_f_max,
-            compute_log=compute_log,
-            save_features=save_features,
-            filenames_folder=os.path.join(audio_train_folder, "weak"),
-        )
- """
-        """ unlabel_data = DataLoadDf(
-            df=dfs["unlabel"],
-            encode_function=encod_func,
-            transforms=transforms,
-            sample_rate=sample_rate,
-            n_window=n_window,
-            hop_size=hop_size,
-            n_mels=n_mels,
-            mel_f_min=mel_f_min,
-            mel_f_max=mel_f_max,
-            compute_log=compute_log,
-            save_features=save_features,
-            filenames_folder=os.path.join(audio_train_folder, "unlabel_in_domain"),
-        )
- """
-        """ train_synth_data = DataLoadDf(
-            df=dfs["train_synthetic"],
-            encode_function=encod_func,
-            transforms=transforms,
-            sample_rate=sample_rate,
-            n_window=n_window,
-            hop_size=hop_size,
-            n_mels=n_mels,
-            mel_f_min=mel_f_min,
-            mel_f_max=mel_f_max,
-            compute_log=compute_log,
-            save_features=save_features,
-            filenames_folder=os.path.join(
-                audio_train_folder, "synthetic20/soundscapes"
-            ),
-        )
- """
         # scaling, only on real data since that's our final goal and test data are real
         scaler_args = []
         scaler = Scaler()
