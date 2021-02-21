@@ -40,15 +40,15 @@ class Configuration:
         # validation dataset metadata paths
         self.validation = os.path.join(self.metadata_valid_folder, "validation.tsv")
 
+        # evaluation dataset metadata path
+        self.eval_desed = os.path.join(self.metadata_eval_folder, "public.tsv")
+
         # 2018 dataset metadata path
         self.test2018 = os.path.join(self.metadata_valid_folder, "test_dcase2018.tsv")
         self.eval2018 = os.path.join(self.metadata_valid_folder, "eval_dcase2018.tsv")
 
-        # evaluation dataset metadata path
-        self.eval_desed = os.path.join(self.metadata_eval_folder, "public.tsv")
-
-        #  Useful because does not correspond to the tsv file path (metadata replace by audio), (due to subsets test/eval2018)
-        # audio folder
+        # Useful because does not correspond to the tsv file path (metadata replace by audio), (due to subsets test/eval2018)
+        # audio folder paths
         self.audio_folder = os.path.join(self.workspace, "data/desed/audio")
         self.audio_train_folder = os.path.join(self.audio_folder, "train")
         self.audio_valid_folder = os.path.join(self.audio_folder, "validation")
@@ -67,7 +67,6 @@ class Configuration:
         )
         self.eval_desed_ss = os.path.join(self.audio_eval_folder, "public/soundscapes")
 
-        # validation dir (to change with the evaluation dataset path) # TODO: could be improved with a flag maybe,
         # TODO: to be removed (in the future) -> same path of audio_valid_folder
         self.audio_validation_dir = os.path.join(
             self.audio_folder, "validation"

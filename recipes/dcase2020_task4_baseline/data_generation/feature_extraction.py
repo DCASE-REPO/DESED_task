@@ -155,7 +155,7 @@ def get_dataset(
         n_window: int, window length
         hop_size: int, hop size
         n_mels: int, number of mels
-        mel_min_max_freq: tuple, min and max frequency to consider for the mel filter
+        mel_min_max_freq: tuple, min and max frequency of the mel filter
         nb_files: int, number of files to retrieve and process (in case only part of dataset is used)
 
     Return:
@@ -173,7 +173,7 @@ def get_dataset(
         compute_log=False,
     )
 
-    # Separated sources paramete? # TODO
+    # Separated sources parameter? # TODO
     dfs = get_dfs(
         path_dict=path_dict,
         sample_rate=sample_rate,

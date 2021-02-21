@@ -117,7 +117,8 @@ class DESED:
 
         self.feature_dir = osp.join(feature_dir, "features")
         self.meta_feat_dir = osp.join(feature_dir, "metadata")
-        # create folder if not exist
+        
+        # create folder for folder and metadata if they do not exist
         create_folder(self.feature_dir)
         create_folder(self.meta_feat_dir)
 
@@ -211,12 +212,17 @@ class DESED:
         meta_feat_dir = osp.join(self.meta_feat_dir, subdir)
         feature_dir = osp.join(self.feature_dir, subdir)
         logger.debug(feature_dir)
+        # TODO: These folders are probably already created in the DESED initialization. 
+        # To consider if the DESED class is going to be deleted
         create_folder(meta_feat_dir)
         create_folder(feature_dir)
 
         df_meta = self.get_df_from_meta(
             meta_name=tsv_path, nb_files=nb_files, pattern_ss=pattern_ss
         )
+
+        # from here
+
         logger.info(f"Total file number: {len(df_meta.filename.unique())}")
         # Download real data
         if download:  # TODO: to check this part
@@ -507,7 +513,7 @@ class DESED:
         """
         The function return a pandas dataframe containing the information extracted from the tsv file
         passed as input parameter.
-        If nb_file is not None, only part of the tsv file is extracted.
+        If nb_file is not None, only part of the tsv file is extracted. 
 
         Args:
             meta_name : str, path of the tsv file from which the data are extracted and the dataframe created.
