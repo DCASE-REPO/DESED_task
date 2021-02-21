@@ -15,6 +15,10 @@ recipes/dcase2020_task4_baseline/logs
 #run locals file
 run_oar.sh
 
+#ignore mean and std file
+mean.npy
+mean_of_square.npy
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

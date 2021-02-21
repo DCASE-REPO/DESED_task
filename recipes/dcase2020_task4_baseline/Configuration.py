@@ -68,18 +68,10 @@ class Configuration:
         self.eval_desed_ss = os.path.join(self.audio_eval_folder, "public/soundscapes")
 
         # TODO: to be removed (in the future) -> same path of audio_valid_folder
-        self.audio_validation_dir = os.path.join(
-            self.audio_folder, "validation"
-        )  # in case of validation dataset
-        # audio_validation_dir = os.path.join(audio_eval_folder, 'public')
+        self.audio_validation_dir = os.path.join(self.audio_folder, "validation")
 
         # storing directories paths
-        self.exp_out_path = os.path.join(
-            self.workspace, "exp_out"
-        )  # would be the stored_data folder
-        # store_dir = os.path.join(exp_out_path, "MeanTeacher" + add_dir_model_name)
-        # saved_model_dir = os.path.join(store_dir, "model")
-        # saved_pred_dir = os.path.join(store_dir, "predictions")
+        self.exp_out_path = os.path.join(self.workspace, "exp_out")
 
         self.save_features = False
 
@@ -171,7 +163,7 @@ class Configuration:
         # Logger
         self.terminal_level = logging.INFO
 
-        # Evaluatin dataset information
+        # Evaluation dataset information
         self.evaluation = True
 
     def get_folder_path(self):

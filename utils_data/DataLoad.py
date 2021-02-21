@@ -17,7 +17,6 @@ torch.manual_seed(0)
 random.seed(0)
 
 logger = create_logger(__name__, terminal_level=logging.INFO)
-# logger = create_logger(__name__, terminal_level=cfg.terminal_level)
 
 
 class DataLoadDf(Dataset):
@@ -70,7 +69,6 @@ class DataLoadDf(Dataset):
         self.in_memory = in_memory
         self.filenames_folder = filenames_folder
 
-        # if self.in_memory:
         self.features = {}
 
         self.sample_rate = sample_rate
@@ -82,7 +80,6 @@ class DataLoadDf(Dataset):
         self.compute_log = compute_log
         self.save_features = save_features
 
-        # only if the features are going to be saved
         if self.save_features:
             self.feat_filenames = df.feature_filename.drop_duplicates()
 
@@ -103,15 +100,12 @@ class DataLoadDf(Dataset):
             data: numpy.array, containing the features computed previously
         """
         if not self.in_memory:
-            # logger.info(f"File name (not self.in_memory): {filename}")
             data = np.load(filename).astype(np.float32)
         else:
             if self.features.get(filename) is None:
-                # logger.info(f"File name: {filename}")
                 data = np.load(filename).astype(np.float32)
                 self.features[filename] = data
             else:
-                # logger.info(f"File name already calculated: {filename}")
                 data = self.features[filename]
         return data
 
@@ -120,7 +114,6 @@ class DataLoadDf(Dataset):
         Returns:
             length: int, length of the object
         """
-        # length = len(self.feat_filenames)
         length = len(self.filenames)
         return length
 

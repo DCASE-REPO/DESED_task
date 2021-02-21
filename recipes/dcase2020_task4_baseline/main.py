@@ -131,9 +131,7 @@ if __name__ == "__main__":
     # ################################################################
 
     dataset, dfs = get_dataset(
-        base_feature_dir=os.path.join(
-            config_params.workspace, "data", "features"
-        ), 
+        base_feature_dir=os.path.join(config_params.workspace, "data", "features"),
         path_dict=config_params.get_folder_path(),
         sample_rate=config_params.sample_rate,
         n_window=config_params.n_window,
@@ -350,7 +348,7 @@ if __name__ == "__main__":
             save_predictions=None,
         )
 
-        # Validation with synthetic data 
+        # Validation with synthetic data
         if config_params.save_features:
             valid_synth = dfs["valid_synthetic"].drop("feature_filename", axis=1)
         else:
@@ -429,7 +427,7 @@ if __name__ == "__main__":
         mel_f_max=config_params.mel_f_max,
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
-        filenames_folder=config_params.audio_eval_folder #TODO: Make an unique variable, instead of an if inside a passing function
+        filenames_folder=config_params.audio_eval_folder  # TODO: Make an unique variable, instead of an if inside a passing function
         if config_params.evaluation
         else config_params.audio_validation_dir,
     )

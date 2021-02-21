@@ -53,12 +53,13 @@ def get_batchsizes_and_masks(no_synthetic, batch_size):
 
 
 def get_model_params(model):
-    # logger.info(f"number of parameters in the model: {pytorch_total_params}")
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 def get_student_model(**crnn_kwargs):
-
+    """
+    Retrieve CRNN student model
+    """
     crnn = CRNN(**crnn_kwargs)
     logger.info(crnn)
     crnn.apply(weights_init)
@@ -67,7 +68,9 @@ def get_student_model(**crnn_kwargs):
 
 
 def get_teacher_model(**crnn_kwargs):
-
+    """
+    Retrieve CRNN teacher model
+    """
     crnn_ema = CRNN(**crnn_kwargs)
     crnn_ema.apply(weights_init)
     for param in crnn_ema.parameters():
@@ -95,6 +98,9 @@ def set_state(
     crnn_kwargs,
     optim_kwargs,
 ):
+    """
+    Setting the training state of the model
+    """
 
     state = {
         "model": {
