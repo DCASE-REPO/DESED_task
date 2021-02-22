@@ -38,7 +38,7 @@ class Configuration:
 
         # self.valid_synth = os.path.join(self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv")
         self.valid_synth = os.path.join(
-            self.metadata_valid_folder, "synthetic20_validation/soundscapes.csv"
+            self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv"
         )
 
         # validation dataset metadata paths
