@@ -199,7 +199,7 @@ if __name__ == "__main__":
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
         filenames_folder=os.path.join(
-            config_params.audio_train_folder, "synthetic20/soundscapes"
+            config_params.audio_train_folder, "synthetic20_train/soundscapes"
         ),
     )
 
@@ -224,7 +224,12 @@ if __name__ == "__main__":
         if os.path.exists(scaler_save_file):
             scaler.load(scaler_save_file)
         else:
-            scaler.calculate_scaler(dataset)
+            concat_dataset = (
+                ConcatDataset([weak_data, unlabel_data])
+                if no_synthetic
+                else ConcatDataset([weak_data, unlabel_data, train_synth_data])
+            )
+            scaler.calculate_scaler(concat_dataset)
             scaler.save(scaler_save_file)
         # log.info(f"mean: {mean}, std: {std}")
     else:
