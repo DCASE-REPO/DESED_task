@@ -5,12 +5,10 @@ recipes/dcase2020_task4_baseline/logs/*
 recipes/dcase2020_task4_baseline/logs*
 
 #ignore data folders
-recipes/dcase2020_task4_baseline/data/desed/audio
-recipes/dcase2020_task4_baseline/data/desed/metadata
-recipes/dcase2020_task4_baseline/data/features/sr*
+recipes/dcase2020_task4_baseline/data
 recipes/dcase2020_task4_baseline/exp_out/Mean*
 # to remove this line
-recipes/dcase2020_task4_baseline/data/desed2021 
+recipes/dcase2020_task4_baseline/data/desed2021
 
 
 #visual studio files
@@ -18,6 +16,10 @@ recipes/dcase2020_task4_baseline/data/desed2021
 
 #run locals file
 run_oar.sh
+
+#ignore mean and std file
+mean.npy
+mean_of_square.npy
 
 
 # Byte-compiled / optimized / DLL files

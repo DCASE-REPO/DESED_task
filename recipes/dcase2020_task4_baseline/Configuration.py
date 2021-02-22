@@ -44,24 +44,23 @@ class Configuration:
             self.metadata_train_folder, "synthetic2021_train/soundscapes.csv"
         )
 
-        # validation dataset metadata paths
-        self.validation = os.path.join(self.metadata_valid_folder, "validation.tsv")
-
-        # synthetic dataset metadata path
         # self.valid_synth = os.path.join(self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv")
         self.valid_synth = os.path.join(
             self.metadata_valid_folder, "synthetic2021_validation/validation.csv"
         )
 
-        # 2018 dataset metadata path
-        self.test2018 = os.path.join(self.metadata_valid_folder, "test_dcase2018.tsv")
-        self.eval2018 = os.path.join(self.metadata_valid_folder, "eval_dcase2018.tsv")
+        # validation dataset metadata paths
+        self.validation = os.path.join(self.metadata_valid_folder, "validation.tsv")
 
         # evaluation dataset metadata path
         self.eval_desed = os.path.join(self.metadata_eval_folder, "public.tsv")
 
-        #  Useful because does not correspond to the tsv file path (metadata replace by audio), (due to subsets test/eval2018)
-        # audio folder
+        # 2018 dataset metadata path
+        self.test2018 = os.path.join(self.metadata_valid_folder, "test_dcase2018.tsv")
+        self.eval2018 = os.path.join(self.metadata_valid_folder, "eval_dcase2018.tsv")
+
+        # Useful because does not correspond to the tsv file path (metadata replace by audio), (due to subsets test/eval2018)
+        # audio folder paths
         self.audio_folder = os.path.join(self.workspace, "data/desed/audio")
         self.audio_train_folder = os.path.join(self.audio_folder, "train")
         self.audio_valid_folder = os.path.join(self.audio_folder, "validation")
@@ -85,20 +84,11 @@ class Configuration:
         )
         self.eval_desed_ss = os.path.join(self.audio_eval_folder, "public/soundscapes")
 
-        # validation dir (to change with the evaluation dataset path) # TODO: could be improved with a flag maybe,
         # TODO: to be removed (in the future) -> same path of audio_valid_folder
-        self.audio_validation_dir = os.path.join(
-            self.audio_folder, "validation"
-        )  # in case of validation dataset
-        # audio_validation_dir = os.path.join(audio_eval_folder, 'public')
+        self.audio_validation_dir = os.path.join(self.audio_folder, "validation")
 
         # storing directories paths
-        self.exp_out_path = os.path.join(
-            self.workspace, "exp_out"
-        )  # would be the stored_data folder
-        # store_dir = os.path.join(exp_out_path, "MeanTeacher" + add_dir_model_name)
-        # saved_model_dir = os.path.join(store_dir, "model")
-        # saved_pred_dir = os.path.join(store_dir, "predictions")
+        self.exp_out_path = os.path.join(self.workspace, "exp_out")
 
         self.save_features = False
 
@@ -236,6 +226,8 @@ class Configuration:
 
         # Evaluatin dataset information
         self.evaluation = False
+        # Evaluation dataset information
+        self.evaluation = True
 
     def get_folder_path(self):
         """

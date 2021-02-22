@@ -45,7 +45,6 @@ class CRNN(nn.Module):
         self.attention = attention
         self.cnn_integration = cnn_integration
 
-        # TODO: ask this.
         n_in_cnn = n_in_channel
 
         if cnn_integration:

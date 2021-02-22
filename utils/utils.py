@@ -11,7 +11,6 @@ import os.path as osp
 import librosa
 import torch
 
-# from desed.utils import create_folder
 from torch import nn
 
 
@@ -22,9 +21,7 @@ def create_folder(folder_name):
     Args:
         folder_name: str, path/name of the folder to be created
     """
-    # print(f"Folder to be created: {folder_name}")
     if not os.path.exists(folder_name):
-        # print(f'{folder_name} folder does not exist, creating it.')
         os.makedirs(folder_name)
 
 
@@ -52,7 +49,6 @@ def create_stored_data_folder(folder_ext, exp_out_path):
     create_folder(saved_model_dir)
     create_folder(saved_pred_dir)
 
-    # TODO: could be set in the configuration class, if any
     return saved_model_dir, saved_pred_dir
 
 
@@ -349,11 +345,11 @@ def generate_tsv_from_isolated_events(wav_folder, out_tsv=None):
 
 def meta_path_to_audio_dir(tsv_path):
     """
-        The function returns the metadata folder path
+        The function returns the audio folder path from the metadata folder path
     Args:
         tsv_path: str, .tsv file path
     Return:
-        path to metadata folder
+        path to audio folder
     """
     return os.path.splitext(tsv_path.replace("metadata", "audio"))[0]
 

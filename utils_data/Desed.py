@@ -16,10 +16,9 @@ import desed
 from tqdm import tqdm
 import logging
 
-from utilities.Logger import create_logger
+from utils.Logger import create_logger
 from utils.utils import read_audio, meta_path_to_audio_dir, create_folder
 
-# logger = create_logger(__name__, terminal_level=cfg.terminal_level)
 logger = create_logger(__name__, terminal_level=logging.INFO)
 
 
@@ -117,7 +116,8 @@ class DESED:
 
         self.feature_dir = osp.join(feature_dir, "features")
         self.meta_feat_dir = osp.join(feature_dir, "metadata")
-        # create folder if not exist
+
+        # create folder for folder and metadata if they do not exist
         create_folder(self.feature_dir)
         create_folder(self.meta_feat_dir)
 
@@ -186,11 +186,10 @@ class DESED:
                           generated on the fly.
 
         Returns:
-            df_features: pd.DataFrame. The dataframe contains only metadata if the features are not saved (save_features = False),
-                         while contains the paths to the features file in case they are saved (save_features = True)
+            pd.DataFrame. The dataframe contains only metadata if the features are not saved (save_features = False, df_meta),
+                         while contains the paths to the features file in case they are saved (save_features = True, df_features)
         """
 
-        # Check parameters
         if audio_dir_ss is not None:
             assert osp.exists(audio_dir_ss), (
                 f"the directory of separated sources: {audio_dir_ss} does not exist, "
@@ -217,14 +216,14 @@ class DESED:
         df_meta = self.get_df_from_meta(
             meta_name=tsv_path, nb_files=nb_files, pattern_ss=pattern_ss
         )
+
         logger.info(f"Total file number: {len(df_meta.filename.unique())}")
         # Download real data
-        if download:  # TODO: to check this part
+        if download:
             # Get only one filename once
             filenames = df_meta.filename.drop_duplicates()
             self.download(filenames, audio_dir)
 
-        # TODO: check if it works as expected
         if save_features:
             # Meta filename
             ext_tsv_feature = ""
@@ -237,7 +236,6 @@ class DESED:
             features_tsv = osp.join(meta_feat_dir, feat_fname)
             t = time.time()
             logger.info(f"Getting features ...")
-            # TODO: Check if the path are all correct
             df_features = self.extract_features_from_df(
                 df_meta,
                 audio_dir,
@@ -266,8 +264,7 @@ class DESED:
             compute_log: bool, whether to get the output in dB (log scale) or not
 
         Returns:
-            numpy.array
-            containing the mel spectrogram
+            mel_spec: numpy.array, containing the mel spectrogram
         """
 
         # Compute spectrogram
@@ -303,6 +300,16 @@ class DESED:
         return mel_spec
 
     def load_and_compute_mel_spec(self, wav_path):
+        """
+        Mel spectrogram extraction
+
+        Args:
+            wav_path: str, path of the wav file
+
+        Return:
+            mel_spec: numpy.array, mel spectrogram
+
+        """
         (audio, _) = read_audio(wav_path, self.sample_rate)
         if audio.shape[0] == 0:
             raise IOError("File {wav_path} is corrupted!")
@@ -313,6 +320,14 @@ class DESED:
         return mel_spec
 
     def _extract_features(self, wav_path, out_path):
+        """
+        Extraction features
+
+        Args:
+            wav_path: path of the wav file
+            out_path: output file path
+
+        """
         if not osp.exists(out_path):
             try:
                 mel_spec = self.load_and_compute_mel_spec(wav_path)
@@ -344,6 +359,23 @@ class DESED:
         ext_ss_feature_file="_ss",
         keep_sources=None,
     ):
+
+        """
+        Function to extract features from an audio file given as input
+
+        Args:
+            filename: filename
+            audio_dir: str, path of the directory where the audio file is saved
+            feature_dir: str, path of the directory where to save the feature extracted
+            audio_dir_ss = str, path of the directory used for source separation
+            pattern_ss: source separation
+            ext_ss_feature_file: str, extension of source separation file
+            keep_sources: boolen, true if sources are kept, false if sources are not kept.
+
+        Return:
+            filename: str, filename contaning the feature extracted (mel spectrogram)
+            out_path: str, path to the folder containing the <filename> file
+        """
         wav_path = osp.join(audio_dir, filename)
         if not osp.isfile(wav_path):
             logger.error(
@@ -383,7 +415,6 @@ class DESED:
 
         return filename, out_path
 
-    # function needed
     def extract_features_from_df(
         self,
         df_meta,
@@ -394,12 +425,13 @@ class DESED:
         ext_ss_feature_file="_ss",
         keep_sources=None,
     ):
-        """Extract log mel spectrogram features.
+        """
+        Extract log mel spectrogram features.
 
         Args:
             df_meta : pd.DataFrame, containing at least column "filename" with name of the wav to compute features
             audio_dir: str, the path where to find the wav files specified by the dataframe
-            feature_dir: str, the path where to search and save the features.
+            feature_dir: str, the path of the folder where to save the features extracted.
             audio_dir_ss: str, the path where to find the separated files (associated to the mixture)
             pattern_ss: str, the pattern following the normal filename to match the folder to find separated sources
             ext_ss_feature_file: str, only when audio_dir_ss is not None
@@ -505,7 +537,7 @@ class DESED:
     @staticmethod
     def get_df_from_meta(meta_name, nb_files=None, pattern_ss=None):
         """
-        The function return a pandas dataframe containing the information extracted from the tsv file
+        The function returns a pandas dataframe containing the information extracted from the tsv file
         passed as input parameter.
         If nb_file is not None, only part of the tsv file is extracted.
 
@@ -537,7 +569,6 @@ class DESED:
         )
 
 
-# function out of classes
 def generate_feature_from_raw_file(
     filename,
     audio_dir,
@@ -561,17 +592,12 @@ def generate_feature_from_raw_file(
     """
 
     wav_path = osp.join(audio_dir, filename)
-    # logger.info(f"Complete wav audio path: {wav_path}")
     if not osp.isfile(wav_path):
         logger.error(
             "File %s is in the tsv file but the feature is not extracted because "
             "file do not exist!" % wav_path
         )
-        # df_meta = df_meta.drop(df_meta[df_meta.filename == filename].index)
     else:
-        # we don't need to save the file but only to return the feature
-        # out_filename = osp.join(osp.splitext(filename)[0] + ".npy")
-        # out_path = osp.join(feature_dir, out_filename)
         feature = extract_features(
             wav_path,
             sample_rate,
@@ -589,8 +615,6 @@ def generate_feature_from_raw_file(
 def extract_features(
     wav_path, sample_rate, n_window, hop_size, n_mels, mel_f_min, mel_f_max, compute_log
 ):
-
-    # TODO: maybe we can merge this with the next function?
     """
     Computing load and mel spectogram
     Args:
@@ -612,8 +636,6 @@ def extract_features(
             mel_f_max,
             compute_log,
         )
-        # os.makedirs(osp.dirname(out_path), exist_ok=True)
-        # np.save(out_path, mel_spec)
     except IOError as e:
         logger.error(e)
 
@@ -645,7 +667,6 @@ def load_and_compute_mel_spec(
         raise IOError("File {wav_path} is corrupted!")
     else:
         t1 = time.time()
-        # mel_spec = self.calculate_mel_spec(audio, self.compute_log)
         mel_spec = calculate_mel_spec(
             audio,
             sample_rate,

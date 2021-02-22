@@ -35,6 +35,9 @@ def get_dfs(
         save_features: bool, True if features need to be saved, False if features are not going to be saved
         nb_files: int, number of file to be considered (in case you want to consider only part of the dataset)
         separated source: bool, true if you want to consider separated source as well or not
+
+    Return:
+        data_dfs: dictionary containing the different dataset needed
     """
 
     log = create_logger(
@@ -53,7 +56,7 @@ def get_dfs(
         audio_validation_ss = path_dict["validation_ss"]
         audio_synthetic_ss = path_dict["synthetic_ss"]
 
-    # initialization of the dataset
+    # initialization of the datasets
     weak_df = desed_dataset.initialize_and_get_df(
         tsv_path=path_dict["tsv_path_weak"],
         audio_dir_ss=audio_weak_ss,
@@ -103,8 +106,7 @@ def get_dfs(
     train_weak_df = weak_df[weak_df.filename.isin(filenames_train)]
     valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
 
-    # TODO: Make the system already ready for the evaluation set so to make things easier
-    # dev_test dataset
+    # selecting the validation subset used for testing (evaluation or development set)
     if eval_dataset:
         validation_df = desed_dataset.initialize_and_get_df(
             tsv_path=path_dict["tsv_path_eval_deded"],
@@ -123,12 +125,6 @@ def get_dfs(
             save_features=save_features,
         )
 
-    # with evaluation dataset
-    # validation_df = desed_dataset.initialize_and_get_df(cfg.eval_desed, audio_dir=cfg.audio_validation_dir,
-    #                                                   audio_dir_ss=audio_validation_ss, nb_files=nb_files,
-    #                                                  save_features=cfg.save_features)
-    # log.info(f"validation_df: {validation_df.head()}")
-
     # Divide synthetic in train and valid
     """
     filenames_train = synthetic_df.filename.drop_duplicates().sample(
@@ -138,7 +134,7 @@ def get_dfs(
     valid_synth_df = synthetic_df.drop(train_synth_df.index).reset_index(drop=True)
     """
 
-    # Put train_synth in frames so many_hot_encoder can work.
+    # Converting train_synth in frames so many_hot_encoder can work.
     # Not doing it for valid, because not using labels (when prediction) and event based metric expect sec.
     train_synth_df.onset = (
         train_synth_df.onset * sample_rate // hop_size // pooling_time_ratio
@@ -155,7 +151,7 @@ def get_dfs(
         "synthetic": synthetic_df,
         "train_synthetic": train_synth_df,
         "valid_synthetic": valid_synth_df,
-        "validation": validation_df,  # TODO: Proper name for the dataset
+        "validation": validation_df,
     }
     """
     # new split of data
@@ -194,7 +190,7 @@ def get_dataset(
         n_window: int, window length
         hop_size: int, hop size
         n_mels: int, number of mels
-        mel_min_max_freq: tuple, min and max frequency to consider for the mel filter
+        mel_min_max_freq: tuple, min and max frequency of the mel filter
         nb_files: int, number of files to retrieve and process (in case only part of dataset is used)
 
     Return:
@@ -212,7 +208,6 @@ def get_dataset(
         compute_log=False,
     )
 
-    # Separated sources paramete? # TODO
     dfs = get_dfs(
         path_dict=path_dict,
         sample_rate=sample_rate,
@@ -229,7 +224,7 @@ def get_dataset(
 
 def get_compose_transforms(datasets, scaler_type, max_frames, add_axis_conv, noise_snr):
     """
-    The function performs all the operation needed to normalize the dataset.
+    The function executes all the operations needed to normalize the dataset.
 
     Args:
         dfs: dict, dataset
@@ -267,7 +262,6 @@ def get_compose_transforms(datasets, scaler_type, max_frames, add_axis_conv, noi
         scaler.calculate_scaler(
             ConcatDataset([weak_data, unlabel_data, train_synth_data])
         )
-        # log.info(f"mean: {mean}, std: {std}")
     else:
         scaler_args = ["global", "min-max"]
         scaler = ScalerPerAudio(*scaler_args)

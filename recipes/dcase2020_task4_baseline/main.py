@@ -1,5 +1,4 @@
 # main file for the recipe in DCASE2021
-
 # -*- coding: utf-8 -*-
 import argparse
 import datetime
@@ -73,14 +72,13 @@ if __name__ == "__main__":
     # TODO: Set the path with your local path
     workspace = "/srv/storage/talc3@talc-data.nancy/multispeech/calcul/users/fronchini/repo/DESED_task/recipes/dcase2020_task4_baseline"
 
-    # retrive all the default parameters
+    # retrieve all the default parameters
     config_params = Configuration(workspace)
 
     # set random seed
     torch.manual_seed(2020)
     np.random.seed(2020)
 
-    # logger creation: TODO: All the logger part
     logger = create_logger(
         __name__ + "/" + inspect.currentframe().f_code.co_name,
         terminal_level=config_params.terminal_level,
@@ -88,7 +86,6 @@ if __name__ == "__main__":
     logger.info("Baseline 2020")
     logger.info(f"Starting time: {datetime.datetime.now()}")
 
-    # parser -> TODO: move to another module
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
         "-s",
@@ -96,7 +93,7 @@ if __name__ == "__main__":
         type=int,
         default=None,
         dest="subpart_data",
-        help="Number of files to be used. Useful when testing on small number of files.",
+        help="Number of files to be used. From ever dataset will be taken the specified number of files. Useful when testing on small number of files.",
     )
 
     parser.add_argument(
@@ -114,7 +111,7 @@ if __name__ == "__main__":
         dest="test",
         action="store_true",
         default=False,
-        help="Test to verify that everything is running. Number of file considered: 40, number of epoch considered: 20.",
+        help="Test to verify that everything is running. Number of file considered: 24, number of epoch considered: 2.",
     )
 
     parser.add_argument(
@@ -127,6 +124,8 @@ if __name__ == "__main__":
 
     f_args = parser.parse_args()
     pprint(vars(f_args))
+    logger.info(f"Saving features: {config_params.save_features}")
+    logger.info(f"Evaluation set: {config_params.evaluation}")
     logger.info(
         f"Saving features: {config_params.save_features}, dataset_eval: {config_params.evaluation}"
     )
@@ -157,19 +156,17 @@ if __name__ == "__main__":
         reduced_number_of_data = 24
         config_params.n_epoch = 2
 
-    # creating models and prediction folders to save models and predictions of the system
+    # creating models and prediction folders to save models and predictions of the model
     saved_model_dir, saved_pred_dir = create_stored_data_folder(
         add_dir_model_name, config_params.exp_out_path
     )
 
     # ################################################################
-    # PREPARE THE DATA (ETL PROCESS: EXTRACTION, PROCESSING AND LOAD)
+    # PRE-PROCESSING OF THE DATA
     # ################################################################
 
     dataset, dfs = get_dataset(
-        base_feature_dir=os.path.join(
-            config_params.workspace, "data", "features"
-        ),  # should be set a default one?
+        base_feature_dir=os.path.join(config_params.workspace, "data", "features"),
         path_dict=config_params.get_folder_path(),
         sample_rate=config_params.sample_rate,
         n_window=config_params.n_window,
@@ -189,6 +186,7 @@ if __name__ == "__main__":
     )
     encod_func = many_hot_encoder.encode_strong_df
 
+    # initialization of dataset
     weak_data = DataLoadDf(
         df=dfs["weak"],
         encode_function=encod_func,
@@ -316,7 +314,7 @@ if __name__ == "__main__":
         f"len synth: {len(train_synth_data)}, len_unlab: {len(unlabel_data)}, len weak: {len(weak_data)}"
     )
 
-    # get batch sizes and label masks depending on if synthetic data are used or not
+    # get batch sizes and label masks
     weak_mask, strong_mask, batch_sizes = get_batchsizes_and_masks(
         no_synthetic, config_params.batch_size
     )
@@ -330,6 +328,7 @@ if __name__ == "__main__":
 
     sampler = MultiStreamBatchSampler(concat_dataset, batch_sizes=batch_sizes)
 
+    # DataLoader
     training_loader = DataLoader(
         dataset=concat_dataset,
         batch_sampler=sampler,
@@ -368,7 +367,6 @@ if __name__ == "__main__":
 
     optimizer = get_optimizer(model, config_params.optim, **config_params.optim_kwargs)
 
-    # TODO: This could also be a class inside this same main file maybe?
     state = set_state(
         model=model,  # to change
         model_ema=model_ema,  # to change
@@ -436,7 +434,8 @@ if __name__ == "__main__":
             median_window=config_params.median_window,
             save_predictions=None,
         )
-        # Validation with synthetic data (dropping feature_filename for psds)
+
+        # Validation with synthetic data
         if config_params.save_features:
             valid_synth = dfs["valid_synthetic"].drop("feature_filename", axis=1)
         else:
@@ -550,7 +549,6 @@ if __name__ == "__main__":
         add_axis=config_params.add_axis_conv,
     )
 
-    # TODO: Move it in the config file
     predictions_fname = os.path.join(saved_pred_dir, "baseline_validation.tsv")
 
     validation_data = DataLoadDf(
@@ -567,6 +565,7 @@ if __name__ == "__main__":
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
         filenames_folder=config_params.audio_eval_folder  # change filename folder
+        # filenames_folder=config_params.audio_eval_folder  # TODO: Make an unique variable, instead of an if inside a passing function
         if config_params.evaluation
         else config_params.audio_validation_dir,
     )
@@ -629,6 +628,7 @@ if __name__ == "__main__":
         median_window=config_params.median_window,
         save_predictions=predictions_fname,
     )
+
     psds = compute_psds_from_operating_points(
         pred_ss_thresh, validation_labels_df, durations_validation
     )

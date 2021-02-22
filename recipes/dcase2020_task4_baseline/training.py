@@ -61,7 +61,9 @@ def get_model_params(model):
 
 
 def get_student_model(**crnn_kwargs):
-
+    """
+    Retrieve CRNN student model
+    """
     crnn = CRNN(**crnn_kwargs)
     logger.info(crnn)
     crnn.apply(weights_init)
@@ -70,7 +72,9 @@ def get_student_model(**crnn_kwargs):
 
 
 def get_teacher_model(**crnn_kwargs):
-
+    """
+    Retrieve CRNN teacher model
+    """
     crnn_ema = CRNN(**crnn_kwargs)
     crnn_ema.apply(weights_init)
     for param in crnn_ema.parameters():
@@ -137,6 +141,9 @@ def set_state(
     model_kwargs,
     optim_kwargs,
 ):
+    """
+    Setting the training state of the model
+    """
 
     state = {
         "model": {
