@@ -4,8 +4,7 @@ import warnings
 import numpy as np
 import torch
 import json
-from utilities.Logger import create_logger
-
+from utils.Logger import create_logger
 
 logger = create_logger(__name__)
 
