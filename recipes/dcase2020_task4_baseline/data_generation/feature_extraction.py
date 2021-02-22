@@ -222,61 +222,14 @@ def get_dataset(
     return desed_dataset, dfs
 
 
-def get_compose_transforms(datasets, scaler_type, max_frames, add_axis_conv, noise_snr):
-    """
-    The function executes all the operations needed to normalize the dataset.
-
-    Args:
-        dfs: dict, dataset
-        encod_funct: encode labels function
-        scaler_type: str, which type of scaler to consider, per audio or the full dataset
-        max_frames: int, maximum number of frames
-        add_axis_conv: int, axis to squeeze
-
-
-    Return:
-        transforms: transforms to apply to training dataset
-        transforms_valid: transforms to apply to validation dataset
-
-    """
-
-    log = create_logger(
-        __name__ + "/" + inspect.currentframe().f_code.co_name,
-        terminal_level=logging.INFO,
-    )
+def get_scaler(scaler_type, dataset=None):
 
     if scaler_type == "dataset":
-        transforms = get_transforms(frames=max_frames, add_axis=add_axis_conv)
-
-        weak_data = datasets["weak"]
-        unlabel_data = datasets["unlabel"]
-        train_synth_data = datasets["synthetic"]
-
-        weak_data.transforms = transforms
-        unlabel_data.transforms = transforms
-        train_synth_data.transforms = transforms
-
-        # scaling, only on real data since that's our final goal and test data are real
         scaler_args = []
         scaler = Scaler()
-        scaler.calculate_scaler(
-            ConcatDataset([weak_data, unlabel_data, train_synth_data])
-        )
+        scaler.calculate_scaler(dataset)
+        # log.info(f"mean: {mean}, std: {std}")
     else:
         scaler_args = ["global", "min-max"]
         scaler = ScalerPerAudio(*scaler_args)
-
-    transforms = get_transforms(
-        frames=max_frames,
-        scaler=scaler,
-        add_axis=add_axis_conv,
-        noise_dict_params={"mean": 0.0, "snr": noise_snr},
-    )
-
-    transforms_valid = get_transforms(
-        frames=max_frames,
-        scaler=scaler,
-        add_axis=add_axis_conv,
-    )
-
-    return transforms, transforms_valid, scaler, scaler_args
+    return scaler, scaler_args

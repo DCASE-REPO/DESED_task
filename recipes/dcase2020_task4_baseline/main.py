@@ -46,7 +46,7 @@ from utils.utils import create_stored_data_folder
 from utils_data.Desed import DESED
 from data_generation.feature_extraction import (
     get_dataset,
-    get_compose_transforms,
+    get_scaler,
 )
 from utils_data.DataLoad import DataLoadDf, ConcatDataset, MultiStreamBatchSampler
 from training import (
@@ -258,21 +258,32 @@ if __name__ == "__main__":
         "synthetic": train_synth_data,
     }
 
-    transforms, transforms_valid, scaler, scaler_args = get_compose_transforms(
-        datasets=training_dataset,
-        scaler_type=config_params.scaler_type,
-        max_frames=config_params.max_frames,
-        add_axis_conv=config_params.add_axis_conv,
-        noise_snr=config_params.noise_snr,
-    )
+    transforms = get_transforms(frames=config_params.max_frames,
+                                add_axis=config_params.add_axis_conv)
 
     weak_data.transforms = transforms
     unlabel_data.transforms = transforms
     train_synth_data.transforms = transforms
+    scaler, scaler_args = get_scaler(ConcatDataset([weak_data, unlabel_data, train_synth_data]))
 
+    transforms = get_transforms(
+        frames=config_params.max_frames,
+        scaler=scaler,
+        add_axis=config_params.add_axis_conv,
+        noise_dict_params={"mean": 0.0, "snr": config_params.noise_snr},
+    )
+    weak_data.transforms = transforms
+    unlabel_data.transforms = transforms
+    train_synth_data.transforms = transforms
     weak_data.in_memory = config_params.in_memory
     train_synth_data.in_memory = config_params.in_memory
     unlabel_data.in_memory = config_params.in_memory_unlab
+
+    transforms_valid = get_transforms(
+        frames=config_params.max_frames,
+        scaler=scaler,
+        add_axis=config_params.add_axis_conv
+    )
 
     valid_synth_data = DataLoadDf(
         df=dfs["valid_synthetic"],
