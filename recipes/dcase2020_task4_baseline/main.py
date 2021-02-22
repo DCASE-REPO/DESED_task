@@ -4,7 +4,6 @@ import argparse
 import datetime
 import inspect
 import os
-import time
 from pprint import pprint
 
 import pandas as pd
@@ -12,28 +11,22 @@ import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
-from torch import nn
 
 from utils_model.TestModel import _load_crnn
 from evaluation import (
     get_predictions,
     psds_score,
     compute_psds_from_operating_points,
-    compute_metrics,
     bootstrap,
     get_f_measure_by_class,
     get_f1_psds,
     get_f1_sed_score,
 )
-from utils_model.CRNN import CRNN
-from utils import ramps
 from utils.Logger import create_logger
 from utils.Scaler import ScalerPerAudio, Scaler
 from utils.utils import (
     SaveBest,
     to_cuda_if_available,
-    weights_init,
-    AverageMeterSet,
     EarlyStopping,
     get_durations_df,
 )
@@ -41,10 +34,7 @@ from utils.ManyHotEncoder import ManyHotEncoder
 from utils.Transforms import get_transforms
 
 from utils.utils import create_stored_data_folder
-from utils_data.Desed import DESED
-from data_generation.feature_extraction import (
-    get_dataset
-)
+from data_generation.feature_extraction import get_dataset
 from utils_data.DataLoad import DataLoadDf, ConcatDataset, MultiStreamBatchSampler
 from training import (
     get_batchsizes_and_masks,
@@ -219,8 +209,9 @@ if __name__ == "__main__":
         "synthetic": train_synth_data,
     }
 
-    transforms = get_transforms(frames=config_params.max_frames,
-                                add_axis=config_params.add_axis_conv)
+    transforms = get_transforms(
+        frames=config_params.max_frames, add_axis=config_params.add_axis_conv
+    )
 
     weak_data.transforms = transforms
     unlabel_data.transforms = transforms
@@ -256,7 +247,7 @@ if __name__ == "__main__":
     transforms_valid = get_transforms(
         frames=config_params.max_frames,
         scaler=scaler,
-        add_axis=config_params.add_axis_conv
+        add_axis=config_params.add_axis_conv,
     )
 
     valid_synth_data = DataLoadDf(
@@ -529,8 +520,7 @@ if __name__ == "__main__":
         save_features=config_params.save_features,
         filenames_folder=config_params.audio_eval_folder  # change filename folder
         # filenames_folder=config_params.audio_eval_folder  # TODO: Make an unique variable, instead of an if inside a passing function
-        if config_params.evaluation
-        else config_params.audio_validation_dir,
+        if config_params.evaluation else config_params.audio_validation_dir,
     )
 
     validation_dataloader = DataLoader(

@@ -178,6 +178,6 @@ class Configuration:
             tsv_path_eval_deded=self.eval_desed,
             # added with the new split
             tsv_path_train_synth=self.train_synth,
-            tsv_path_valid_synth=self.valid_synth
+            tsv_path_valid_synth=self.valid_synth,
         )
         return path_dict

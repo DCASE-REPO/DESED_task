@@ -1,7 +1,4 @@
 from utils_model.CRNN import CRNN
-from utils_model.Transformer import Transformer
-from utils_model.Conformer import Conformer
-from utils.utils import weights_init
 from utils.Logger import create_logger
 from utils import ramps
 import logging
@@ -14,12 +11,9 @@ import radam
 
 
 from utils.utils import (
-    SaveBest,
     to_cuda_if_available,
     weights_init,
     AverageMeterSet,
-    EarlyStopping,
-    get_durations_df,
 )
 
 logger = create_logger(__name__, terminal_level=logging.INFO)
@@ -81,40 +75,6 @@ def get_teacher_model(**crnn_kwargs):
         param.detach_()
 
     return crnn_ema
-
-
-def get_student_model_transformer(**transformer_kwargs):
-
-    transformer = Transformer(**transformer_kwargs)
-    logger.info(transformer)
-    transformer.apply(weights_init)
-    return transformer
-
-
-def get_teacher_model_transformer(**transformer_kwargs):
-    transformer_ema = Transformer(**transformer_kwargs)
-    transformer_ema.apply(weights_init)
-    for param in transformer_ema.parameters():
-        param.detach_()
-
-    return transformer_ema
-
-
-def get_student_model_conformer(**conformer_kwargs):
-
-    conformer = Conformer(**conformer_kwargs)
-    logger.info(conformer)
-    conformer.apply(weights_init)
-    return conformer
-
-
-def get_teacher_model_conformer(**conformer_kwargs):
-    conformer_ema = Conformer(**conformer_kwargs)
-    conformer_ema.apply(weights_init)
-    for param in conformer_ema.parameters():
-        param.detach_()
-
-    return conformer_ema
 
 
 def get_optimizer(model, optim="adam", **optim_kwargs):
