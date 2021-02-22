@@ -220,15 +220,3 @@ def get_dataset(
         separated_sources=False,
     )
     return desed_dataset, dfs
-
-
-def get_scaler(scaler_type, dataset=None):
-    if scaler_type == "dataset":
-        scaler_args = []
-        scaler = Scaler()
-        scaler.calculate_scaler(dataset)
-        # log.info(f"mean: {mean}, std: {std}")
-    else:
-        scaler_args = ["global", "min-max"]
-        scaler = ScalerPerAudio(*scaler_args)
-    return scaler, scaler_args

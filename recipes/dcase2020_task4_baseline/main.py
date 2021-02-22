@@ -227,15 +227,19 @@ if __name__ == "__main__":
     unlabel_data.transforms = transforms
     train_synth_data.transforms = transforms
 
-    # Todo, find a cleaner way to do this
     scaler_save_file = "./exp_out/scaler_all.json"
-    if config_params.scaler_type == "dataset" and os.path.exists(scaler_save_file):
-        scaler = Scaler().load(scaler_save_file)
-    else:
-        scaler, scaler_args = get_scaler(config_params.scaler_type,
-                                         ConcatDataset([weak_data, unlabel_data, train_synth_data]))
     if config_params.scaler_type == "dataset":
-        scaler.save(scaler_save_file)
+        scaler_args = []
+        scaler = Scaler()
+        if os.path.exists(scaler_save_file):
+            scaler.load(scaler_save_file)
+        else:
+            scaler.calculate_scaler(dataset)
+            scaler.save(scaler_save_file)
+        # log.info(f"mean: {mean}, std: {std}")
+    else:
+        scaler_args = ["global", "min-max"]
+        scaler = ScalerPerAudio(*scaler_args)
 
     transforms = get_transforms(
         frames=config_params.max_frames,
@@ -336,7 +340,7 @@ if __name__ == "__main__":
 
     logger.info(f"number of parameters in the model: {get_model_params(model)}")
 
-    optimizer = get_optimizer(model, **config_params.optim_kwargs)
+    optimizer = get_optimizer(model, optim="adam", **config_params.optim_kwargs)
 
     state = set_state(
         model=model,  # to change
@@ -348,7 +352,7 @@ if __name__ == "__main__":
         scaler=scaler,
         scaler_args=scaler_args,
         median_window=config_params.median_window,
-        crnn_kwargs=config_params.crnn_kwargs,
+        model_kwargs=config_params.crnn_kwargs,
         optim_kwargs=config_params.optim_kwargs,
     )
 
