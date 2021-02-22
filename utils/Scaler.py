@@ -4,8 +4,6 @@ import warnings
 import numpy as np
 import torch
 import json
-import ipdb
-import os
 from utils.Logger import create_logger
 
 
@@ -59,7 +57,7 @@ class Scaler:
 
     def means(self, dataset):
         """
-        Splits a dataset in to train dev_test validation.
+        Splits a dataset in to train test validation.
 
         Args:
             dataset: dataset, from DataLoad class, each sample is an (X, y) tuple.
@@ -71,7 +69,6 @@ class Scaler:
         shape = None
 
         counter = 0
-
         for sample in dataset:
             if type(sample) in [tuple, list] and len(sample) == 2:
                 batch_x, _ = sample
@@ -103,11 +100,8 @@ class Scaler:
             else:
                 self.mean_of_square_ += self.mean(data_square, axis=-1)
 
-            self.mean_ /= counter
-            self.mean_of_square_ /= counter
-
-            logger.info(f"Mean: {sum(self.mean_)}")
-            logger.info(f"Mean of square: {sum(self.mean_of_square_)}")
+        self.mean_ /= counter
+        self.mean_of_square_ /= counter
 
         # ### To be used if data different shape, but need to stop the iteration before.
         # rest = len(dataset) - i

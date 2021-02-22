@@ -10,12 +10,11 @@ from pprint import pprint
 import pandas as pd
 import numpy as np
 
-
 import torch
 from torch.utils.data import DataLoader
 from torch import nn
 
-from utils_model.TestModel import _load_transformer, _load_conformer, _load_crnn
+from utils_model.TestModel import _load_crnn
 from evaluation import (
     get_predictions,
     psds_score,
@@ -26,7 +25,6 @@ from evaluation import (
     get_f1_psds,
     get_f1_sed_score,
 )
-
 from utils_model.CRNN import CRNN
 from utils import ramps
 from utils.Logger import create_logger
@@ -54,16 +52,11 @@ from training import (
     get_model_params,
     get_student_model,
     get_teacher_model,
-    get_student_model_transformer,
-    get_teacher_model_transformer,
-    get_student_model_conformer,
-    get_teacher_model_conformer,
     get_optimizer,
     set_state,
     train,
     update_state,
 )
-
 from Configuration import Configuration
 
 
@@ -138,19 +131,7 @@ if __name__ == "__main__":
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
     else:
-        if model_type == "crnn":
-            add_dir_model_name = "_with_synthetic_crnn_new"
-        elif model_type == "conf":
-            add_dir_model_name = "_with_synthetic_conf_new"
-        elif model_type == "tran":
-            add_dir_model_name = "_with_synthetic_tran"
-
-    logger.info(f"Model folder name extension: {add_dir_model_name}")
-    logger.info(f"Model selected: {model_type}")
-    logger.info(
-        f"Evaluation: {config_params.evaluation}, save_features: {config_params.save_features}"
-        ""
-    )
+        add_dir_model_name = "_with_synthetic"
 
     if dev_test:
         reduced_number_of_data = 24
@@ -229,28 +210,9 @@ if __name__ == "__main__":
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
         filenames_folder=os.path.join(
-            config_params.audio_train_folder,
-            "synthetic2021_train/soundscapes",  # to change, to clean
-        ),
-    )
-
-    """
-    train_synth_data = DataLoadDf(
-        df=dfs["train_synthetic"],
-        encode_function=encod_func,
-        sample_rate=config_params.sample_rate,
-        n_window=config_params.n_window,
-        hop_size=config_params.hop_size,
-        n_mels=config_params.n_mels,
-        mel_f_min=config_params.mel_f_min,
-        mel_f_max=config_params.mel_f_max,
-        compute_log=config_params.compute_log,
-        save_features=config_params.save_features,
-        filenames_folder=os.path.join(
             config_params.audio_train_folder, "synthetic20/soundscapes"
         ),
     )
-    """
 
     training_dataset = {
         "weak": weak_data,
@@ -309,7 +271,7 @@ if __name__ == "__main__":
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
         filenames_folder=os.path.join(
-            config_params.audio_train_folder, "synthetic2021_validation/soundscapes"
+            config_params.audio_train_folder, "synthetic20/soundscapes"
         ),
     )
 
@@ -369,23 +331,12 @@ if __name__ == "__main__":
     # INITIALIZATION OF MODELS
     # ####################################
 
-    logger.info(f"Selected model: {model_type}")
-    if model_type == "conf":
-        kw_args = config_params.confomer_kwargs
-        model = get_student_model_conformer(**kw_args)
-        model_ema = get_teacher_model_conformer(**kw_args)
-    elif model_type == "tran":
-        kw_args = config_params.transformer_kwargs
-        model = get_student_model_transformer(**kw_args)
-        model_ema = get_teacher_model_transformer(**kw_args)
-    elif model_type == "crnn":
-        kw_args = config_params.crnn_kwargs
-        model = get_student_model(**kw_args)
-        model_ema = get_teacher_model(**kw_args)
+    model = get_student_model(**config_params.crnn_kwargs)
+    model_ema = get_teacher_model(**config_params.crnn_kwargs)
 
     logger.info(f"number of parameters in the model: {get_model_params(model)}")
 
-    optimizer = get_optimizer(model, config_params.optim, **config_params.optim_kwargs)
+    optimizer = get_optimizer(model, **config_params.optim_kwargs)
 
     state = set_state(
         model=model,  # to change
@@ -397,7 +348,7 @@ if __name__ == "__main__":
         scaler=scaler,
         scaler_args=scaler_args,
         median_window=config_params.median_window,
-        model_kwargs=kw_args,  # to change
+        crnn_kwargs=config_params.crnn_kwargs,
         optim_kwargs=config_params.optim_kwargs,
     )
 
@@ -410,14 +361,14 @@ if __name__ == "__main__":
             init_patience=config_params.es_init_wait,
         )
 
+    # ##############
+    # TRAINING
+    # ##############
+
     results = pd.DataFrame(columns=["loss", "valid_synth_f1", "global_valid"])
 
     # Meta path for psds
     durations_synth = get_durations_df(gtruth_path=config_params.synthetic)
-
-    # ##############
-    # TRAINING
-    # ##############
 
     for epoch in range(config_params.n_epoch):
         model.train()
@@ -428,7 +379,6 @@ if __name__ == "__main__":
             train_loader=training_loader,
             model=model,
             optimizer=optimizer,
-            optimizer_type=config_params.optim,
             c_epoch=epoch,
             max_consistency_cost=config_params.max_consistency_cost,
             n_epoch_rampup=config_params.n_epoch_rampup,
@@ -546,17 +496,7 @@ if __name__ == "__main__":
     if config_params.save_best:
         model_fname = os.path.join(saved_model_dir, "baseline_best")
         state = torch.load(model_fname)
-
-        if model_type == "conf":
-            model = _load_conformer(state)
-            logger.info(f"model retrieved: {model_type}")
-        elif model_type == "tran":
-            model = _load_transformer(state)
-            logger.info(f"model retrieved: {model_type}")
-        elif model_type == "crnn":
-            model = _load_crnn(state)
-            logger.info(f"model retrieved: {model_type}")
-
+        model = _load_crnn(state)
         logger.info(f"testing model: {model_fname}, epoch: {state['epoch']}")
     else:
         logger.info(f"testing model of last epoch: {config_params.n_epoch}")
@@ -572,7 +512,7 @@ if __name__ == "__main__":
     predictions_fname = os.path.join(saved_pred_dir, "baseline_validation.tsv")
 
     validation_data = DataLoadDf(
-        df=dfs["validation"],  # change the name of the synthetic
+        df=dfs["validation"],
         encode_function=encod_func,
         transforms=transforms_valid,
         return_indexes=True,

@@ -8,14 +8,12 @@ class Configuration:
 
     """
     Configuration class defining the default parameteres regarding the processing of data,
-    model, training and post-processing of the paper:
-    "CONVOLUTION-AUGMENTED TRANSFORMER FOR SEMI-SUPERVISED SOUND EVENT DETECTION"
+    model, training and post-processing
     """
 
     def __init__(self, workspace="."):
         """
         Initialization of Configuration instance
-
         Args:
             workspace: str, workspace path
         """
@@ -140,48 +138,6 @@ class Configuration:
             "n_RNN_cell": 128,
             "n_layers_RNN": 2,
         }
-
-        self.transformer_kwargs = {
-            "n_in_channel": self.n_channel,
-            "n_class": len(self.classes),
-            "activation_cnn": "glu",
-            "dropout_cnn": 0.5,
-            "batch_norm": True,
-            "kernel_size": self.n_layers * [3],
-            "padding": self.n_layers * [1],
-            "stride": self.n_layers * [1],
-            "nb_filters": [16, 32, 64, 128, 128, 128, 128],
-            "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
-            "embed_dim": 128,
-            "att_units": 512,
-            "num_heads": 16,
-            "transformer_dropout": 0.1,
-            "n_layers": 3,
-            "forward_extension": 4,
-            "max_length": 157,
-        }
-
-        self.confomer_kwargs = {
-            "n_in_channel": self.n_channel,
-            "n_class": len(self.classes),
-            "activation_cnn": "glu",
-            "dropout_cnn": 0.5,
-            "batch_norm": True,
-            "kernel_size": self.n_layers * [3],
-            "padding": self.n_layers * [1],
-            "stride": self.n_layers * [1],
-            "nb_filters": [16, 32, 64, 128, 128, 128, 128],
-            "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
-            "embed_dim": 128,
-            "att_units": 144,
-            "num_heads": 4,
-            "transformer_dropout": 0.1,
-            "n_layers": 3,
-            "forward_extension": 4,
-            "max_length": 157,
-            "conv_block_ks": 7,
-        }
-
         # 2 * 2
         self.pooling_time_ratio = 4
         self.out_nb_frames_1s = (
@@ -199,7 +155,6 @@ class Configuration:
         self.in_memory_unlab = False
         self.num_workers = 8
         self.batch_size = 24
-        # self.batch_size = 126
         self.noise_snr = 30
 
         self.n_epoch = 200
@@ -212,7 +167,6 @@ class Configuration:
         self.adjust_lr = True
         self.max_learning_rate = 0.001  # Used if adjust_lr is True
         self.default_learning_rate = 0.001  # Used if adjust_lr is False
-        self.optim = "a"
 
         # optimizer params
         self.optim_kwargs = {"lr": self.default_learning_rate, "betas": (0.9, 0.999)}
@@ -224,18 +178,14 @@ class Configuration:
         # Logger
         self.terminal_level = logging.INFO
 
-        # Evaluatin dataset information
-        self.evaluation = False
         # Evaluation dataset information
         self.evaluation = True
 
     def get_folder_path(self):
         """
             Getting folders paths
-
         Return:
             path_dict: dict, dictionary containing the folders paths
-
         """
         path_dict = dict(
             audio_evaluation_dir=self.audio_eval_folder,
