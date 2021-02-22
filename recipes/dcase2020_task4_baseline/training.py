@@ -117,12 +117,12 @@ def get_teacher_model_conformer(**conformer_kwargs):
     return conformer_ema
 
 
-def get_optimizer(model, optim="a", **optim_kwargs):
-    if optim == "a":
+def get_optimizer(model, optim="adam", **optim_kwargs):
+    if optim.lower == "adam":
         return torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
         )
-    elif optim == "ra":
+    elif optim.lower() == "radam":
         return radam.RAdam(
             filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
         )
