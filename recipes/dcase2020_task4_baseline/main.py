@@ -183,7 +183,7 @@ if __name__ == "__main__":
         mel_f_max=config_params.mel_f_max,
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
-        filenames_folder=config_params.audio_unlabel
+        filenames_folder=config_params.audio_unlabel,
     )
 
     train_synth_data = DataLoadDf(
@@ -266,7 +266,7 @@ if __name__ == "__main__":
         mel_f_max=config_params.mel_f_max,
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
-        filenames_folder=config_params.audio_valid_synth
+        filenames_folder=config_params.audio_valid_synth,
     )
 
     valid_weak_data = DataLoadDf(
@@ -373,6 +373,7 @@ if __name__ == "__main__":
             train_loader=training_loader,
             model=model,
             optimizer=optimizer,
+            optimizer_type=optim_type,
             c_epoch=epoch,
             max_consistency_cost=config_params.max_consistency_cost,
             n_epoch_rampup=config_params.n_epoch_rampup,

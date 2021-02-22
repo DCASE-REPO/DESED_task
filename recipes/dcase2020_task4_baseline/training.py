@@ -268,17 +268,16 @@ def train(
 
     for i, ((batch_input, ema_batch_input), target) in enumerate(train_loader):
 
-        global_step = c_epoch * len(train_loader) + i
-
-        rampup_value = ramps.exp_rampup(global_step, n_epoch_rampup * len(train_loader))
-
         # changing the learning rate according to the type of optimizer
-        if optimizer_type == "a":
-
+        if optimizer_type.lower() == "adam":
             if adjust_lr:
+                global_step = c_epoch * len(train_loader) + i
+                rampup_value = ramps.exp_rampup(
+                    global_step, n_epoch_rampup * len(train_loader)
+                )
                 adjust_learning_rate(optimizer, rampup_value, max_learning_rate)
 
-        elif optimizer_type == "ra":
+        elif optimizer_type.lower() == "radam":
 
             if c_epoch % 100 == 0 and c_epoch > 0:
                 # log.info("Multiply lr * 0.1")
