@@ -11,7 +11,7 @@ recipes/dcase2020_task4_baseline/data/features/sr*
 recipes/dcase2020_task4_baseline/exp_out/Mean*
 # to remove this line
 recipes/dcase2020_task4_baseline/data 
-recipes/dcase2020_task4_baseline/data
+recipes/dcase2020_task4_baseline/mean
 
 
 #visual studio files
