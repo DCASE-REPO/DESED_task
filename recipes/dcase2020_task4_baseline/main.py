@@ -70,7 +70,7 @@ from Configuration import Configuration
 if __name__ == "__main__":
 
     # TODO: Set the path with your local path
-    workspace = "/srv/storage/talc3@talc-data.nancy/multispeech/calcul/users/fronchini/repo/DESED_task/recipes/dcase2020_task4_baseline"
+    workspace = "../../"
 
     # retrieve all the default parameters
     config_params = Configuration(workspace)
@@ -106,9 +106,9 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "-t",
-        "--test",
-        dest="test",
+        "-dt",
+        "--dev_test",
+        dest="dev_test",
         action="store_true",
         default=False,
         help="Test to verify that everything is running. Number of file considered: 24, number of epoch considered: 2.",
@@ -132,7 +132,7 @@ if __name__ == "__main__":
 
     reduced_number_of_data = f_args.subpart_data
     no_synthetic = f_args.no_synthetic
-    test = f_args.test
+    dev_test = f_args.dev_test
     model_type = f_args.model_type
 
     if no_synthetic:
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         ""
     )
 
-    if test:
+    if dev_test:
         reduced_number_of_data = 24
         config_params.n_epoch = 2
 
@@ -264,7 +264,16 @@ if __name__ == "__main__":
     weak_data.transforms = transforms
     unlabel_data.transforms = transforms
     train_synth_data.transforms = transforms
-    scaler, scaler_args = get_scaler(ConcatDataset([weak_data, unlabel_data, train_synth_data]))
+
+    # Todo, find a cleaner way to do this
+    scaler_save_file = "./exp_out/scaler_all.json"
+    if config_params.scaler_type == "dataset" and os.path.exists(scaler_save_file):
+        scaler = Scaler().load(scaler_save_file)
+    else:
+        scaler, scaler_args = get_scaler(config_params.scaler_type,
+                                         ConcatDataset([weak_data, unlabel_data, train_synth_data]))
+    if config_params.scaler_type == "dataset":
+        scaler.save(scaler_save_file)
 
     transforms = get_transforms(
         frames=config_params.max_frames,

@@ -223,7 +223,6 @@ def get_dataset(
 
 
 def get_scaler(scaler_type, dataset=None):
-
     if scaler_type == "dataset":
         scaler_args = []
         scaler = Scaler()

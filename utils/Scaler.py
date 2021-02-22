@@ -59,7 +59,7 @@ class Scaler:
 
     def means(self, dataset):
         """
-        Splits a dataset in to train test validation.
+        Splits a dataset in to train dev_test validation.
 
         Args:
             dataset: dataset, from DataLoad class, each sample is an (X, y) tuple.
@@ -72,49 +72,40 @@ class Scaler:
 
         counter = 0
 
-        if os.path.exists("./mean.npy") and os.path.exists("./mean_of_square.npy"):
-            self.mean_ = np.load("./mean.npy")
-            self.mean_of_square_ = np.load("./mean_of_square.npy")
-            logger.info(f"Mean: {sum(self.mean_)}")
-            logger.info(f"mean of square: {sum(self.mean_of_square_)}")
-        else:
-            for sample in dataset:
-                if type(sample) in [tuple, list] and len(sample) == 2:
-                    batch_x, _ = sample
-                else:
-                    batch_x = sample
-                if type(batch_x) is torch.Tensor:
-                    batch_x_arr = batch_x.numpy()
-                else:
-                    batch_x_arr = batch_x
-                data_square = batch_x_arr ** 2
-                counter += 1
+        for sample in dataset:
+            if type(sample) in [tuple, list] and len(sample) == 2:
+                batch_x, _ = sample
+            else:
+                batch_x = sample
+            if type(batch_x) is torch.Tensor:
+                batch_x_arr = batch_x.numpy()
+            else:
+                batch_x_arr = batch_x
+            data_square = batch_x_arr ** 2
+            counter += 1
 
-                if shape is None:
-                    shape = batch_x_arr.shape
-                else:
-                    if not batch_x_arr.shape == shape:
-                        raise NotImplementedError(
-                            "Not possible to add data with different shape in mean calculation yet"
-                        )
+            if shape is None:
+                shape = batch_x_arr.shape
+            else:
+                if not batch_x_arr.shape == shape:
+                    raise NotImplementedError(
+                        "Not possible to add data with different shape in mean calculation yet"
+                    )
 
-                # assume first item will have shape info
-                if self.mean_ is None:
-                    self.mean_ = self.mean(batch_x_arr, axis=-1)
-                else:
-                    self.mean_ += self.mean(batch_x_arr, axis=-1)
+            # assume first item will have shape info
+            if self.mean_ is None:
+                self.mean_ = self.mean(batch_x_arr, axis=-1)
+            else:
+                self.mean_ += self.mean(batch_x_arr, axis=-1)
 
-                if self.mean_of_square_ is None:
-                    self.mean_of_square_ = self.mean(data_square, axis=-1)
-                else:
-                    self.mean_of_square_ += self.mean(data_square, axis=-1)
+            if self.mean_of_square_ is None:
+                self.mean_of_square_ = self.mean(data_square, axis=-1)
+            else:
+                self.mean_of_square_ += self.mean(data_square, axis=-1)
 
             self.mean_ /= counter
             self.mean_of_square_ /= counter
 
-            # saving mean and mean_of_square
-            np.save("./mean", self.mean_)
-            np.save("./mean_of_square", self.mean_of_square_)
             logger.info(f"Mean: {sum(self.mean_)}")
             logger.info(f"Mean of square: {sum(self.mean_of_square_)}")
 

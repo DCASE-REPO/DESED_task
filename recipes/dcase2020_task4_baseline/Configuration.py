@@ -59,7 +59,7 @@ class Configuration:
         self.test2018 = os.path.join(self.metadata_valid_folder, "test_dcase2018.tsv")
         self.eval2018 = os.path.join(self.metadata_valid_folder, "eval_dcase2018.tsv")
 
-        # Useful because does not correspond to the tsv file path (metadata replace by audio), (due to subsets test/eval2018)
+        # Useful because does not correspond to the tsv file path (metadata replace by audio), (due to subsets dev_test/eval2018)
         # audio folder paths
         self.audio_folder = os.path.join(self.workspace, "data/desed/audio")
         self.audio_train_folder = os.path.join(self.audio_folder, "train")
