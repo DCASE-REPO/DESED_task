@@ -29,46 +29,42 @@ class Configuration:
         self.metadata_valid_folder = os.path.join(self.metadata_folder, "validation")
         self.metadata_eval_folder = os.path.join(self.metadata_folder, "eval")
 
+        # audio folder paths
+        self.audio_folder = os.path.join(self.workspace, "data/desed/audio")
+        self.audio_train_folder = os.path.join(self.audio_folder, "train")
+        self.audio_valid_folder = os.path.join(self.audio_folder, "validation")
+
         # training dataset metadata paths
         self.weak = os.path.join(self.metadata_train_folder, "weak.tsv")
         self.audio_weak = os.path.join(self.audio_train_folder, "weak")
         self.unlabel = os.path.join(self.metadata_train_folder, "unlabel_in_domain.tsv")
         self.audio_unlabel = os.path.join(self.audio_train_folder, "unlabel_in_domain")
         self.train_synth = os.path.join(
-            self.metadata_train_folder, "synthetic20_train/soundscapes.tsv"
+            self.metadata_train_folder, "synthetic20_train", "soundscapes.tsv"
         )
-        self.train_synth_audio = os.path.join(
-            self.audio_train_folder, "synthetic20_train/soundscapes"
+        self.audio_train_synth = os.path.join(
+            self.audio_train_folder, "synthetic20_train", "soundscapes"
         )
 
         # self.valid_synth = os.path.join(self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv")
         self.valid_synth = os.path.join(
-            self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv"
+            self.metadata_valid_folder, "synthetic20_validation", "soundscapes.tsv"
+        )
+        self.audio_valid_synth = os.path.join(
+            self.audio_valid_folder, "synthetic20_validation", "soundscapes"
         )
 
         # validation dataset metadata paths
         self.validation = os.path.join(self.metadata_valid_folder, "validation.tsv")
+        self.audio_validation = os.path.join(self.audio_valid_folder, "validation")
 
         # evaluation dataset metadata path
         self.eval_desed = os.path.join(self.metadata_eval_folder, "public.tsv")
+        self.audio_eval_folder = os.path.join(self.audio_folder, "eval/public")
 
         # 2018 dataset metadata path
         self.test2018 = os.path.join(self.metadata_valid_folder, "test_dcase2018.tsv")
         self.eval2018 = os.path.join(self.metadata_valid_folder, "eval_dcase2018.tsv")
-
-        # Useful because does not correspond to the tsv file path (metadata replace by audio), (due to subsets dev_test/eval2018)
-        # audio folder paths
-        self.audio_folder = os.path.join(self.workspace, "data/desed/audio")
-        self.audio_train_folder = os.path.join(self.audio_folder, "train")
-        self.audio_valid_folder = os.path.join(self.audio_folder, "validation")
-        self.audio_eval_folder = os.path.join(self.audio_folder, "eval/public")
-        # to check
-        self.audio_train_synth = os.path.join(
-            self.audio_train_folder, "synthetic20_train/soundscapes"
-        )
-        self.audio_valid_synth = os.path.join(
-            self.audio_valid_folder, "synthetic20_validation/soundscapes"
-        )
 
         # storing directories paths
         self.exp_out_path = os.path.join(self.workspace, "exp_out")

@@ -116,6 +116,7 @@ if __name__ == "__main__":
     no_synthetic = f_args.no_synthetic
     dev_test = f_args.dev_test
     model_type = f_args.model_type
+    optim_type = "adam"
 
     if no_synthetic:
         add_dir_model_name = "_no_synthetic"
@@ -265,9 +266,7 @@ if __name__ == "__main__":
         mel_f_max=config_params.mel_f_max,
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
-        filenames_folder=os.path.join(
-            config_params.audio_train_folder, "synthetic20/soundscapes"
-        ),
+        filenames_folder=config_params.audio_valid_synth
     )
 
     valid_weak_data = DataLoadDf(
@@ -284,7 +283,7 @@ if __name__ == "__main__":
         mel_f_max=config_params.mel_f_max,
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
-        filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
+        filenames_folder=config_params.audio_weak,
     )
 
     logger.debug(
@@ -331,7 +330,7 @@ if __name__ == "__main__":
 
     logger.info(f"number of parameters in the model: {get_model_params(model)}")
 
-    optimizer = get_optimizer(model, optim="adam", **config_params.optim_kwargs)
+    optimizer = get_optimizer(model, optim=optim_type, **config_params.optim_kwargs)
 
     state = set_state(
         model=model,  # to change
@@ -521,7 +520,7 @@ if __name__ == "__main__":
         save_features=config_params.save_features,
         filenames_folder=config_params.audio_eval_folder  # change filename folder
         # filenames_folder=config_params.audio_eval_folder  # TODO: Make an unique variable, instead of an if inside a passing function
-        if config_params.evaluation else config_params.audio_validation_dir,
+        if config_params.evaluation else config_params.audio_validation,
     )
 
     validation_dataloader = DataLoader(
@@ -538,7 +537,7 @@ if __name__ == "__main__":
         validation_labels_df = dfs["validation"]
 
     durations_validation = get_durations_df(
-        config_params.validation, config_params.audio_validation_dir
+        config_params.validation, config_params.audio_validation
     )
 
     # Preds with only one value

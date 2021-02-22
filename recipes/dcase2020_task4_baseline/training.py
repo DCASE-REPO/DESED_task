@@ -78,7 +78,7 @@ def get_teacher_model(**crnn_kwargs):
 
 
 def get_optimizer(model, optim="adam", **optim_kwargs):
-    if optim.lower == "adam":
+    if optim.lower() == "adam":
         return torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
         )
@@ -86,6 +86,8 @@ def get_optimizer(model, optim="adam", **optim_kwargs):
         return torch_optimizer.RAdam(
             filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
         )
+    else:
+        raise NotImplementedError(f"The optim given: {optim} is not implemented")
 
 
 def set_state(
