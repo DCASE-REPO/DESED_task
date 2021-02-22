@@ -4,7 +4,9 @@ import warnings
 import numpy as np
 import torch
 import json
-from utilities.Logger import create_logger
+from utils.Logger import create_logger
+import os
+from utils.utils import create_folder
 
 
 logger = create_logger(__name__)
@@ -55,7 +57,7 @@ class Scaler:
         """
         return mean_of_square - mean ** 2
 
-    def means(self, dataset):
+    def means(self, dataset, ext):
         """
         Splits a dataset in to train test validation.
 
@@ -69,39 +71,62 @@ class Scaler:
         shape = None
 
         counter = 0
-        for sample in dataset:
-            if type(sample) in [tuple, list] and len(sample) == 2:
-                batch_x, _ = sample
-            else:
-                batch_x = sample
-            if type(batch_x) is torch.Tensor:
-                batch_x_arr = batch_x.numpy()
-            else:
-                batch_x_arr = batch_x
-            data_square = batch_x_arr ** 2
-            counter += 1
 
-            if shape is None:
-                shape = batch_x_arr.shape
-            else:
-                if not batch_x_arr.shape == shape:
-                    raise NotImplementedError(
-                        "Not possible to add data with different shape in mean calculation yet"
-                    )
+        #definition of files name for saving mean and mean of squared filename
+        mean_filename = "mean_" + ext
+        mos_filename = "mos_" + ext
+        logger.info(f"Mean filename: {mean_filename}, mean_of_squared_filename: {mos_filename}")
+        create_folder("./mean")
+        mean_file_path = os.path.join("./mean", mean_filename)
+        mean_of_square_path = os.path.join("./mean", mos_filename)
+        logger.info(f"Path mean filename: {mean_file_path}, mean_of_squared path: {mean_of_square_path}")
+        
+        if os.path.exists(mean_file_path + ".npy") and os.path.exists(mean_of_square_path + ".npy"):
+            logger.info("The file already exist")
+            self.mean_ = np.load(mean_file_path + ".npy")
+            self.mean_of_square_ = np.load(mean_of_square_path + ".npy")
+            logger.info(f"Mean: {sum(self.mean_)}")
+            logger.info(f"mean of square: {sum(self.mean_of_square_)}")
+        else:
+            for sample in dataset:
+                if type(sample) in [tuple, list] and len(sample) == 2:
+                    batch_x, _ = sample
+                else:
+                    batch_x = sample
+                if type(batch_x) is torch.Tensor:
+                    batch_x_arr = batch_x.numpy()
+                else:
+                    batch_x_arr = batch_x
+                data_square = batch_x_arr ** 2
+                counter += 1
 
-            # assume first item will have shape info
-            if self.mean_ is None:
-                self.mean_ = self.mean(batch_x_arr, axis=-1)
-            else:
-                self.mean_ += self.mean(batch_x_arr, axis=-1)
+                if shape is None:
+                    shape = batch_x_arr.shape
+                else:
+                    if not batch_x_arr.shape == shape:
+                        raise NotImplementedError(
+                            "Not possible to add data with different shape in mean calculation yet"
+                        )
 
-            if self.mean_of_square_ is None:
-                self.mean_of_square_ = self.mean(data_square, axis=-1)
-            else:
-                self.mean_of_square_ += self.mean(data_square, axis=-1)
+                # assume first item will have shape info
+                if self.mean_ is None:
+                    self.mean_ = self.mean(batch_x_arr, axis=-1)
+                else:
+                    self.mean_ += self.mean(batch_x_arr, axis=-1)
 
-        self.mean_ /= counter
-        self.mean_of_square_ /= counter
+                if self.mean_of_square_ is None:
+                    self.mean_of_square_ = self.mean(data_square, axis=-1)
+                else:
+                    self.mean_of_square_ += self.mean(data_square, axis=-1)
+
+            self.mean_ /= counter
+            self.mean_of_square_ /= counter
+
+            # saving mean and mean_of_square
+            np.save(mean_file_path, self.mean_)
+            np.save(mean_of_square_path, self.mean_of_square_)
+            logger.info(f"Mean: {sum(self.mean_)}")
+            logger.info(f"Mean of square: {sum(self.mean_of_square_)}")
 
         # ### To be used if data different shape, but need to stop the iteration before.
         # rest = len(dataset) - i
@@ -118,7 +143,7 @@ class Scaler:
     def std(self, variance):
         return np.sqrt(variance)
 
-    def calculate_scaler(self, dataset):
+    def calculate_scaler(self, dataset, ext):
         """
         Calculate mean and standard deviation of the dataset
         Args:
@@ -127,7 +152,7 @@ class Scaler:
             self.mean: mean
             self.std: standard deviation
         """
-        self.means(dataset)
+        self.means(dataset, ext)
         variance = self.variance(self.mean_, self.mean_of_square_)
         self.std_ = self.std(variance)
 

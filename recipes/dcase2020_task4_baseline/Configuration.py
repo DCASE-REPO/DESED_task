@@ -37,9 +37,9 @@ class Configuration:
         self.synthetic = os.path.join(
             self.metadata_train_folder, "synthetic20/soundscapes.tsv"
         )
-        # self.train_synth = os.path.join(
+        #self.train_synth = os.path.join(
         #   self.metadata_train_folder, "synthetic20_train/soundscapes.tsv"
-        # )
+        #)
         self.train_synth = os.path.join(
             self.metadata_train_folder, "synthetic2021_train/soundscapes.csv"
         )
@@ -48,7 +48,7 @@ class Configuration:
         self.validation = os.path.join(self.metadata_valid_folder, "validation.tsv")
 
         # synthetic dataset metadata path
-        # self.valid_synth = os.path.join(self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv")
+        #self.valid_synth = os.path.join(self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv")
         self.valid_synth = os.path.join(
             self.metadata_valid_folder, "synthetic2021_validation/validation.csv"
         )
@@ -67,7 +67,7 @@ class Configuration:
         self.audio_valid_folder = os.path.join(self.audio_folder, "validation")
         self.audio_eval_folder = os.path.join(self.audio_folder, "eval/public")
         # to check
-        # self.audio_valid_synth = os.path.join(self.audio_train_folder, "synthetic20_validation/soundscapes")
+        #self.audio_valid_synth = os.path.join(self.audio_train_folder, "synthetic20_validation/soundscapes")
         self.audio_valid_synth = os.path.join(
             self.audio_train_folder, "synthetic2021_validation/soundscapes"
         )

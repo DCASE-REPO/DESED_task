@@ -227,7 +227,7 @@ def get_dataset(
     return desed_dataset, dfs
 
 
-def get_compose_transforms(datasets, scaler_type, max_frames, add_axis_conv, noise_snr):
+def get_compose_transforms(datasets, scaler_type, max_frames, add_axis_conv, noise_snr, ext):
     """
     The function performs all the operation needed to normalize the dataset.
 
@@ -265,9 +265,9 @@ def get_compose_transforms(datasets, scaler_type, max_frames, add_axis_conv, noi
         scaler_args = []
         scaler = Scaler()
         scaler.calculate_scaler(
-            ConcatDataset([weak_data, unlabel_data, train_synth_data])
+            ConcatDataset([weak_data, unlabel_data, train_synth_data]), 
+            ext
         )
-        # log.info(f"mean: {mean}, std: {std}")
     else:
         scaler_args = ["global", "min-max"]
         scaler = ScalerPerAudio(*scaler_args)

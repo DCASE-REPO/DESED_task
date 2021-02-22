@@ -11,7 +11,6 @@ from pprint import pprint
 import pandas as pd
 import numpy as np
 
-
 import torch
 from torch.utils.data import DataLoader
 from torch import nn
@@ -235,7 +234,7 @@ if __name__ == "__main__":
             "synthetic2021_train/soundscapes",  # to change, to clean
         ),
     )
-
+    
     """
     train_synth_data = DataLoadDf(
         df=dfs["train_synthetic"],
@@ -249,7 +248,7 @@ if __name__ == "__main__":
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
         filenames_folder=os.path.join(
-            config_params.audio_train_folder, "synthetic20/soundscapes"
+            config_params.audio_train_folder, "synthetic20_train/soundscapes"
         ),
     )
     """
@@ -260,12 +259,14 @@ if __name__ == "__main__":
         "synthetic": train_synth_data,
     }
 
+    
     transforms, transforms_valid, scaler, scaler_args = get_compose_transforms(
         datasets=training_dataset,
         scaler_type=config_params.scaler_type,
         max_frames=config_params.max_frames,
         add_axis_conv=config_params.add_axis_conv,
         noise_snr=config_params.noise_snr,
+        ext="new"
     )
 
     weak_data.transforms = transforms
@@ -276,6 +277,7 @@ if __name__ == "__main__":
     train_synth_data.in_memory = config_params.in_memory
     unlabel_data.in_memory = config_params.in_memory_unlab
 
+    
     valid_synth_data = DataLoadDf(
         df=dfs["valid_synthetic"],
         encode_function=encod_func,
@@ -294,6 +296,28 @@ if __name__ == "__main__":
             config_params.audio_train_folder, "synthetic2021_validation/soundscapes"
         ),
     )
+    
+
+    """
+    valid_synth_data = DataLoadDf(
+        df=dfs["valid_synthetic"],
+        encode_function=encod_func,
+        transforms=transforms_valid,
+        return_indexes=True,
+        in_memory=config_params.in_memory,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
+        filenames_folder=os.path.join(
+            config_params.audio_train_folder, "synthetic20_validation/soundscapes"
+        ),
+    )
+    """
 
     valid_weak_data = DataLoadDf(
         df=dfs["valid_weak"],
@@ -401,6 +425,7 @@ if __name__ == "__main__":
     # TRAINING
     # ##############
 
+    """
     for epoch in range(config_params.n_epoch):
         model.train()
         model_ema.train()
@@ -441,11 +466,11 @@ if __name__ == "__main__":
             valid_synth = dfs["valid_synthetic"].drop("feature_filename", axis=1)
         else:
             valid_synth = dfs["valid_synthetic"]
-        """
-        valid_synth_f1, psds_m_f1 = compute_metrics(
-            predictions, valid_synth, durations_synth
-        )
-        """
+        
+        #valid_synth_f1, psds_m_f1 = compute_metrics(
+        #    predictions, valid_synth, durations_synth
+        #)
+        
         valid_synth_f1, lvf1, hvf1 = bootstrap(
             predictions, valid_synth, get_f1_sed_score
         )
@@ -467,15 +492,15 @@ if __name__ == "__main__":
         )
 
         # Update state
-        """state = update_state(
-            model,
-            model_ema,
-            optimizer,
-            epoch,
-            valid_synth_f1,
-            psds_f1_valid,
-            state,
-        )"""
+        #state = update_state(
+        #    model,
+        #    model_ema,
+        #    optimizer,
+        #    epoch,
+        #    valid_synth_f1,
+        #    psds_f1_valid,
+        #    state,
+        #)
 
         state = update_state(
             model,
@@ -519,6 +544,7 @@ if __name__ == "__main__":
         index=False,
         float_format="%.4f",
     )
+    """
 
     # ##############
     # VALIDATION
@@ -550,9 +576,9 @@ if __name__ == "__main__":
         add_axis=config_params.add_axis_conv,
     )
 
-    # TODO: Move it in the config file
     predictions_fname = os.path.join(saved_pred_dir, "baseline_validation.tsv")
 
+    """
     validation_data = DataLoadDf(
         df=dfs["validation"],  # change the name of the synthetic
         encode_function=encod_func,
@@ -570,6 +596,25 @@ if __name__ == "__main__":
         if config_params.evaluation
         else config_params.audio_validation_dir,
     )
+    """
+
+    validation_data = DataLoadDf(
+        df=dfs["valid_synthetic"],  # change the name of the synthetic
+        encode_function=encod_func,
+        transforms=transforms_valid,
+        return_indexes=True,
+        sample_rate=config_params.sample_rate,
+        n_window=config_params.n_window,
+        hop_size=config_params.hop_size,
+        n_mels=config_params.n_mels,
+        mel_f_min=config_params.mel_f_min,
+        mel_f_max=config_params.mel_f_max,
+        compute_log=config_params.compute_log,
+        save_features=config_params.save_features,
+        filenames_folder=os.path.join(
+            config_params.audio_train_folder, "synthetic2021_validation/soundscapes"
+        ),
+    )
 
     validation_dataloader = DataLoader(
         validation_data,
@@ -579,10 +624,17 @@ if __name__ == "__main__":
         num_workers=config_params.num_workers,
     )
 
+    """
     if config_params.save_features:
         validation_labels_df = dfs["validation"].drop("feature_filename", axis=1)
     else:
         validation_labels_df = dfs["validation"]
+    """
+
+    if config_params.save_features:
+        validation_labels_df = dfs["valid_synthetic"].drop("feature_filename", axis=1)
+    else:
+        validation_labels_df = dfs["valid_synthetic"]
 
     durations_validation = get_durations_df(
         config_params.validation, config_params.audio_validation_dir
