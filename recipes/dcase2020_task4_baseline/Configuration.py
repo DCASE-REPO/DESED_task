@@ -59,7 +59,7 @@ class Configuration:
         self.audio_eval_folder = os.path.join(self.audio_folder, "eval/public")
         # to check
         self.audio_train_synth = os.path.join(
-            self.audio_train_synth, "synthetic20_train/soundscapes"
+            self.audio_train_folder, "synthetic20_train/soundscapes"
         )
         self.audio_valid_synth = os.path.join(
             self.audio_valid_folder, "synthetic20_validation/soundscapes"
