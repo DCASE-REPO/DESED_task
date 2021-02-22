@@ -43,8 +43,7 @@ from utils.Transforms import get_transforms
 from utils.utils import create_stored_data_folder
 from utils_data.Desed import DESED
 from data_generation.feature_extraction import (
-    get_dataset,
-    get_scaler,
+    get_dataset
 )
 from utils_data.DataLoad import DataLoadDf, ConcatDataset, MultiStreamBatchSampler
 from training import (
