@@ -7,7 +7,7 @@ import torch
 from torch import nn
 import time
 import numpy as np
-import radam
+import torch_optimizer
 
 
 from utils.utils import (
@@ -83,7 +83,7 @@ def get_optimizer(model, optim="adam", **optim_kwargs):
             filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
         )
     elif optim.lower() == "radam":
-        return radam.RAdam(
+        return torch_optimizer.RAdam(
             filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
         )
 
