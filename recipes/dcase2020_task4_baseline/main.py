@@ -362,7 +362,7 @@ if __name__ == "__main__":
     results = pd.DataFrame(columns=["loss", "valid_synth_f1", "global_valid"])
 
     # Meta path for psds
-    durations_synth = get_durations_df(gtruth_path=config_params.synthetic)
+    durations_synth = get_durations_df(gtruth_path=config_params.valid_synth)
 
     for epoch in range(config_params.n_epoch):
         model.train()
