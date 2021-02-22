@@ -168,7 +168,7 @@ if __name__ == "__main__":
         mel_f_max=config_params.mel_f_max,
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
-        filenames_folder=os.path.join(config_params.audio_train_folder, "weak"),
+        filenames_folder=config_params.audio_weak,
     )
 
     unlabel_data = DataLoadDf(
@@ -182,9 +182,7 @@ if __name__ == "__main__":
         mel_f_max=config_params.mel_f_max,
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
-        filenames_folder=os.path.join(
-            config_params.audio_train_folder, "unlabel_in_domain"
-        ),
+        filenames_folder=config_params.audio_unlabel
     )
 
     train_synth_data = DataLoadDf(
@@ -198,9 +196,7 @@ if __name__ == "__main__":
         mel_f_max=config_params.mel_f_max,
         compute_log=config_params.compute_log,
         save_features=config_params.save_features,
-        filenames_folder=os.path.join(
-            config_params.audio_train_folder, "synthetic20_train/soundscapes"
-        ),
+        filenames_folder=config_params.audio_train_synth,
     )
 
     training_dataset = {

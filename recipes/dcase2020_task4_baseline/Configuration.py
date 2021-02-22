@@ -31,9 +31,14 @@ class Configuration:
 
         # training dataset metadata paths
         self.weak = os.path.join(self.metadata_train_folder, "weak.tsv")
+        self.audio_weak = os.path.join(self.audio_train_folder, "weak")
         self.unlabel = os.path.join(self.metadata_train_folder, "unlabel_in_domain.tsv")
+        self.audio_unlabel = os.path.join(self.audio_train_folder, "unlabel_in_domain")
         self.train_synth = os.path.join(
             self.metadata_train_folder, "synthetic20_train/soundscapes.tsv"
+        )
+        self.train_synth_audio = os.path.join(
+            self.audio_train_folder, "synthetic20_train/soundscapes"
         )
 
         # self.valid_synth = os.path.join(self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv")
