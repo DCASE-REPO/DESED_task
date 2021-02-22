@@ -4,13 +4,10 @@
 # L: Loading of the dataset
 
 from utils_data.Desed import DESED
-from utils_data.DataLoad import DataLoadDf, ConcatDataset
 from utils.Logger import create_logger
-from utils.Transforms import get_transforms
-from utils.Scaler import ScalerPerAudio, Scaler
-import os
 import inspect
 import logging
+
 
 # Extraction of datasets
 def get_dfs(
@@ -22,7 +19,6 @@ def get_dfs(
     save_features,
     nb_files=None,
     eval_dataset=False,
-    separated_sources=False,
 ):
     """
     The function initializes and retrieves all the subset of the dataset.
@@ -34,7 +30,7 @@ def get_dfs(
         pooling_time_ratio: int, pooling time ratio
         save_features: bool, True if features need to be saved, False if features are not going to be saved
         nb_files: int, number of file to be considered (in case you want to consider only part of the dataset)
-        separated source: bool, true if you want to consider separated source as well or not
+        eval_dataset: bool, whether or not to get the evaluation dataset too.
 
     Return:
         data_dfs: dictionary containing the different dataset needed
@@ -45,46 +41,21 @@ def get_dfs(
         terminal_level=logging.INFO,
     )
 
-    audio_weak_ss = None
-    audio_unlabel_ss = None
-    audio_validation_ss = None
-    audio_synthetic_ss = None
-
-    if separated_sources:
-        audio_weak_ss = path_dict["weak_ss"]
-        audio_unlabel_ss = path_dict["unlabel_ss"]
-        audio_validation_ss = path_dict["validation_ss"]
-        audio_synthetic_ss = path_dict["synthetic_ss"]
-
     # initialization of the datasets
     weak_df = desed_dataset.initialize_and_get_df(
         tsv_path=path_dict["tsv_path_weak"],
-        audio_dir_ss=audio_weak_ss,
         nb_files=nb_files,
         save_features=save_features,
     )
 
     unlabel_df = desed_dataset.initialize_and_get_df(
         tsv_path=path_dict["tsv_path_unlabel"],
-        audio_dir_ss=audio_unlabel_ss,
         nb_files=nb_files,
         save_features=save_features,
     )
-
-    # Event if synthetic not used for training, used on validation purpose
-    """
-    synthetic_df = desed_dataset.initialize_and_get_df(
-        tsv_path=path_dict["tsv_path_synth"],
-        audio_dir_ss=audio_synthetic_ss,
-        nb_files=nb_files,
-        download=False,
-        save_features=save_features,
-    )
-    """
 
     train_synth_df = desed_dataset.initialize_and_get_df(
         tsv_path=path_dict["tsv_path_train_synth"],
-        audio_dir_ss=audio_synthetic_ss,
         nb_files=nb_files,
         download=False,
         save_features=save_features,
@@ -92,8 +63,6 @@ def get_dfs(
 
     valid_synth_df = desed_dataset.initialize_and_get_df(
         tsv_path=path_dict["tsv_path_valid_synth"],
-        audio_dir=path_dict["audio_valid_synth"],
-        audio_dir_ss=audio_synthetic_ss,
         nb_files=nb_files,
         download=False,
         save_features=save_features,
@@ -111,7 +80,6 @@ def get_dfs(
         validation_df = desed_dataset.initialize_and_get_df(
             tsv_path=path_dict["tsv_path_eval_deded"],
             audio_dir=path_dict["audio_evaluation_dir"],
-            audio_dir_ss=audio_validation_ss,
             nb_files=nb_files,
             save_features=save_features,
         )
@@ -120,19 +88,9 @@ def get_dfs(
         validation_df = desed_dataset.initialize_and_get_df(
             tsv_path=path_dict["tsv_path_valid"],
             audio_dir=path_dict["audio_validation_dir"],
-            audio_dir_ss=audio_validation_ss,
             nb_files=nb_files,
             save_features=save_features,
         )
-
-    # Divide synthetic in train and valid
-    """
-    filenames_train = synthetic_df.filename.drop_duplicates().sample(
-        frac=0.8, random_state=26
-    )
-    train_synth_df = synthetic_df[synthetic_df.filename.isin(filenames_train)]
-    valid_synth_df = synthetic_df.drop(train_synth_df.index).reset_index(drop=True)
-    """
 
     # Converting train_synth in frames so many_hot_encoder can work.
     # Not doing it for valid, because not using labels (when prediction) and event based metric expect sec.
@@ -144,17 +102,6 @@ def get_dfs(
     )
     log.debug(valid_synth_df.event_label.value_counts())
 
-    """
-    data_dfs = {
-        "weak": weak_df,
-        "unlabel": unlabel_df,
-        "synthetic": synthetic_df,
-        "train_synthetic": train_synth_df,
-        "valid_synthetic": valid_synth_df,
-        "validation": validation_df,
-    }
-    """
-    # new split of data
     data_dfs = {
         "weak": train_weak_df,
         "unlabel": unlabel_df,
@@ -216,7 +163,6 @@ def get_dataset(
         desed_dataset=desed_dataset,
         save_features=save_features,
         nb_files=nb_files,
-        eval_dataset=eval_dataset,
-        separated_sources=False,
+        eval_dataset=eval_dataset
     )
     return desed_dataset, dfs

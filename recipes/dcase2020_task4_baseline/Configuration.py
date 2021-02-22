@@ -32,19 +32,13 @@ class Configuration:
         # training dataset metadata paths
         self.weak = os.path.join(self.metadata_train_folder, "weak.tsv")
         self.unlabel = os.path.join(self.metadata_train_folder, "unlabel_in_domain.tsv")
-        self.synthetic = os.path.join(
-            self.metadata_train_folder, "synthetic20/soundscapes.tsv"
-        )
-        # self.train_synth = os.path.join(
-        #   self.metadata_train_folder, "synthetic20_train/soundscapes.tsv"
-        # )
         self.train_synth = os.path.join(
-            self.metadata_train_folder, "synthetic2021_train/soundscapes.csv"
+            self.metadata_train_folder, "synthetic20_train/soundscapes.tsv"
         )
 
         # self.valid_synth = os.path.join(self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv")
         self.valid_synth = os.path.join(
-            self.metadata_valid_folder, "synthetic2021_validation/validation.csv"
+            self.metadata_valid_folder, "synthetic20_validation/validation.csv"
         )
 
         # validation dataset metadata paths
@@ -64,26 +58,12 @@ class Configuration:
         self.audio_valid_folder = os.path.join(self.audio_folder, "validation")
         self.audio_eval_folder = os.path.join(self.audio_folder, "eval/public")
         # to check
-        # self.audio_valid_synth = os.path.join(self.audio_train_folder, "synthetic20_validation/soundscapes")
+        self.audio_train_synth = os.path.join(
+            self.audio_train_synth, "synthetic20_train/soundscapes"
+        )
         self.audio_valid_synth = os.path.join(
-            self.audio_train_folder, "synthetic2021_validation/soundscapes"
+            self.audio_valid_folder, "synthetic20_validation/soundscapes"
         )
-
-        # Source separation dataset path
-        self.weak_ss = os.path.join(self.audio_train_folder, "weak")
-        self.unlabel_ss = os.path.join(
-            self.audio_train_folder, "unlabel_in_domain/soundscapes"
-        )
-        self.synthetic_ss = os.path.join(
-            self.audio_train_folder, "synthetic20/soundscapes"
-        )
-        self.validation_ss = os.path.join(
-            self.audio_valid_folder, "validation/soundscapes"
-        )
-        self.eval_desed_ss = os.path.join(self.audio_eval_folder, "public/soundscapes")
-
-        # TODO: to be removed (in the future) -> same path of audio_valid_folder
-        self.audio_validation_dir = os.path.join(self.audio_folder, "validation")
 
         # storing directories paths
         self.exp_out_path = os.path.join(self.workspace, "exp_out")
@@ -189,19 +169,15 @@ class Configuration:
         """
         path_dict = dict(
             audio_evaluation_dir=self.audio_eval_folder,
-            audio_validation_dir=self.audio_validation_dir,
+            audio_validation_dir=self.audio_valid_folder,
+            audio_train_synth=self.audio_train_synth,
             audio_valid_synth=self.audio_valid_synth,
-            weak_ss=self.weak_ss,
-            unlabel_ss=self.unlabel_ss,
-            validation_ss=self.validation_ss,
-            synthetic_ss=self.synthetic_ss,
             tsv_path_weak=self.weak,
             tsv_path_unlabel=self.unlabel,
-            tsv_path_synth=self.synthetic,
             tsv_path_valid=self.validation,
             tsv_path_eval_deded=self.eval_desed,
             # added with the new split
             tsv_path_train_synth=self.train_synth,
-            tsv_path_valid_synth=self.valid_synth,
+            tsv_path_valid_synth=self.valid_synth
         )
         return path_dict
