@@ -1,4 +1,7 @@
 from utils_model.CRNN import CRNN
+from utils_model.Transformer import Transformer
+from utils_model.Conformer import Conformer
+from utils.utils import weights_init
 from utils.Logger import create_logger
 from utils import ramps
 import logging
@@ -7,13 +10,16 @@ import torch
 from torch import nn
 import time
 import numpy as np
-import torch_optimizer
+import radam
 
 
 from utils.utils import (
+    SaveBest,
     to_cuda_if_available,
     weights_init,
     AverageMeterSet,
+    EarlyStopping,
+    get_durations_df,
 )
 
 logger = create_logger(__name__, terminal_level=logging.INFO)
@@ -55,9 +61,7 @@ def get_model_params(model):
 
 
 def get_student_model(**crnn_kwargs):
-    """
-    Retrieve CRNN student model
-    """
+
     crnn = CRNN(**crnn_kwargs)
     logger.info(crnn)
     crnn.apply(weights_init)
@@ -66,9 +70,7 @@ def get_student_model(**crnn_kwargs):
 
 
 def get_teacher_model(**crnn_kwargs):
-    """
-    Retrieve CRNN teacher model
-    """
+
     crnn_ema = CRNN(**crnn_kwargs)
     crnn_ema.apply(weights_init)
     for param in crnn_ema.parameters():
@@ -77,17 +79,49 @@ def get_teacher_model(**crnn_kwargs):
     return crnn_ema
 
 
-def get_optimizer(model, optim="adam", **optim_kwargs):
-    if optim.lower() == "adam":
+def get_student_model_transformer(**transformer_kwargs):
+
+    transformer = Transformer(**transformer_kwargs)
+    logger.info(transformer)
+    transformer.apply(weights_init)
+    return transformer
+
+
+def get_teacher_model_transformer(**transformer_kwargs):
+    transformer_ema = Transformer(**transformer_kwargs)
+    transformer_ema.apply(weights_init)
+    for param in transformer_ema.parameters():
+        param.detach_()
+
+    return transformer_ema
+
+
+def get_student_model_conformer(**conformer_kwargs):
+
+    conformer = Conformer(**conformer_kwargs)
+    logger.info(conformer)
+    conformer.apply(weights_init)
+    return conformer
+
+
+def get_teacher_model_conformer(**conformer_kwargs):
+    conformer_ema = Conformer(**conformer_kwargs)
+    conformer_ema.apply(weights_init)
+    for param in conformer_ema.parameters():
+        param.detach_()
+
+    return conformer_ema
+
+
+def get_optimizer(model, optim="a", **optim_kwargs):
+    if optim == "a":
         return torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
         )
-    elif optim.lower() == "radam":
-        return torch_optimizer.RAdam(
+    elif optim == "ra":
+        return radam.RAdam(
             filter(lambda p: p.requires_grad, model.parameters()), **optim_kwargs
         )
-    else:
-        raise NotImplementedError(f"The optim given: {optim} is not implemented")
 
 
 def set_state(
@@ -103,9 +137,6 @@ def set_state(
     model_kwargs,
     optim_kwargs,
 ):
-    """
-    Setting the training state of the model
-    """
 
     state = {
         "model": {
@@ -268,16 +299,17 @@ def train(
 
     for i, ((batch_input, ema_batch_input), target) in enumerate(train_loader):
 
+        global_step = c_epoch * len(train_loader) + i
+
+        rampup_value = ramps.exp_rampup(global_step, n_epoch_rampup * len(train_loader))
+
         # changing the learning rate according to the type of optimizer
-        if optimizer_type.lower() == "adam":
+        if optimizer_type == "a":
+
             if adjust_lr:
-                global_step = c_epoch * len(train_loader) + i
-                rampup_value = ramps.exp_rampup(
-                    global_step, n_epoch_rampup * len(train_loader)
-                )
                 adjust_learning_rate(optimizer, rampup_value, max_learning_rate)
 
-        elif optimizer_type.lower() == "radam":
+        elif optimizer_type == "ra":
 
             if c_epoch % 100 == 0 and c_epoch > 0:
                 # log.info("Multiply lr * 0.1")

@@ -8,12 +8,14 @@ class Configuration:
 
     """
     Configuration class defining the default parameteres regarding the processing of data,
-    model, training and post-processing
+    model, training and post-processing of the paper:
+    "CONVOLUTION-AUGMENTED TRANSFORMER FOR SEMI-SUPERVISED SOUND EVENT DETECTION"
     """
 
     def __init__(self, workspace="."):
         """
         Initialization of Configuration instance
+
         Args:
             workspace: str, workspace path
         """
@@ -29,45 +31,74 @@ class Configuration:
         self.metadata_valid_folder = os.path.join(self.metadata_folder, "validation")
         self.metadata_eval_folder = os.path.join(self.metadata_folder, "eval")
 
-        # audio folder paths
-        self.audio_folder = os.path.join(self.workspace, "data/desed/audio")
-        self.audio_train_folder = os.path.join(self.audio_folder, "train")
-        self.audio_valid_folder = os.path.join(self.audio_folder, "validation")
-
         # training dataset metadata paths
         self.weak = os.path.join(self.metadata_train_folder, "weak.tsv")
-        self.audio_weak = os.path.join(self.audio_train_folder, "weak")
         self.unlabel = os.path.join(self.metadata_train_folder, "unlabel_in_domain.tsv")
-        self.audio_unlabel = os.path.join(self.audio_train_folder, "unlabel_in_domain")
+        self.synthetic = os.path.join(
+            self.metadata_train_folder, "synthetic20/soundscapes.tsv"
+        )
+        # self.train_synth = os.path.join(
+        #   self.metadata_train_folder, "synthetic20_train/soundscapes.tsv"
+        # )
         self.train_synth = os.path.join(
-            self.metadata_train_folder, "synthetic20_train", "soundscapes.tsv"
-        )
-        self.audio_train_synth = os.path.join(
-            self.audio_train_folder, "synthetic20_train", "soundscapes"
-        )
-
-        # self.valid_synth = os.path.join(self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv")
-        self.valid_synth = os.path.join(
-            self.metadata_valid_folder, "synthetic20_validation", "soundscapes.tsv"
-        )
-        self.audio_valid_synth = os.path.join(
-            self.audio_valid_folder, "synthetic20_validation", "soundscapes"
+            self.metadata_train_folder, "synthetic2021_train/soundscapes.csv"
         )
 
         # validation dataset metadata paths
         self.validation = os.path.join(self.metadata_valid_folder, "validation.tsv")
-        self.audio_validation = os.path.join(self.audio_valid_folder, "validation")
 
-        # evaluation dataset metadata path
-        self.eval_desed = os.path.join(self.metadata_eval_folder, "public.tsv")
-        self.audio_eval_folder = os.path.join(self.audio_folder, "eval/public")
+        # synthetic dataset metadata path
+        # self.valid_synth = os.path.join(self.metadata_valid_folder, "synthetic20_validation/soundscapes.tsv")
+        self.valid_synth = os.path.join(
+            self.metadata_valid_folder, "synthetic2021_validation/validation.csv"
+        )
 
         # 2018 dataset metadata path
         self.test2018 = os.path.join(self.metadata_valid_folder, "test_dcase2018.tsv")
         self.eval2018 = os.path.join(self.metadata_valid_folder, "eval_dcase2018.tsv")
 
+        # evaluation dataset metadata path
+        self.eval_desed = os.path.join(self.metadata_eval_folder, "public.tsv")
+
+        #  Useful because does not correspond to the tsv file path (metadata replace by audio), (due to subsets test/eval2018)
+        # audio folder
+        self.audio_folder = os.path.join(self.workspace, "data/desed/audio")
+        self.audio_train_folder = os.path.join(self.audio_folder, "train")
+        self.audio_valid_folder = os.path.join(self.audio_folder, "validation")
+        self.audio_eval_folder = os.path.join(self.audio_folder, "eval/public")
+        # to check
+        # self.audio_valid_synth = os.path.join(self.audio_train_folder, "synthetic20_validation/soundscapes")
+        self.audio_valid_synth = os.path.join(
+            self.audio_train_folder, "synthetic2021_validation/soundscapes"
+        )
+
+        # Source separation dataset path
+        self.weak_ss = os.path.join(self.audio_train_folder, "weak")
+        self.unlabel_ss = os.path.join(
+            self.audio_train_folder, "unlabel_in_domain/soundscapes"
+        )
+        self.synthetic_ss = os.path.join(
+            self.audio_train_folder, "synthetic20/soundscapes"
+        )
+        self.validation_ss = os.path.join(
+            self.audio_valid_folder, "validation/soundscapes"
+        )
+        self.eval_desed_ss = os.path.join(self.audio_eval_folder, "public/soundscapes")
+
+        # validation dir (to change with the evaluation dataset path) # TODO: could be improved with a flag maybe,
+        # TODO: to be removed (in the future) -> same path of audio_valid_folder
+        self.audio_validation_dir = os.path.join(
+            self.audio_folder, "validation"
+        )  # in case of validation dataset
+        # audio_validation_dir = os.path.join(audio_eval_folder, 'public')
+
         # storing directories paths
-        self.exp_out_path = os.path.join(self.workspace, "exp_out")
+        self.exp_out_path = os.path.join(
+            self.workspace, "exp_out"
+        )  # would be the stored_data folder
+        # store_dir = os.path.join(exp_out_path, "MeanTeacher" + add_dir_model_name)
+        # saved_model_dir = os.path.join(store_dir, "model")
+        # saved_pred_dir = os.path.join(store_dir, "predictions")
 
         self.save_features = False
 
@@ -119,6 +150,48 @@ class Configuration:
             "n_RNN_cell": 128,
             "n_layers_RNN": 2,
         }
+
+        self.transformer_kwargs = {
+            "n_in_channel": self.n_channel,
+            "n_class": len(self.classes),
+            "activation_cnn": "glu",
+            "dropout_cnn": 0.5,
+            "batch_norm": True,
+            "kernel_size": self.n_layers * [3],
+            "padding": self.n_layers * [1],
+            "stride": self.n_layers * [1],
+            "nb_filters": [16, 32, 64, 128, 128, 128, 128],
+            "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
+            "embed_dim": 128,
+            "att_units": 512,
+            "num_heads": 16,
+            "transformer_dropout": 0.1,
+            "n_layers": 3,
+            "forward_extension": 4,
+            "max_length": 157,
+        }
+
+        self.confomer_kwargs = {
+            "n_in_channel": self.n_channel,
+            "n_class": len(self.classes),
+            "activation_cnn": "glu",
+            "dropout_cnn": 0.5,
+            "batch_norm": True,
+            "kernel_size": self.n_layers * [3],
+            "padding": self.n_layers * [1],
+            "stride": self.n_layers * [1],
+            "nb_filters": [16, 32, 64, 128, 128, 128, 128],
+            "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
+            "embed_dim": 128,
+            "att_units": 144,
+            "num_heads": 4,
+            "transformer_dropout": 0.1,
+            "n_layers": 3,
+            "forward_extension": 4,
+            "max_length": 157,
+            "conv_block_ks": 7,
+        }
+
         # 2 * 2
         self.pooling_time_ratio = 4
         self.out_nb_frames_1s = (
@@ -136,6 +209,7 @@ class Configuration:
         self.in_memory_unlab = False
         self.num_workers = 8
         self.batch_size = 24
+        # self.batch_size = 126
         self.noise_snr = 30
 
         self.n_epoch = 200
@@ -148,6 +222,7 @@ class Configuration:
         self.adjust_lr = True
         self.max_learning_rate = 0.001  # Used if adjust_lr is True
         self.default_learning_rate = 0.001  # Used if adjust_lr is False
+        self.optim = "a"
 
         # optimizer params
         self.optim_kwargs = {"lr": self.default_learning_rate, "betas": (0.9, 0.999)}
@@ -159,22 +234,28 @@ class Configuration:
         # Logger
         self.terminal_level = logging.INFO
 
-        # Evaluation dataset information
-        self.evaluation = True
+        # Evaluatin dataset information
+        self.evaluation = False
 
     def get_folder_path(self):
         """
             Getting folders paths
+
         Return:
             path_dict: dict, dictionary containing the folders paths
+
         """
         path_dict = dict(
             audio_evaluation_dir=self.audio_eval_folder,
-            audio_validation_dir=self.audio_valid_folder,
-            audio_train_synth=self.audio_train_synth,
+            audio_validation_dir=self.audio_validation_dir,
             audio_valid_synth=self.audio_valid_synth,
+            weak_ss=self.weak_ss,
+            unlabel_ss=self.unlabel_ss,
+            validation_ss=self.validation_ss,
+            synthetic_ss=self.synthetic_ss,
             tsv_path_weak=self.weak,
             tsv_path_unlabel=self.unlabel,
+            tsv_path_synth=self.synthetic,
             tsv_path_valid=self.validation,
             tsv_path_eval_deded=self.eval_desed,
             # added with the new split

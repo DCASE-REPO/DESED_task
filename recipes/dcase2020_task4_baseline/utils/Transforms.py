@@ -4,7 +4,6 @@ import librosa
 import numpy as np
 import torch
 
-
 class Transform:
     def transform_data(self, data):
         # Mandatory to be defined by subclasses
