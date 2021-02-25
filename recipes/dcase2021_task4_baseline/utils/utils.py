@@ -76,7 +76,7 @@ def weights_init(m):
         Based on the work of Xavier Glorot
     
     Args:
-        m: the model to initialize
+        m: model to initialize
     """
     classname = m.__class__.__name__
     if classname.find("Conv2d") != -1:
@@ -124,8 +124,7 @@ class SaveBest:
         Initialization of SaveBest class
 
         Args:
-            val_comp str, (Default value = "inf") "inf" or "sup", inf when we store the lowest model, sup when we
-            store the highest model
+            val_comp: str, (default value = "inf") "inf" or "sup", inf when the lowest model is stored, sup when the highest model is saved
 
         Raises:
             NotImplementedError: wrong value comparison given
@@ -142,6 +141,7 @@ class SaveBest:
 
     def apply(self, value):
         """Apply the callback
+        
         Args:
             value: float, the value of the metric followed
 
@@ -168,8 +168,8 @@ class EarlyStopping:
 
     Attributes:
         patience: int, number of epochs with no improvement before stopping the model
-        val_comp: str, "inf" or "sup", inf when we store the lowest model, sup when we
-            store the highest model
+        val_comp: str, "inf" or "sup", inf when the lowest model is stored, sup when
+            the highest model is stored
         best_val: float, the best values of the model based on the criterion chosen
         best_epoch: int, the epoch when the model was the best
         current_epoch: int, the current epoch of the model
@@ -181,8 +181,7 @@ class EarlyStopping:
 
         Args:
             patience: int, number of epochs with no improvement before stopping the model
-            val_comp: str, (Default value = "inf") "inf" or "sup", inf when we store the lowest model, sup when we
-                    store the highest model
+            val_comp: str (default value = "inf"), "inf" or "sup", inf when the lowest model is saved, sup the highest model is saved
 
         """
         self.patience = patience
@@ -198,10 +197,12 @@ class EarlyStopping:
         self.best_epoch = 0
 
     def apply(self, value):
-        """Apply the callback
+        """
+        Apply the callback
 
         Args:
             value: the value of the metric followed
+
         """
         current = False
         if self.val_comp == "inf":
@@ -285,11 +286,11 @@ class AverageMeter:
 
 def generate_tsv_wav_durations(audio_dir, out_tsv):
     """
-        Generate a dataframe with filename and duration of the file
+    Generate a dataframe with filename and duration of the file
 
     Args:
-        audio_dir: str, the path of the folder where audio files are (used by glob.glob)
-        out_tsv: str, the path of the output tsv file
+        audio_dir: str, the path to the folder containing the audio files(used by glob.glob)
+        out_tsv: str, the path to the output tsv file
 
     Returns:
         meta_df: pd.DataFrame, the dataframe containing filenames and durations
@@ -308,11 +309,12 @@ def generate_tsv_wav_durations(audio_dir, out_tsv):
 def generate_tsv_from_isolated_events(wav_folder, out_tsv=None):
     """Generate list of separated wav files in a folder and export them in a tsv file
     Separated audio files considered are all wav files in 'subdirectories' of the 'wav_folder'
+    
     Args:
-        wav_folder: str, path of the folder containing subdirectories (one for each mixture separated)
-        out_tsv: str, path of the csv in which to save the list of files
+        wav_folder: str, path to the folder containing subdirectories (one for each mixture separated)
+        out_tsv: str, path to the csv in which to save the list of files
     Returns:
-        pd.DataFrame, having only one column with the filename considered
+        source_sep_df: pd.DataFrame, having only one column with the filename considered
     """
     if out_tsv is not None and os.path.exists(out_tsv):
         source_sep_df = pd.read_csv(out_tsv, sep="\t")
@@ -350,7 +352,8 @@ def generate_tsv_from_isolated_events(wav_folder, out_tsv=None):
 
 def meta_path_to_audio_dir(tsv_path):
     """
-        The function returns the audio folder path from the metadata folder path
+    The function returns the audio folder path from the metadata folder path
+    
     Args:
         tsv_path: str, .tsv file path
     Return:
@@ -365,7 +368,7 @@ def audio_dir_to_meta_path(audio_dir):
 
 def get_durations_df(gtruth_path, audio_dir=None):
     """
-        The function retrieves the duration information of the dataset
+    The function retrieves the duration information of the dataset
 
     Args:
         gtruth_path: str, ground truth folder path

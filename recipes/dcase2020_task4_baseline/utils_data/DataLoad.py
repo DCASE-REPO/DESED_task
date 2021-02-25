@@ -1,6 +1,7 @@
 import bisect
 import logging
 import os
+import os.path as osp
 import random
 import warnings
 
@@ -53,11 +54,17 @@ class DataLoadDf(Dataset):
                 "feature_filename" (unlabel dataset)
                 "feature_filename", "event_labels" (weak dataset)
                 "feature_filename", "onset", "offset", "event_label" (synthetic dataset)
-                (?, maybe ot the feature_filename anymore)
             encode_function: function(), function which encode labels
-            transform: function(), (Default value = None), function or composition of transforms
+            transform: function(), (default value = None), function or composition of transforms
                         to be applied to the sample (pytorch transformations)
             in_memory: whether to save the features is memory or not
+            sample_rate: int, sample_rate (default = 16000)
+            n_window: int, window length (default = 2048)
+            hop_size: int, hop size (default = 255)
+            n_mels: int, number of mel bands (default = 128)
+            mel_f_min: int, minimum mel frequency (default = 0.0)
+            mel_f_max: int, maximum mel frequency (default = 8000.0)
+            compute_log: bool (default = False), weather to compute the log or not 
             save_features: bool, if True, the features are extracted and saved, if False, the features are extracted on-the-fly
             return_indexes: bool, (Default value = False) whether or not to return indexes when use __getitem__
         """
@@ -131,24 +138,21 @@ class DataLoadDf(Dataset):
         if self.save_features:
             features = self.get_feature_file_func(self.feat_filenames.iloc[index])
         else:
-            if self.filenames_folder:
-                features = generate_feature_from_raw_file(
-                    filename=self.filenames.iloc[index],
-                    audio_dir=self.filenames_folder,
-                    sample_rate=self.sample_rate,
-                    n_window=self.n_window,
-                    hop_size=self.hop_size,
-                    n_mels=self.n_mels,
-                    mel_f_min=self.mel_f_min,
-                    mel_f_max=self.mel_f_max,
-                    compute_log=self.compute_log,
-                )
 
-            else:
-                print(
-                    f"Dataset size not recognized. This will throw an expection in a second moment"
-                )
-                # TODO: Throw excpetion
+            assert osp.exists(self.filenames_folder), (
+                f"The folder: {self.filenames_folder} does not exist")
+          
+            features = generate_feature_from_raw_file(
+                filename=self.filenames.iloc[index],
+                audio_dir=self.filenames_folder,
+                sample_rate=self.sample_rate,
+                n_window=self.n_window,
+                hop_size=self.hop_size,
+                n_mels=self.n_mels,
+                mel_f_min=self.mel_f_min,
+                mel_f_max=self.mel_f_max,
+                compute_log=self.compute_log,
+            )
 
         # event_labels means weak labels, event_label means strong labels
         colums = {"onset", "offset", "event_label"}
@@ -262,6 +266,7 @@ class ConcatDataset(Dataset):
     def __init__(self, datasets):
         """
         Initialization of ConcatDataset instance
+       
         Args:
             datasets : sequence, list of datasets to be concatenated
         """
@@ -307,10 +312,11 @@ class MultiStreamBatchSampler(Sampler):
     def __init__(self, data_source, batch_sizes, shuffle=True):
         """
         Initialization of MultiStreamBatchSampler class.
+        
         Args:
             data_source : DESED, a DESED to sample from. Should have a cluster_indices property
             batch_size : int, a batch size that you would like to use later with Dataloader class
-            shuffle : bool, whether to shuffle the data or not
+            shuffle : bool (default = True), whether to shuffle the data or not
         """
         super(MultiStreamBatchSampler, self).__init__(data_source)
         self.data_source = data_source
