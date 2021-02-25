@@ -12,7 +12,7 @@ def get_dfs(
     sample_rate,
     hop_size,
     pooling_time_ratio,
-    save_features,
+    save_features=False,
     nb_files=None,
     eval_dataset=False,
 ):
@@ -20,13 +20,14 @@ def get_dfs(
     The function initializes and retrieves all the subset of the dataset.
 
     Args:
+        path_dict: dict, containing all the path to foldes and file needed 
         desed_dataset: desed class instance
         sample_rate: int, sample rate
         hop_size: int, window hop size
         pooling_time_ratio: int, pooling time ratio
-        save_features: bool (Default = False), True if features are saved, False if features are not going to be saved
+        save_features: bool (default = False), True if features are saved, False if features are not going to be saved
         nb_files: int, number of file to be considered (in case you want to consider only part of the dataset)
-        eval_dataset: bool (Default = False), if False the development set is used for testing, 
+        eval_dataset: bool (default = False), if False the development set is used for testing, 
             if True the evaluation set is used for testing
 
     Return:
@@ -105,7 +106,7 @@ def get_dfs(
         "train_synthetic": train_synth_df,
         "valid_synthetic": valid_synth_df,
         "valid_weak": valid_weak_df,
-        "validation": validation_df,  # TODO: Proper name for the dataset
+        "validation": validation_df,  
     }
 
     return data_dfs
@@ -141,7 +142,7 @@ def get_dataset(
             If False, the development set is used for testing, if True the evaluation set is used for testing.
         nb_files: int, number of files to retrieve and process (in case only part of dataset is used)
 
-    Return:
+    Returns:
         desed_dataset: DESED instance
         dfs: dict, dictionary containing the different subset of the datasets.
 
