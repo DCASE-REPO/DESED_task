@@ -55,12 +55,11 @@ def read_audio(path, target_fs=None, **kwargs):
     """Read a wav file
     Args:
         path: str, path of the audio file
-        target_fs: int, (Default value = None) sampling rate of the returned audio file, if not specified, the sampling
+        target_fs: int (default value = None), sampling rate of the returned audio file, if not specified, the sampling
             rate of the audio file is taken
 
     Returns:
-        tuple
-        (numpy.array, sampling rate), array containing the audio at the sampling rate given
+        audio, fs: tuple (numpy.array, sampling rate), array containing the audio at the sampling rate given
 
     """
     (audio, fs) = soundfile.read(path, **kwargs)
@@ -75,6 +74,7 @@ def read_audio(path, target_fs=None, **kwargs):
 def weights_init(m):
     """Initialize the weights of some layers of neural networks, here Conv2D, BatchNorm, GRU, Linear
         Based on the work of Xavier Glorot
+    
     Args:
         m: the model to initialize
     """
@@ -102,7 +102,7 @@ def to_cuda_if_available(*args):
         args: torch object to put on cuda if available (needs to have object.cuda() defined)
 
     Returns:
-        Objects on GPU if GPUs available
+        res: same object given as input on GPU if GPUs available
     """
     res = list(args)
     if torch.cuda.is_available():
@@ -115,19 +115,21 @@ def to_cuda_if_available(*args):
 
 
 class SaveBest:
-    """Callback to get the best value and epoch
-    Args:
-        val_comp: str, (Default value = "inf") "inf" or "sup", inf when we store the lowest model, sup when we
-            store the highest model
-    Attributes:
-        val_comp: str, "inf" or "sup", inf when we store the lowest model, sup when we
-            store the highest model
-        best_val: float, the best values of the model based on the criterion chosen
-        best_epoch: int, the epoch when the model was the best
-        current_epoch: int, the current epoch of the model
+    """
+    SaveBest class
     """
 
     def __init__(self, val_comp="inf"):
+        """
+        Initialization of SaveBest class
+
+        Args:
+            val_comp str, (Default value = "inf") "inf" or "sup", inf when we store the lowest model, sup when we
+            store the highest model
+
+        Raises:
+            NotImplementedError: wrong value comparison given
+        """
         self.comp = val_comp
         if val_comp in ["inf", "lt", "desc"]:
             self.best_val = np.inf
@@ -142,6 +144,10 @@ class SaveBest:
         """Apply the callback
         Args:
             value: float, the value of the metric followed
+
+        Returns:
+            decision: bool, if False the model is not saved, if True the current epoch is saved as the best epoch 
+                and the value as the best value
         """
         decision = False
         if self.current_epoch == 0:

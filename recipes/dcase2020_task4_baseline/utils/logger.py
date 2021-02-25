@@ -1,6 +1,6 @@
 import logging
-import sys
 import logging.config
+import sys
 
 
 def create_logger(logger_name, terminal_level=logging.INFO):
@@ -8,6 +8,9 @@ def create_logger(logger_name, terminal_level=logging.INFO):
     Args:
         logger_name: str, name of the logger
         terminal_level: int, logging level in the terminal
+
+    Returns:
+        logger: logger created
     """
     logging.config.dictConfig(
         {

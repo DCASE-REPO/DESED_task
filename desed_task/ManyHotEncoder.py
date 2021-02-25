@@ -4,20 +4,21 @@ from dcase_util.data import DecisionEncoder
 
 
 class ManyHotEncoder:
-    """ "
+    """ 
     Adapted after DecisionEncoder.find_contiguous_regions method in
     https://github.com/DCASE-REPO/dcase_util/blob/master/dcase_util/data/decisions.py
 
     Encode labels into numpy arrays where 1 correspond to presence of the class and 0 absence.
-    Multiple 1 can appear on the same line, it is for multi label problem.
+    Multiple 1 can appear on the same line, it is for multi-label problem.
     """
 
     def __init__(self, labels=None, n_frames=None):
         """
-            Initialization of ManyHotEncoder instance.
+        Initialization of ManyHotEncoder instance.
+        
         Args:
             labels: list, the classes which will be encoded
-            n_frames: int, (Default value = None) only useful for strong labels. The number of frames of a segment.
+            n_frames: int, (default value = None) only useful for strong labels. The number of frames of a segment.
         """
         if type(labels) in [np.ndarray, np.array]:
             labels = labels.tolist()
@@ -25,14 +26,14 @@ class ManyHotEncoder:
         self.n_frames = n_frames
 
     def encode_weak(self, labels):
-        """Encode a list of weak labels into a numpy array
+        """
+        Encode a list of weak labels into a numpy array
 
         Args:
             labels: list, list of labels to encode (to a vector of 0 and 1)
 
         Returns:
-            numpy.array
-            A vector containing 1 for each label, and 0 everywhere else
+            y: numpy.array, a vector containing 1 for each label, and 0 everywhere else
         """
         # useful for tensor empty labels
         if type(labels) is str:
@@ -55,7 +56,7 @@ class ManyHotEncoder:
 
     def encode_strong_df(self, label_df):
         """
-            Encode a list (or pandas Dataframe or Serie) of strong labels, they correspond to a given filename
+        Encode a list (or pandas Dataframe or Series) of strong labels, they correspond to a given filename
 
         Args:
             label_df: pandas DataFrame or Series, contains filename, onset (in frames) and offset (in frames)
@@ -131,13 +132,14 @@ class ManyHotEncoder:
         return y
 
     def decode_weak(self, labels):
-        """Decode the encoded weak labels
+        """
+        Decode the encoded weak labels
         Args:
+        
             labels: numpy.array, the encoded labels to be decoded
 
         Returns:
-            list
-            Decoded labels, list of string
+            result_labels: list, Decoded labels, list of string
 
         """
         result_labels = []
@@ -152,6 +154,7 @@ class ManyHotEncoder:
 
         Args:
             labels: numpy.array, the encoded labels to be decoded
+        
         Returns:
             result_labels: list, Decoded labels, list of list: [[label, onset offset], ...]
         """

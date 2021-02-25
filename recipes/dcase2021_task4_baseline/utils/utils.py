@@ -1,17 +1,15 @@
 from __future__ import print_function
 
 import glob
+import os
+import os.path as osp
 import warnings
 
+import librosa
 import numpy as np
 import pandas as pd
 import soundfile
-import os
-import os.path as osp
-import librosa
 import torch
-
-# from desed.utils import create_folder
 from torch import nn
 
 
@@ -22,9 +20,7 @@ def create_folder(folder_name):
     Args:
         folder_name: str, path/name of the folder to be created
     """
-    # print(f"Folder to be created: {folder_name}")
     if not os.path.exists(folder_name):
-        # print(f'{folder_name} folder does not exist, creating it.')
         os.makedirs(folder_name)
 
 
@@ -52,7 +48,6 @@ def create_stored_data_folder(folder_ext, exp_out_path):
     create_folder(saved_model_dir)
     create_folder(saved_pred_dir)
 
-    # TODO: could be set in the configuration class, if any
     return saved_model_dir, saved_pred_dir
 
 
@@ -60,12 +55,11 @@ def read_audio(path, target_fs=None, **kwargs):
     """Read a wav file
     Args:
         path: str, path of the audio file
-        target_fs: int, (Default value = None) sampling rate of the returned audio file, if not specified, the sampling
+        target_fs: int (default value = None), sampling rate of the returned audio file, if not specified, the sampling
             rate of the audio file is taken
 
     Returns:
-        tuple
-        (numpy.array, sampling rate), array containing the audio at the sampling rate given
+        audio, fs: tuple (numpy.array, sampling rate), array containing the audio at the sampling rate given
 
     """
     (audio, fs) = soundfile.read(path, **kwargs)
@@ -80,6 +74,7 @@ def read_audio(path, target_fs=None, **kwargs):
 def weights_init(m):
     """Initialize the weights of some layers of neural networks, here Conv2D, BatchNorm, GRU, Linear
         Based on the work of Xavier Glorot
+    
     Args:
         m: the model to initialize
     """
@@ -107,7 +102,7 @@ def to_cuda_if_available(*args):
         args: torch object to put on cuda if available (needs to have object.cuda() defined)
 
     Returns:
-        Objects on GPU if GPUs available
+        res: same object given as input on GPU if GPUs available
     """
     res = list(args)
     if torch.cuda.is_available():
@@ -120,19 +115,21 @@ def to_cuda_if_available(*args):
 
 
 class SaveBest:
-    """Callback to get the best value and epoch
-    Args:
-        val_comp: str, (Default value = "inf") "inf" or "sup", inf when we store the lowest model, sup when we
-            store the highest model
-    Attributes:
-        val_comp: str, "inf" or "sup", inf when we store the lowest model, sup when we
-            store the highest model
-        best_val: float, the best values of the model based on the criterion chosen
-        best_epoch: int, the epoch when the model was the best
-        current_epoch: int, the current epoch of the model
+    """
+    SaveBest class
     """
 
     def __init__(self, val_comp="inf"):
+        """
+        Initialization of SaveBest class
+
+        Args:
+            val_comp str, (Default value = "inf") "inf" or "sup", inf when we store the lowest model, sup when we
+            store the highest model
+
+        Raises:
+            NotImplementedError: wrong value comparison given
+        """
         self.comp = val_comp
         if val_comp in ["inf", "lt", "desc"]:
             self.best_val = np.inf
@@ -147,6 +144,10 @@ class SaveBest:
         """Apply the callback
         Args:
             value: float, the value of the metric followed
+
+        Returns:
+            decision: bool, if False the model is not saved, if True the current epoch is saved as the best epoch 
+                and the value as the best value
         """
         decision = False
         if self.current_epoch == 0:
@@ -349,11 +350,11 @@ def generate_tsv_from_isolated_events(wav_folder, out_tsv=None):
 
 def meta_path_to_audio_dir(tsv_path):
     """
-        The function returns the metadata folder path
+        The function returns the audio folder path from the metadata folder path
     Args:
         tsv_path: str, .tsv file path
     Return:
-        path to metadata folder
+        path to audio folder
     """
     return os.path.splitext(tsv_path.replace("metadata", "audio"))[0]
 
