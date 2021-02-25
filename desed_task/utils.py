@@ -345,7 +345,8 @@ def generate_tsv_from_isolated_events(wav_folder, out_tsv=None):
 
 def meta_path_to_audio_dir(tsv_path):
     """
-        The function returns the audio folder path from the metadata folder path
+    The function returns the audio folder path from the metadata folder path
+    
     Args:
         tsv_path: str, .tsv file path
     Return:

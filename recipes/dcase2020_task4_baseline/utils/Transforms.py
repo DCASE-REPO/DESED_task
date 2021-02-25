@@ -4,6 +4,7 @@ import librosa
 import numpy as np
 import torch
 
+
 class Transform:
     def transform_data(self, data):
         # Mandatory to be defined by subclasses
@@ -14,6 +15,15 @@ class Transform:
         return label
 
     def _apply_transform(self, sample_no_index):
+        """apply transformarion
+
+        Args:
+            sample_no_index: sample to transform (X, Y)
+
+        Returns:
+            data: data transformed 
+            label: label transformed
+        """
         data, label = sample_no_index
         if (
             type(data) is tuple
@@ -29,12 +39,12 @@ class Transform:
 
     def __call__(self, sample):
         """Apply the transformation
+        
         Args:
             sample: tuple, a sample defined by a DataLoad class
 
         Returns:
-            tuple
-            The transformed tuple
+            sample: tuple, The transformed tuple
         """
         if (
             type(sample[1]) is int
@@ -55,6 +65,7 @@ class ApplyLog(Transform):
     def transform_data(self, data):
         """
         Apply the transformation on data
+        
         Args:
             data: np.array, the data to be modified
         Returns:
@@ -72,7 +83,7 @@ def pad_trunc_seq(x, max_len):
       max_len: integer, length of sequence to be padded or truncated.
 
     Returns:
-      ndarray, Padded or truncated input sequence data.
+      x: ndarray, Padded or truncated input sequence data.
     """
     shape = x.shape
     if shape[-2] <= max_len:
@@ -94,11 +105,20 @@ class PadOrTrunc(Transform):
         Initialization of PadOrTrunc instance
         Args:
             nb_frames: int, the number of frames to match
+            apply_to_label: bool (default = False), wheather to apply thee transformer to the label or not
         """
         self.nb_frames = nb_frames
         self.apply_to_label = apply_to_label
 
     def transform_label(self, label):
+        """Apply the transformer to the label 
+
+        Args:
+            label: label to transformed is self.apply_to_label is True
+
+        Returns:
+            label: label transformed if self.apply_to_label is True
+        """
         if self.apply_to_label:
             return pad_trunc_seq(label, self.nb_frames)
         else:
@@ -110,15 +130,14 @@ class PadOrTrunc(Transform):
             data: np.array, the data to be modified
 
         Returns:
-            np.array
-            The transformed data
+            The transformed data, np.array
         """
         return pad_trunc_seq(data, self.nb_frames)
 
 
 class AugmentGaussianNoise(Transform):
     """
-    Pad or truncate a sequence given a number of frames
+    AugmentGaussianNoise class
     """
 
     def __init__(self, mean=0.0, std=None, snr=None):
@@ -141,8 +160,7 @@ class AugmentGaussianNoise(Transform):
             features: numpy.array, features to be modified
             snr: float, average snr to be used for data augmentation
         Returns:
-            numpy.ndarray
-            Modified features
+            features + noise: numpy.ndarray, Modified features
         """
         # If using source separation, using only the first audio (the mixture) to compute the gaussian noise,
         # Otherwise it just removes the first axis if it was an extended one
@@ -167,8 +185,7 @@ class AugmentGaussianNoise(Transform):
             data: np.array, the data to be modified
 
         Returns:
-            (np.array, np.array)
-            (original data, noisy_data (data + noise))
+            data: (np.array, np.array) = (original data, noisy_data (data + noise))
         """
         if self.std is not None:
             noisy_data = data + np.abs(np.random.normal(0, 0.5 ** 2, data.shape))
@@ -187,6 +204,7 @@ class ToTensor(Transform):
     def __init__(self, unsqueeze_axis=None):
         """
         Initialization of ToTensor instance.
+        
         Args:
         unsqueeze_axis: int, (Default value = None) add an dimension to the axis mentioned.
                         Useful to add a channel axis to use CNN.
@@ -195,11 +213,12 @@ class ToTensor(Transform):
 
     def transform_data(self, data):
         """
-        Apply the transformation on data
+        Apply the ToTensor transformation on data
+        
         Args:
             data: np.array, the data to be modified
         Returns:
-            res_data: np.array, The transformed data
+            The transformed data: np.array
         """
         res_data = torch.from_numpy(data).float()
         if self.unsqueeze_axis is not None:
@@ -229,7 +248,7 @@ class Normalize(Transform):
         Args:
             data: np.array, the data to be modified
         Returns:
-            np.array, The transformed data
+            The transformed data: np.array 
         """
         return self.scaler.normalize(data)
 
@@ -257,7 +276,7 @@ class CombineChannels(Transform):
                 and the other channels the sources
 
         Returns:
-            np.array: The transformed data
+           The transformed data: np.array
         """
         mix = data[:1]  # :1 is just to keep the first axis
         sources = data[1:]
@@ -279,7 +298,8 @@ class Compose(object):
     def __init__(self, transforms):
         """
         Initialization of Compose class.
-         Args:
+        
+        Args:
             transforms: list of Transform objects, list of transforms to compose.
             Example of transform: ToTensor()
         """
@@ -320,17 +340,17 @@ def get_transforms(
     combine_channels_args=None,
 ):
     """
-        The functions gather all the transformers that are applied to the data.
+    The functions gather all the transformers that are applied to the data.
 
     Args:
-        frames: number of frames to consider
-        scaler: scaler
-        add_axis: dimension to add
-        noise_dict_params: dictionary with noise parameters
+        frames: int, number of frames to consider
+        scaler: Scaler, scaler used for the normalization
+        add_axis: int, dimension to add
+        noise_dict_params: dict, dictionary with noise parameters
         combine_channel_args: combine channel arguments
 
     Return:
-        Compose(transf): composition of transformer appended to the list.
+        Compose(transf): composition of transformers appended to the list.
 
     """
     transf = []

@@ -1,18 +1,19 @@
+import json
 import time
 import warnings
 
 import numpy as np
 import torch
-import json
-from utils.Logger import create_logger
 
+from utils.logger import create_logger
 
 logger = create_logger(__name__)
 
 
 class Scaler:
     """
-    operates on one or multiple existing datasets and applies operations
+    Operates on one or multiple existing datasets and applies operations
+
     """
 
     def __init__(self):
@@ -29,7 +30,7 @@ class Scaler:
             axis: axis or axes along which the means are computed.
                   (default value = -1, which means have at the end a mean vector of the last dimension)
 
-        Return:
+        Returns:
             mean: arithmetic mean along the specified axis.
         """
 
@@ -49,7 +50,7 @@ class Scaler:
             mean: mean_of_square
             mean_of_square: mean_of_square
 
-        Return:
+        Returns:
             variance
 
         """
@@ -57,7 +58,7 @@ class Scaler:
 
     def means(self, dataset):
         """
-        Splits a dataset in to train test validation.
+        Compute the mean of the dataset given as input
 
         Args:
             dataset: dataset, from DataLoad class, each sample is an (X, y) tuple.
@@ -121,9 +122,11 @@ class Scaler:
     def calculate_scaler(self, dataset):
         """
         Calculate mean and standard deviation of the dataset
+        
         Args:
             dataset: dataset to calculate mean and standard deviation of
-        Return:
+        
+        Returns:
             self.mean: mean
             self.std: standard deviation
         """
@@ -134,6 +137,14 @@ class Scaler:
         return self.mean_, self.std_
 
     def normalize(self, batch):
+        """Batch normalization
+
+        Args:
+            batch: batch to normalizee
+
+        Returns:
+            batch normalized
+        """
         
         if type(batch) is torch.Tensor:
             batch_ = batch.numpy()
@@ -174,12 +185,15 @@ class Scaler:
 
 class ScalerPerAudio:
     """Normalize inputs one by one
-    Args:
-        normalization: str, in {"global", "per_channel"}
-        type_norm: str, in {"mean", "max"}
     """
 
     def __init__(self, normalization="global", type_norm="mean"):
+        """Initialization of the class
+
+        Args:
+            normalization: str (default = global), wheather to normalize globally or per band
+            type_norm: str (default = "mean"), which type of normalization to use to normalize the audio
+        """
         self.normalization = normalization
         self.type_norm = type_norm
 
@@ -189,8 +203,7 @@ class ScalerPerAudio:
             spectrogram: np.array, the data to be modified, assume to have 3 dimensions
 
         Returns:
-            np.array
-            The transformed data
+            res_data: np.array, The transformed data
         """
         if type(spectrogram) is torch.Tensor:
             tensor = True

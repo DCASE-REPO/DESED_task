@@ -1,24 +1,23 @@
 import bisect
+import logging
+import os
+import random
+import warnings
+
 import numpy as np
 import pandas as pd
 import torch
-import random
-import warnings
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
-import logging
 
-from utils.Logger import create_logger
-from utils.Transforms import Compose
-from utils_data.Desed import generate_feature_from_raw_file
-import os
-
+from .Desed import generate_feature_from_raw_file
+from .logger import create_logger
+from .Transforms import Compose
 
 torch.manual_seed(0)
 random.seed(0)
 
 logger = create_logger(__name__, terminal_level=logging.INFO)
-
 
 class DataLoadDf(Dataset):
     """
@@ -49,17 +48,25 @@ class DataLoadDf(Dataset):
 
         Args:
             df: pandas.DataFrame, the dataframe containing the set information (feat_filenames, labels),
-                it should contain these columns :
+                it should contain these columns:
                 "feature_filename" (unlabel dataset)
                 "feature_filename", "event_labels" (weak dataset)
                 "feature_filename", "onset", "offset", "event_label" (synthetic dataset)
-                (?, maybe ot the feature_filename anymore)
             encode_function: function(), function which encode labels
-            transform: function(), (Default value = None), function or composition of transforms
+            transforms: function(), (Default value = None), function or composition of transforms
                         to be applied to the sample (pytorch transformations)
+            return_indexes: bool, (Default value = False) whether or not to return indexes when use __getitem__
             in_memory: whether to save the features is memory or not
             save_features: bool, if True, the features are extracted and saved, if False, the features are extracted on-the-fly
-            return_indexes: bool, (Default value = False) whether or not to return indexes when use __getitem__
+            sample_rate: int, sample rate 
+            n_window: int, window_length
+            hop_size: int, hop size
+            n_mels: int, how many mels band to consider
+            mel_f_min: int, minimum mel frequency considered
+            max_f_max: int, maximum mel frequency considered 
+            compute_log: bool, (Default value = False) whether ot not to compute the log
+            save_features: bool, (Default value = False) whether or not to save the features
+            filenames_folder: path to the folder where to save features. 
         """
 
         self.df = df
@@ -96,7 +103,7 @@ class DataLoadDf(Dataset):
         """
         Get a feature file from a filename
         Args:
-            filename:  str, name of the file to get the feature
+            filename: str, name of the file to get the feature
         Returns:
             data: numpy.array, containing the features computed previously
         """
@@ -131,24 +138,22 @@ class DataLoadDf(Dataset):
         if self.save_features:
             features = self.get_feature_file_func(self.feat_filenames.iloc[index])
         else:
-            if self.filenames_folder:
-                features = generate_feature_from_raw_file(
-                    filename=self.filenames.iloc[index],
-                    audio_dir=self.filenames_folder,
-                    sample_rate=self.sample_rate,
-                    n_window=self.n_window,
-                    hop_size=self.hop_size,
-                    n_mels=self.n_mels,
-                    mel_f_min=self.mel_f_min,
-                    mel_f_max=self.mel_f_max,
-                    compute_log=self.compute_log,
-                )
-
-            else:
-                print(
-                    f"Dataset size not recognized. This will throw an expection in a second moment"
-                )
-                # TODO: Throw excpetion
+            assert osp.exists(self.filenames_folder), (
+                f"the filenames folder: {self.filenames_folder} does not exist, "
+                f"cannot extract features from it"
+            )
+            
+            features = generate_feature_from_raw_file(
+                filename=self.filenames.iloc[index],
+                audio_dir=self.filenames_folder,
+                sample_rate=self.sample_rate,
+                n_window=self.n_window,
+                hop_size=self.hop_size,
+                n_mels=self.n_mels,
+                mel_f_min=self.mel_f_min,
+                mel_f_max=self.mel_f_max,
+                compute_log=self.compute_log,
+            )
 
         # event_labels means weak labels, event_label means strong labels
         colums = {"onset", "offset", "event_label"}
@@ -235,7 +240,7 @@ class DataLoadDf(Dataset):
 
 class ConcatDataset(Dataset):
     """
-    Function to concatenate multiple datasets.
+    Class to concatenate multiple datasets.
     Purpose: useful to assemble different existing datasets, possibly
     large-scale datasets as the concatenation operation is done in an
     on-the-fly manner.
@@ -307,6 +312,7 @@ class MultiStreamBatchSampler(Sampler):
     def __init__(self, data_source, batch_sizes, shuffle=True):
         """
         Initialization of MultiStreamBatchSampler class.
+        
         Args:
             data_source : DESED, a DESED to sample from. Should have a cluster_indices property
             batch_size : int, a batch size that you would like to use later with Dataloader class

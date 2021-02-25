@@ -1,12 +1,8 @@
-# File containing the organization for the data generation (ETL process):
-# E: extraction process
-# T: transformation process (normalization)
-# L: Loading of the dataset
-
-from utils_data.Desed import DESED
-from utils.Logger import create_logger
 import inspect
 import logging
+
+from utils.logger import create_logger
+from utils_data.Desed import DESED
 
 
 # Extraction of datasets
@@ -28,12 +24,13 @@ def get_dfs(
         sample_rate: int, sample rate
         hop_size: int, window hop size
         pooling_time_ratio: int, pooling time ratio
-        save_features: bool, True if features need to be saved, False if features are not going to be saved
+        save_features: bool (Default = False), True if features are saved, False if features are not going to be saved
         nb_files: int, number of file to be considered (in case you want to consider only part of the dataset)
-        eval_dataset: bool, whether or not to get the evaluation dataset too.
+        eval_dataset: bool (Default = False), if False the development set is used for testing, 
+            if True the evaluation set is used for testing
 
     Return:
-        data_dfs: dictionary containing the different dataset needed
+        data_dfs: dictionary containing the different dataset
     """
 
     log = create_logger(
@@ -123,7 +120,7 @@ def get_dataset(
     n_mels,
     mel_min_max_freq,
     pooling_time_ratio,
-    save_features,
+    save_features=False,
     eval_dataset=False,
     nb_files=None,
 ):
@@ -132,12 +129,16 @@ def get_dataset(
 
     Args:
         base_feature_dir: features directory
-        path_dict: dict, dictionary containing all the necessary paths
+        path_dict: dict, dictionary containing all the necessary paths to audio e metadata folders
         sample_rate: int, sample rate
         n_window: int, window length
         hop_size: int, hop size
-        n_mels: int, number of mels
+        n_mels: int, number of mels band
         mel_min_max_freq: tuple, min and max frequency of the mel filter
+        pooling_time_ratio: int, pooling time ratio
+        save_features: bool (default = False), wheather to save the features or not. If False the features are not saved, if True the features are saved
+        eval_dataset: bool (default = False), weather to use the development or the evaluation set for testing. 
+            If False, the development set is used for testing, if True the evaluation set is used for testing.
         nb_files: int, number of files to retrieve and process (in case only part of dataset is used)
 
     Return:
