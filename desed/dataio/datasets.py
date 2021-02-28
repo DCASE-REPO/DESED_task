@@ -4,6 +4,7 @@ import os
 import numpy as np
 import soundfile as sf
 import torch
+import json
 
 
 class StronglyAnnotatedSet(Dataset):
@@ -15,13 +16,14 @@ class StronglyAnnotatedSet(Dataset):
         target_len=10,
         fs=16000,
         return_filename=False,
+        train=False,
     ):
-        super(StronglyAnnotatedSet, self).__init__()
 
         self.encoder = encoder
         self.target_len = target_len
         self.fs = fs
         self.return_filename = return_filename
+        self.train = train
 
         annotation = pd.read_csv(tsv_file, sep="\t")
         examples = {}
@@ -60,7 +62,11 @@ class StronglyAnnotatedSet(Dataset):
         c_ex = self.examples[self.examples_list[item]]
         mixture, fs = sf.read(c_ex["mixture"])
         if len(mixture.shape) > 1:  # multi channel
-            mixture = np.mean(mixture, axis=-1)
+            if not self.train:
+                mixture = np.mean(mixture, axis=-1)
+            else:  # randomly select one channel
+                indx = np.random.randint(0, mixture.shape[0] - 1)
+                mixture = mixture[indx]
 
         if len(mixture) < self.target_len:
             mixture = np.pad(
@@ -88,3 +94,96 @@ class StronglyAnnotatedSet(Dataset):
             return mixture, strong, padded_indx, c_ex["mixture"]
         else:
             return mixture, strong, padded_indx
+
+
+class WeakSet(Dataset):
+    def __init__(self, audio_folder, tsv_file, encoder, target_len=10, fs=16000):
+
+        self.encoder = encoder
+        self.target_len = target_len
+        self.fs = fs
+
+        annotation = pd.read_csv(tsv_file, sep="\t")
+        examples = {}
+        for i, r in annotation.iterrows():
+
+            if r["filename"] not in examples.keys():
+                examples[r["filename"]] = {
+                    "mixture": os.path.join(audio_folder, r["filename"]),
+                    "events": r["event_labels"].split(","),
+                }
+
+        self.examples = examples
+        self.examples_list = list(examples.keys())
+
+    def __len__(self):
+        return len(self.examples_list)
+
+    def __getitem__(self, item):
+        c_ex = self.examples[self.examples_list[item]]
+        mixture, fs = sf.read(c_ex["mixture"])
+
+        if len(mixture.shape) > 1:  # multi channel
+            indx = np.random.randint(0, mixture.shape[0] - 1)
+            mixture = mixture[indx]
+
+        if len(mixture) < self.target_len:
+            mixture = np.pad(
+                mixture, (0, self.target_len - len(mixture)), mode="constant"
+            )
+            padded_indx = [self.target_len / len(mixture)]
+        else:
+            padded_indx = [1.0]
+
+        mixture = torch.from_numpy(mixture).float()
+
+        # labels
+        labels = c_ex["events"]
+        # check if labels exists:
+        max_len_targets = self.encoder.n_frames
+        weak = torch.zeros(max_len_targets, len(self.encoder.labels))
+        if len(labels):
+            weak_labels = self.encoder.encode_weak(labels)
+            weak[0, :] = torch.from_numpy(weak_labels).float()
+
+        return mixture, weak, padded_indx
+
+
+class UnlabelledSet(Dataset):
+    def __init__(
+        self, unlabeled_json, encoder, target_len=10, fs=16000,
+    ):
+
+        self.encoder = encoder
+        self.target_len = target_len
+        self.fs = fs
+
+        with open(unlabeled_json, "r") as f:
+            files = json.read(f)
+
+        self.examples = files
+
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, item):
+        c_ex = self.examples[item]
+        mixture, fs = sf.read(c_ex)
+
+        if len(mixture.shape) > 1:  # multi channel
+            indx = np.random.randint(0, mixture.shape[0] - 1)
+            mixture = mixture[indx]
+
+        if len(mixture) < self.target_len:
+            mixture = np.pad(
+                mixture, (0, self.target_len - len(mixture)), mode="constant"
+            )
+            padded_indx = [self.target_len / len(mixture)]
+        else:
+            padded_indx = [1.0]
+
+        mixture = torch.from_numpy(mixture).float()
+        max_len_targets = self.encoder.n_frames
+        strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
+
+        return mixture, strong, padded_indx
