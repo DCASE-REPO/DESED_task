@@ -1,4 +1,4 @@
-from asteroid.engine.schedulers import BaseScheduler
+from asteroid.engine.schedulers import *
 import numpy as np
 
 
