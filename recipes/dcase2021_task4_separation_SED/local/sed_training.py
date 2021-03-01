@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 from collections import OrderedDict
 import pandas as pd
 from .utils import batched_decode_preds, log_sedeval_metrics
-from desed.data_augm import add_noise
+from desed.data_augm import add_noise, mixup
 from desed.features import Fbanks
 
 
@@ -68,13 +68,34 @@ class DESED(pl.LightningModule):
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
         mixture = add_noise(self.feats(mixture))
 
+        new_mixture_strong, new_labels_strong = mixup(
+            mixture[:indx_synth], labels[:indx_synth]
+        )
+
+        mixture = torch.cat(
+            (
+                new_mixture_strong,
+                mixture[indx_synth : indx_weak + indx_synth],
+                mixture[indx_weak + indx_synth :],
+            ),
+            0,
+        )
+        labels = torch.cat(
+            (
+                new_labels_strong,
+                labels[indx_synth : indx_weak + indx_synth],
+                labels[indx_synth + indx_weak :],
+            ),
+            0,
+        )
+
         mixture = self.take_log(mixture)
         batch_num = mixture.shape[0]
         # deriving masks for each dataset
         strong_mask = torch.zeros(batch_num).to(mixture).bool()
         weak_mask = torch.zeros(batch_num).to(mixture).bool()
-        strong_mask[:indx_synth] = 1
-        weak_mask[indx_synth : indx_weak + indx_synth] = 1
+        strong_mask[: indx_synth // 2] = 1
+        weak_mask[indx_synth // 2 : indx_weak + indx_synth // 2] = 1
         # deriving weak labels
         labels_weak = (torch.sum(labels[weak_mask], -1) > 0).float()
 
