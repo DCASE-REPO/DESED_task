@@ -217,7 +217,7 @@ class DESED(pl.LightningModule):
         tensorboard_logs = {
             "val/strong_loss_student": avg_loss_strong_student,
             "val/weak_loss_student": avg_loss_weak_student,
-            "val / strong_loss_teacher": avg_loss_strong_teacher,
+            "val/strong_loss_teacher": avg_loss_strong_teacher,
             "val/weak_loss_teacher": avg_loss_weak_teacher,
             "val/event_macro_F1_student": f1_student,
             "val/event_macro_F1_teacher": f1_teacher,
@@ -238,3 +238,23 @@ class DESED(pl.LightningModule):
 
     def configure_optimizers(self):
         return [self.opt], [self.exp_warmup]
+
+    def train_dataloader(self):
+
+        self.train_loader = torch.utils.data.DataLoader(
+            self.train_data,
+            batch_sampler=self.train_sampler,
+            num_workers=self.hparams["training"]["num_workers"],
+        )
+
+        return self.train_loader
+
+    def val_dataloader(self):
+        self.val_loader = torch.utils.data.DataLoader(
+            self.valid_data,
+            batch_size=self.hparams["training"]["batch_size_val"],
+            num_workers=self.hparams["training"]["num_workers"],
+            shuffle=False,
+            drop_last=False,
+        )
+        return self.val_loader

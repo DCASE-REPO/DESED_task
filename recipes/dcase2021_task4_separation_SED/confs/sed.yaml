@@ -1,0 +1,37 @@
+training:
+  batch_size: [4, 8, 8]
+  batch_size_val: 32
+  const_max: 2
+  gamma: 0.5
+  n_epochs_warmup: 50
+  num_workers: 12
+  n_epochs: 200
+  early_stop_patience: 10
+  reduce_lr_patience: 5
+  accumulate_batches: 1
+  gradient_clip: 5
+  save_top_k: 1
+  median_window: 7
+  ema_factor: 0.999
+  self_sup_loss: mse
+  backend:
+data:
+  synth_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/synthetic20/soundscapes/"
+  synth_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/train/synthetic20/soundscapes.tsv"
+  weak_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/weak_16k/"
+  weak_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/train/weak.tsv"
+  unlabeled_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/unlabel_in_domain_16k/"
+  val_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/validation_16k/"
+  val_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/validation/validation.tsv"
+  audio_max_len: 10
+  fs: 16000
+  net_subsample: 4
+opt:
+  lr: 0.001
+feats:
+  n_mels: 128
+  n_fft: 2048
+  window_length: 2048
+  hop_length: 256
+  fmin: 40
+  fmax: 7400

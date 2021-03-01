@@ -5,10 +5,10 @@ import os
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-from .local.sed_training import DESED
+from local.sed_training import DESED
 from desed.utils.encoder import ManyHotEncoder
 from desed.dataio.datasets import StronglyAnnotatedSet, WeakSet, UnlabelledSet
-from .local.classes_dict import classes_labels
+from local.classes_dict import classes_labels
 from desed.utils.schedulers import ExponentialWarmup
 from desed.dataio import ConcatDatasetBatchSampler
 from desed.nnet.CRNN import CRNN
@@ -24,13 +24,15 @@ parser.add_argument("--gpus", default="0")
 
 def single_run(configs, log_dir, gpus, checkpoint_resume=None):
 
+    configs.update({"log_dir": log_dir})
+
     ##### data prep ##########
     encoder = ManyHotEncoder(
         list(classes_labels.keys()),
         audio_len=configs["data"]["audio_max_len"],
-        frame_len=configs["sed_filterbank"]["n_filters"],
-        frame_hop=configs["sed_filterbank"]["stride"],
-        net_pooling=configs["net"]["subsample"],
+        frame_len=configs["feats"]["n_fft"],
+        frame_hop=configs["feats"]["hop_length"],
+        net_pooling=configs["data"]["net_subsample"],
         fs=configs["data"]["fs"],
     )
 
@@ -51,6 +53,7 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
     # parse paths to unlabelled waves to a json
     unlabeled_json = "./parsed/unlabeled.json"
     if not os.path.exists(unlabeled_json):
+        os.makedirs("./parsed", exist_ok=False)
         # create if not exist yet
         parse_files2json(configs["data"]["unlabeled_folder"], "./parsed/unlabeled.json")
 
@@ -85,7 +88,24 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
     )
     ##### models and optimizers  ############
 
-    sed_student = CRNN()
+    n_layers = 7
+    crnn_kwargs = {
+        "n_in_channel": 1,
+        "nclass": 10,
+        "attention": True,
+        "n_RNN_cell": 128,
+        "n_layers_RNN": 2,
+        "activation": "glu",
+        "rnn_type": "BGRU",
+        "dropout": 0.5,
+        "kernel_size": n_layers * [3],
+        "padding": n_layers * [1],
+        "stride": n_layers * [1],
+        "nb_filters": [16, 32, 64, 128, 128, 128, 128],
+        "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
+    }
+
+    sed_student = CRNN(**crnn_kwargs)
     sed_teacher = deepcopy(sed_student)
 
     opt = torch.optim.Adam(sed_student.parameters(), 1e-8, betas=(0.9, 0.999))
@@ -140,4 +160,4 @@ if __name__ == "__main__":
     with open(args.conf_file, "r") as f:
         configs = yaml.load(f)
 
-    single_run(configs, args.log_dir, args.gpu, args.resume_from_checkpoint)
+    single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint)
