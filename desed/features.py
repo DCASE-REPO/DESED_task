@@ -1,45 +1,47 @@
 import torch
-import torchaudio
+from asteroid_filterbanks import MelGramFB, Encoder
+from scipy.signal import windows
 
 
 class Fbanks(torch.nn.Module):
     def __init__(
         self,
-        n_mels,
-        n_fft,
-        hop_length,
-        window_length=None,
-        fmin=0,
-        fmax=None,
-        power=2,
-        normalized=False,
-        fs=16000,
-        take_log=True,
+        n_mels=40,
+        n_filters=400,
+        kernel_size=400,
+        stride=200,
+        window=None,
+        sample_rate=16000,
+        f_min=0,
+        f_max=None,
+        log=True,
+        **kwargs
     ):
-        super(Fbanks, self).__init__()
-
-        if fmax is None:
-            fmax = fs / 2
-        self.mels = torchaudio.transforms.MelSpectrogram(
-            fs,
-            n_fft,
-            window_length,
-            hop_length,
-            fmin,
-            fmax,
-            n_mels=n_mels,
-            power=power,
-            normalized=normalized,
+        super().__init__()
+        self.log = log
+        if window is not None:
+            window = torch.from_numpy(windows.get_window(window, n_filters))
+        self.melg = Encoder(
+            MelGramFB(
+                n_filters,
+                kernel_size,
+                stride,
+                window,
+                sample_rate,
+                n_mels,
+                f_min,
+                f_max,
+                **kwargs
+            )
         )
-        self.take_log = take_log
 
     def forward(self, x):
 
-        mels = self.mels(x)
+        x = self.melg(x)
+        if self.log:
+            x = self.take_log(x)
+        return x
 
-        if self.take_log:
-            mels = torch.clamp(
-                20 * torch.log10(torch.clamp(mels, min=1e-8)), max=80, min=-80
-            )
-
-        return mels
+    @classmethod
+    def take_log(cls, x):
+        return torch.clamp(20 * torch.log10(torch.clamp(x, min=1e-8)), max=80, min=-80)

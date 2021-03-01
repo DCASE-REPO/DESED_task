@@ -20,8 +20,8 @@ def to_mono(mixture, random_ch=False):
 
 def pad_audio(audio, target_len):
     if len(audio) < target_len:
-        mixture = np.pad(audio, (0, target_len - len(audio)), mode="constant")
-        padded_indx = [target_len / len(mixture)]
+        audio = np.pad(audio, (0, target_len - len(audio)), mode="constant")
+        padded_indx = [target_len / len(audio)]
     else:
         padded_indx = [1.0]
 
