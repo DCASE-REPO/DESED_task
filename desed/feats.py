@@ -9,8 +9,8 @@ class Fbanks(torch.nn.Module):
         n_fft,
         hop_length,
         win_length=None,
-        f_min=0,
-        f_max=None,
+        fmin=0,
+        fmax=None,
         power=2,
         normalized=False,
         fs=16000,
@@ -18,15 +18,15 @@ class Fbanks(torch.nn.Module):
     ):
         super(Fbanks, self).__init__()
 
-        if f_max is None:
-            f_max = fs / 2
+        if fmax is None:
+            fmax = fs / 2
         self.mels = torchaudio.transforms.MelSpectrogram(
             fs,
             n_fft,
             win_length,
             hop_length,
-            f_min,
-            f_max,
+            fmin,
+            fmax,
             n_mels=n_mels,
             power=power,
             normalized=normalized,
