@@ -20,8 +20,8 @@ class StronglyAnnotatedSet(Dataset):
     ):
 
         self.encoder = encoder
-        self.target_len = target_len
         self.fs = fs
+        self.target_len = target_len * fs
         self.return_filename = return_filename
         self.train = train
 
@@ -100,8 +100,8 @@ class WeakSet(Dataset):
     def __init__(self, audio_folder, tsv_file, encoder, target_len=10, fs=16000):
 
         self.encoder = encoder
-        self.target_len = target_len
         self.fs = fs
+        self.target_len = target_len * fs
 
         annotation = pd.read_csv(tsv_file, sep="\t")
         examples = {}
@@ -155,8 +155,8 @@ class UnlabelledSet(Dataset):
     ):
 
         self.encoder = encoder
-        self.target_len = target_len
         self.fs = fs
+        self.target_len = target_len * fs
 
         with open(unlabeled_json, "r") as f:
             files = json.load(f)
