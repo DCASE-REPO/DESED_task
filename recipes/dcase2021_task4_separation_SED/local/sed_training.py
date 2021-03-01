@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 from collections import OrderedDict
 import pandas as pd
 from .utils import batched_decode_preds, log_sedeval_metrics
-from desed.data_augm import add_noise, mixup
+from desed.data_augm import add_noise, mixup, frame_shift
 from desed.features import Fbanks
 
 
@@ -66,7 +66,8 @@ class DESED(pl.LightningModule):
 
         mixture, labels, padded_indxs = batch
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
-        mixture = add_noise(self.feats(mixture))
+        mixture = self.feats(mixture)
+        # mixture, labels = frame_shift(mixture, labels, self.hparams["data"]["net_subsample"])
 
         new_mixture_strong, new_labels_strong = mixup(
             mixture[:indx_synth], labels[:indx_synth]
@@ -89,6 +90,7 @@ class DESED(pl.LightningModule):
             0,
         )
 
+        mixture = add_noise(mixture)
         mixture = self.take_log(mixture)
         batch_num = mixture.shape[0]
         # deriving masks for each dataset
@@ -234,7 +236,7 @@ class DESED(pl.LightningModule):
 
         tqdm_dict = {
             "val_loss_student": avg_loss_strong_student,
-            "obj_function": obj_function,
+            "obj_metric": obj_function,
         }
 
         tensorboard_logs = {
@@ -248,7 +250,7 @@ class DESED(pl.LightningModule):
 
         output = OrderedDict(
             {
-                "obj_function": obj_function,
+                "obj_metric": obj_function,
                 "progress_bar": tqdm_dict,
                 "log": tensorboard_logs,
             }

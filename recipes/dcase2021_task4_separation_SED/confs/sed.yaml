@@ -5,9 +5,8 @@ training:
   gamma: 0.5
   n_epochs_warmup: 50
   num_workers: 12
-  n_epochs: 500
+  n_epochs: 1
   early_stop_patience: 10
-  reduce_lr_patience: 5
   accumulate_batches: 1
   gradient_clip: 50000
   save_top_k: 1
@@ -16,13 +15,13 @@ training:
   self_sup_loss: mse
   backend:
 data:
-  synth_folder: "/home/scornell/dcase21/egs/iterative_sed_sep/new_synth/audio/train/synthetic21_train/soundscapes_16k/"
-  synth_tsv: "/home/scornell/dcase21/egs/iterative_sed_sep/new_synth/metadata/train/synhtetic21_train/soundscapes.tsv"
-  weak_folder: "/home/scornell/dcase/dataset/audio/train/weak_16k/"
-  weak_tsv: "/home/scornell/dcase/dataset/metadata/train/weak.tsv"
-  unlabeled_folder: "/home/scornell/dcase/dataset/audio/train/unlabel_in_domain_16k/"
-  val_folder: "/home/scornell/dcase/dataset/audio/validation_16k/"
-  val_tsv: "/home/scornell/dcase/dataset/metadata/validation/validation.tsv"
+  synth_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/synthetic20/soundscapes/"
+  synth_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/train/synthetic20/soundscapes.tsv"
+  weak_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/weak_16k/"
+  weak_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/train/weak.tsv"
+  unlabeled_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/unlabel_in_domain_16k/"
+  val_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/validation_16k/"
+  val_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/validation/validation.tsv"
   audio_max_len: 10
   fs: 16000
   net_subsample: 4
@@ -34,3 +33,11 @@ feats:
   kernel_size: 2048
   stride: 256
   sample_rate: 16000
+  #f_min: 0
+  #f_max: 8000
+  #window:
+net:
+  dropout: 0.5
+  rnn_layers: 2
+
+
