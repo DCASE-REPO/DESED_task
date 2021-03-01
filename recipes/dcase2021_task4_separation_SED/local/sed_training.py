@@ -79,7 +79,7 @@ class DESED(pl.LightningModule):
         strong_mask[:indx_synth] = 1
         weak_mask[indx_synth : indx_weak + indx_synth] = 1
         # deriving weak labels
-        labels_weak = (torch.sum(labels, -1) > 0).float()
+        labels_weak = (torch.sum(labels[weak_mask], -1) > 0).float()
 
         # sed student forward
         strong_preds_student, weak_preds_student = self.sed_student(
@@ -106,10 +106,10 @@ class DESED(pl.LightningModule):
             * self.scheduler["scheduler"]._get_scaling_factor()
         )
 
-        strong_self_sup_loss = self.selfsup_loss_loss(
+        strong_self_sup_loss = self.selfsup_loss(
             strong_preds_student, strong_preds_teacher.detach()
         )
-        weak_self_sup_loss = self.selfsup_loss_loss(
+        weak_self_sup_loss = self.selfsup_loss(
             weak_preds_student, weak_preds_teacher.detach()
         )
         tot_self_loss = (strong_self_sup_loss + weak_self_sup_loss) * weight
