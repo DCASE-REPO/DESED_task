@@ -1,11 +1,11 @@
 training:
-  batch_size: [4, 8, 8]
+  batch_size: [4, 4, 4]
   batch_size_val: 32
   const_max: 2
   gamma: 0.5
   n_epochs_warmup: 50
   num_workers: 12
-  n_epochs: 200
+  n_epochs: 500
   early_stop_patience: 10
   reduce_lr_patience: 5
   accumulate_batches: 1
@@ -14,7 +14,6 @@ training:
   median_window: 7
   ema_factor: 0.999
   self_sup_loss: mse
-  precision: 32
   backend:
 data:
   synth_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/synthetic20/soundscapes/"
@@ -31,8 +30,7 @@ opt:
   lr: 0.001
 feats:
   n_mels: 128
-  n_fft: 2048
-  window_length: 2048
-  hop_length: 256
-  fmin: 40
-  fmax: 7400
+  n_filters: 2048
+  kernel_size: 2048
+  stride: 256
+  sample_rate: 16000

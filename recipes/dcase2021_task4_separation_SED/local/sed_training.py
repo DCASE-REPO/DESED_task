@@ -4,7 +4,8 @@ import pytorch_lightning as pl
 from collections import OrderedDict
 import pandas as pd
 from .utils import batched_decode_preds, log_sedeval_metrics
-from desed.gpu_augmentations import add_noise
+from desed.data_augm import add_noise
+from desed.features import Fbanks
 
 
 class DESED(pl.LightningModule):
@@ -46,9 +47,7 @@ class DESED(pl.LightningModule):
         else:
             raise NotImplementedError
 
-        from desed.feats import Fbanks
-
-        self.feats = Fbanks(**self.hparams["feats"], take_log=False)
+        self.feats = Fbanks(**self.hparams["feats"], log=False)
 
         self.val_buffer_student = pd.DataFrame()
         self.val_buffer_teacher = pd.DataFrame()
@@ -61,9 +60,7 @@ class DESED(pl.LightningModule):
 
     def take_log(self, mels):
 
-        return torch.clamp(
-            20 * torch.log10(torch.clamp(mels, min=1e-8)), max=80, min=-80
-        )
+        return Fbanks.take_log(mels)
 
     def training_step(self, batch, batch_indx):
 
@@ -140,8 +137,7 @@ class DESED(pl.LightningModule):
         )
         return output
 
-    def optimizer_zero_grad(self, *args, **kwargs):
-        self.opt.zero_grad()
+    def on_before_zero_grad(self, *args, **kwargs):
         # update EMA teacher
         self.update_ema(
             self.hparams["training"]["ema_factor"],
@@ -201,7 +197,7 @@ class DESED(pl.LightningModule):
         ).mean()
 
         ground_truth = pd.read_csv(self.hparams["data"]["val_tsv"], sep="\t")
-        save_dir = os.path.join(self.hparams["log_dir"], "metrics")
+        save_dir = os.path.join(self.logger.log_dir, "metrics")
         os.makedirs(save_dir, exist_ok=True)
 
         f1_student = log_sedeval_metrics(

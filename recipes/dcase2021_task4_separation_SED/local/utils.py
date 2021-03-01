@@ -6,7 +6,7 @@ from desed.utils.evaluation_measures import compute_sed_eval_metrics
 
 
 def batched_decode_preds(
-    strong_preds, filenames, encoder, threshold=5, median_filter=7
+    strong_preds, filenames, encoder, threshold=0.5, median_filter=7
 ):
 
     predictions = pd.DataFrame()

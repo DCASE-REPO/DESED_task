@@ -4,7 +4,7 @@ import yaml
 import os
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping
 from local.sed_training import DESED
 from desed.utils.encoder import ManyHotEncoder
 from desed.dataio.datasets import StronglyAnnotatedSet, WeakSet, UnlabelledSet
@@ -13,7 +13,6 @@ from desed.utils.schedulers import ExponentialWarmup
 from desed.dataio import ConcatDatasetBatchSampler
 from desed.nnet.CRNN import CRNN
 from copy import deepcopy
-from desed.dataio.parse_data import parse_files2json
 from desed.utils.scaler import TorchScaler
 
 parser = argparse.ArgumentParser("Training a SED system for DESED Task")
@@ -31,8 +30,8 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
     encoder = ManyHotEncoder(
         list(classes_labels.keys()),
         audio_len=configs["data"]["audio_max_len"],
-        frame_len=configs["feats"]["n_fft"],
-        frame_hop=configs["feats"]["hop_length"],
+        frame_len=configs["feats"]["n_filters"],
+        frame_hop=configs["feats"]["stride"],
         net_pooling=configs["data"]["net_subsample"],
         fs=configs["data"]["fs"],
     )
@@ -52,20 +51,15 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
         target_len=configs["data"]["audio_max_len"],
     )
 
-    # parse paths to unlabelled waves to a json
-    unlabeled_json = "./parsed/unlabeled.json"
-    if not os.path.exists(unlabeled_json):
-        os.makedirs("./parsed", exist_ok=False)
-        # create if not exist yet
-        parse_files2json(configs["data"]["unlabeled_folder"], "./parsed/unlabeled.json")
-
     unlabeled_set = UnlabelledSet(
-        unlabeled_json, encoder, target_len=configs["data"]["audio_max_len"]
+        configs["data"]["unlabeled_folder"],
+        encoder,
+        target_len=configs["data"]["audio_max_len"],
     )
 
     valid_dataset = StronglyAnnotatedSet(
-        configs["data"]["synth_folder"],
-        configs["data"]["synth_tsv"],
+        configs["data"]["val_folder"],
+        configs["data"]["val_tsv"],
         encoder,
         train=False,
         return_filename=True,
@@ -153,8 +147,7 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
         logger=logger,
         resume_from_checkpoint=checkpoint_resume,
         gradient_clip_val=configs["training"]["gradient_clip"],
-        precision=configs["training"]["precision"],
-        check_val_every_n_epoch=5,
+        check_val_every_n_epoch=10,
     )
 
     trainer.fit(desed_training)
