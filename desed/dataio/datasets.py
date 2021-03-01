@@ -4,7 +4,28 @@ import os
 import numpy as np
 import soundfile as sf
 import torch
-import json
+import glob
+
+
+def to_mono(mixture, random_ch=False):
+
+    if mixture.ndim > 1:  # multi channel
+        if not random_ch:
+            mixture = np.mean(mixture, axis=-1)
+        else:  # randomly select one channel
+            indx = np.random.randint(0, mixture.shape[-1] - 1)
+            mixture = mixture[:, indx]
+    return mixture
+
+
+def pad_audio(audio, target_len):
+    if len(audio) < target_len:
+        mixture = np.pad(audio, (0, target_len - len(audio)), mode="constant")
+        padded_indx = [target_len / len(mixture)]
+    else:
+        padded_indx = [1.0]
+
+    return audio, padded_indx
 
 
 class StronglyAnnotatedSet(Dataset):
@@ -61,21 +82,8 @@ class StronglyAnnotatedSet(Dataset):
     def __getitem__(self, item):
         c_ex = self.examples[self.examples_list[item]]
         mixture, fs = sf.read(c_ex["mixture"])
-        if len(mixture.shape) > 1:  # multi channel
-            if not self.train:
-                mixture = np.mean(mixture, axis=-1)
-            else:  # randomly select one channel
-                indx = np.random.randint(0, mixture.shape[-1] - 1)
-                mixture = mixture[:, indx]
 
-        if len(mixture) < self.target_len:
-            mixture = np.pad(
-                mixture, (0, self.target_len - len(mixture)), mode="constant"
-            )
-            padded_indx = [self.target_len / len(mixture)]
-        else:
-            padded_indx = [1.0]
-
+        mixture, padded_indx = pad_audio(to_mono(mixture, self.train), self.target_len)
         mixture = torch.from_numpy(mixture).float()
 
         # labels
@@ -97,11 +105,14 @@ class StronglyAnnotatedSet(Dataset):
 
 
 class WeakSet(Dataset):
-    def __init__(self, audio_folder, tsv_file, encoder, target_len=10, fs=16000):
+    def __init__(
+        self, audio_folder, tsv_file, encoder, target_len=10, fs=16000, train=True
+    ):
 
         self.encoder = encoder
         self.fs = fs
         self.target_len = target_len * fs
+        self.train = train
 
         annotation = pd.read_csv(tsv_file, sep="\t")
         examples = {}
@@ -123,17 +134,7 @@ class WeakSet(Dataset):
         c_ex = self.examples[self.examples_list[item]]
         mixture, fs = sf.read(c_ex["mixture"])
 
-        if len(mixture.shape) > 1:  # multi channel
-            indx = np.random.randint(0, mixture.shape[-1] - 1)
-            mixture = mixture[:, indx]
-
-        if len(mixture) < self.target_len:
-            mixture = np.pad(
-                mixture, (0, self.target_len - len(mixture)), mode="constant"
-            )
-            padded_indx = [self.target_len / len(mixture)]
-        else:
-            padded_indx = [1.0]
+        mixture, padded_indx = pad_audio(to_mono(mixture, self.train), self.target_len)
 
         mixture = torch.from_numpy(mixture).float()
 
@@ -150,18 +151,13 @@ class WeakSet(Dataset):
 
 
 class UnlabelledSet(Dataset):
-    def __init__(
-        self, unlabeled_json, encoder, target_len=10, fs=16000,
-    ):
+    def __init__(self, unlabeled_folder, encoder, target_len=10, fs=16000, train=True):
 
         self.encoder = encoder
         self.fs = fs
         self.target_len = target_len * fs
-
-        with open(unlabeled_json, "r") as f:
-            files = json.load(f)
-
-        self.examples = files
+        self.examples = glob.glob(os.path.join(unlabeled_folder, "*.wav"))
+        self.train = train
 
     def __len__(self):
         return len(self.examples)
@@ -170,18 +166,7 @@ class UnlabelledSet(Dataset):
         c_ex = self.examples[item]
         mixture, fs = sf.read(c_ex)
 
-        if len(mixture.shape) > 1:  # multi channel
-            indx = np.random.randint(0, mixture.shape[-1] - 1)
-            mixture = mixture[:, indx]
-
-        if len(mixture) < self.target_len:
-            mixture = np.pad(
-                mixture, (0, self.target_len - len(mixture)), mode="constant"
-            )
-            padded_indx = [self.target_len / len(mixture)]
-        else:
-            padded_indx = [1.0]
-
+        mixture, padded_indx = pad_audio(to_mono(mixture, self.train), self.target_len)
         mixture = torch.from_numpy(mixture).float()
         max_len_targets = self.encoder.n_frames
         strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
