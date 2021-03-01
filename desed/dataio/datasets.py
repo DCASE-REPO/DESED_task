@@ -106,13 +106,21 @@ class StronglyAnnotatedSet(Dataset):
 
 class WeakSet(Dataset):
     def __init__(
-        self, audio_folder, tsv_file, encoder, target_len=10, fs=16000, train=True
+        self,
+        audio_folder,
+        tsv_file,
+        encoder,
+        target_len=10,
+        fs=16000,
+        train=True,
+        return_filename=False,
     ):
 
         self.encoder = encoder
         self.fs = fs
         self.target_len = target_len * fs
         self.train = train
+        self.return_filename = return_filename
 
         annotation = pd.read_csv(tsv_file, sep="\t")
         examples = {}
@@ -131,7 +139,8 @@ class WeakSet(Dataset):
         return len(self.examples_list)
 
     def __getitem__(self, item):
-        c_ex = self.examples[self.examples_list[item]]
+        file = self.examples_list[item]
+        c_ex = self.examples[file]
         mixture, fs = sf.read(c_ex["mixture"])
 
         mixture, padded_indx = pad_audio(to_mono(mixture, self.train), self.target_len)
@@ -147,7 +156,10 @@ class WeakSet(Dataset):
             weak_labels = self.encoder.encode_weak(labels)
             weak[0, :] = torch.from_numpy(weak_labels).float()
 
-        return mixture, weak.transpose(0, 1), padded_indx
+        if self.return_filename:
+            return mixture, weak.transpose(0, 1), padded_indx, file
+        else:
+            return mixture, weak.transpose(0, 1), padded_indx
 
 
 class UnlabelledSet(Dataset):
