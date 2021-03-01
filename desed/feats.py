@@ -8,7 +8,7 @@ class Fbanks(torch.nn.Module):
         n_mels,
         n_fft,
         hop_length,
-        win_length=None,
+        window_length=None,
         fmin=0,
         fmax=None,
         power=2,
@@ -23,7 +23,7 @@ class Fbanks(torch.nn.Module):
         self.mels = torchaudio.transforms.MelSpectrogram(
             fs,
             n_fft,
-            win_length,
+            window_length,
             hop_length,
             fmin,
             fmax,

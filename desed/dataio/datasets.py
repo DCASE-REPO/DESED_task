@@ -65,8 +65,8 @@ class StronglyAnnotatedSet(Dataset):
             if not self.train:
                 mixture = np.mean(mixture, axis=-1)
             else:  # randomly select one channel
-                indx = np.random.randint(0, mixture.shape[0] - 1)
-                mixture = mixture[indx]
+                indx = np.random.randint(0, mixture.shape[-1] - 1)
+                mixture = mixture[:, indx]
 
         if len(mixture) < self.target_len:
             mixture = np.pad(
@@ -91,9 +91,9 @@ class StronglyAnnotatedSet(Dataset):
             strong = torch.from_numpy(strong).float()
 
         if self.return_filename:
-            return mixture, strong, padded_indx, c_ex["mixture"]
+            return mixture, strong.transpose(0, 1), padded_indx, c_ex["mixture"]
         else:
-            return mixture, strong, padded_indx
+            return mixture, strong.transpose(0, 1), padded_indx
 
 
 class WeakSet(Dataset):
@@ -124,8 +124,8 @@ class WeakSet(Dataset):
         mixture, fs = sf.read(c_ex["mixture"])
 
         if len(mixture.shape) > 1:  # multi channel
-            indx = np.random.randint(0, mixture.shape[0] - 1)
-            mixture = mixture[indx]
+            indx = np.random.randint(0, mixture.shape[-1] - 1)
+            mixture = mixture[:, indx]
 
         if len(mixture) < self.target_len:
             mixture = np.pad(
@@ -146,7 +146,7 @@ class WeakSet(Dataset):
             weak_labels = self.encoder.encode_weak(labels)
             weak[0, :] = torch.from_numpy(weak_labels).float()
 
-        return mixture, weak, padded_indx
+        return mixture, weak.transpose(0, 1), padded_indx
 
 
 class UnlabelledSet(Dataset):
@@ -159,7 +159,7 @@ class UnlabelledSet(Dataset):
         self.fs = fs
 
         with open(unlabeled_json, "r") as f:
-            files = json.read(f)
+            files = json.load(f)
 
         self.examples = files
 
@@ -171,8 +171,8 @@ class UnlabelledSet(Dataset):
         mixture, fs = sf.read(c_ex)
 
         if len(mixture.shape) > 1:  # multi channel
-            indx = np.random.randint(0, mixture.shape[0] - 1)
-            mixture = mixture[indx]
+            indx = np.random.randint(0, mixture.shape[-1] - 1)
+            mixture = mixture[:, indx]
 
         if len(mixture) < self.target_len:
             mixture = np.pad(
@@ -186,4 +186,4 @@ class UnlabelledSet(Dataset):
         max_len_targets = self.encoder.n_frames
         strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
 
-        return mixture, strong, padded_indx
+        return mixture, strong.transpose(0, 1), padded_indx

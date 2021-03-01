@@ -14,6 +14,7 @@ training:
   median_window: 7
   ema_factor: 0.999
   self_sup_loss: mse
+  precision: 32
   backend:
 data:
   synth_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/synthetic20/soundscapes/"

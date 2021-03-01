@@ -1,13 +1,15 @@
 import scipy
 import pandas as pd
 from pathlib import Path
+import os
+from desed.utils.evaluation_measures import compute_sed_eval_metrics
 
 
 def batched_decode_preds(
     strong_preds, filenames, encoder, threshold=5, median_filter=7
 ):
 
-    predictions = []
+    predictions = pd.DataFrame()
     for j in range(strong_preds.shape[0]):  # over batches
         c_preds = strong_preds[j]
         pred = c_preds.transpose(0, 1).detach().cpu().numpy()
@@ -16,11 +18,22 @@ def batched_decode_preds(
         pred = encoder.decode_strong(pred)
         pred = pd.DataFrame(pred, columns=["event_label", "onset", "offset"])
         pred["filename"] = Path(filenames[j]).stem + ".wav"
-        predictions.append(pred)
+        predictions = predictions.append(pred)
 
     return predictions
 
 
-def log_sedeval_metrics(predictions, ground_truth, save_dir, epoch):
+def log_sedeval_metrics(predictions, ground_truth, save_dir, current_epoch):
+    event_res, segment_res = compute_sed_eval_metrics(predictions, ground_truth)
+
+    with open(
+        os.path.join(save_dir, "event_f1_{}.txt".format(current_epoch)), "w"
+    ) as f:
+        f.write(str(event_res))
+
+    with open(
+        os.path.join(save_dir, "segment_f1_{}.txt".format(current_epoch)), "w"
+    ) as f:
+        f.write(str(segment_res))
 
     return event_res.results()["class_wise_average"]["f_measure"]["f_measure"]

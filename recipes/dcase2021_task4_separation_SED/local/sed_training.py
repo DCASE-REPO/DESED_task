@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 from collections import OrderedDict
 import pandas as pd
 from .utils import batched_decode_preds, log_sedeval_metrics
+from desed.gpu_augmentations import add_noise
 
 
 class DESED(pl.LightningModule):
@@ -18,6 +19,7 @@ class DESED(pl.LightningModule):
         valid_data,
         train_sampler=None,
         scheduler=None,
+        scaler=None,
     ):
         super(DESED, self).__init__()
         self.hparams = hparams
@@ -30,6 +32,10 @@ class DESED(pl.LightningModule):
         self.valid_data = valid_data
         self.train_sampler = train_sampler
         self.scheduler = scheduler
+        if scaler is None:
+            self.scaler = lambda x: x
+        else:
+            self.scaler = scaler
 
         # instantiating losses
         self.supervised_loss = torch.nn.BCELoss()
@@ -40,8 +46,12 @@ class DESED(pl.LightningModule):
         else:
             raise NotImplementedError
 
-        self.val_buffer_student = []
-        self.val_buffer_teacher = []
+        from desed.feats import Fbanks
+
+        self.feats = Fbanks(**self.hparams["feats"], take_log=False)
+
+        self.val_buffer_student = pd.DataFrame()
+        self.val_buffer_teacher = pd.DataFrame()
 
     def update_ema(self, alpha, global_step, model, ema_model):
         # Use the true average until the exponential average is more correct
@@ -59,7 +69,7 @@ class DESED(pl.LightningModule):
 
         mixture, labels, padded_indxs = batch
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
-        mixture = self.add_noise(self.mels(mixture))
+        mixture = add_noise(self.feats(mixture))
 
         mixture = self.take_log(mixture)
         batch_num = mixture.shape[0]
@@ -77,9 +87,11 @@ class DESED(pl.LightningModule):
         )
 
         # supervised loss on strong labels
-        loss_strong = self.bce(strong_preds_student[strong_mask], labels[strong_mask])
+        loss_strong = self.supervised_loss(
+            strong_preds_student[strong_mask], labels[strong_mask]
+        )
         # supervised loss on weakly labelled
-        loss_weak = self.bce(weak_preds_student[weak_mask], labels_weak)
+        loss_weak = self.supervised_loss(weak_preds_student[weak_mask], labels_weak)
         # total supervised loss
         tot_loss_supervised = loss_strong + loss_weak
 
@@ -91,13 +103,13 @@ class DESED(pl.LightningModule):
         # we apply consistency between the predictions
         weight = (
             self.hparams["training"]["const_max"]
-            * self.exp_warmup["scheduler"]._get_scaling_factor()
+            * self.scheduler["scheduler"]._get_scaling_factor()
         )
 
-        strong_self_sup_loss = self.mse_loss(
+        strong_self_sup_loss = self.selfsup_loss_loss(
             strong_preds_student, strong_preds_teacher.detach()
         )
-        weak_self_sup_loss = self.mse_loss(
+        weak_self_sup_loss = self.selfsup_loss_loss(
             weak_preds_student, weak_preds_teacher.detach()
         )
         tot_self_loss = (strong_self_sup_loss + weak_self_sup_loss) * weight
@@ -108,13 +120,13 @@ class DESED(pl.LightningModule):
             "train_tot_sup": tot_loss_supervised,
             "train_tot_self": tot_self_loss,
             "lr": self.opt.param_groups[-1]["lr"],
-            "step": self.exp_warmup["scheduler"].step_num,
+            "step": self.scheduler["scheduler"].step_num,
         }
 
         tensorboard_logs = {
             "train/loss_strong": loss_strong,
             "train/loss_weak": loss_weak,
-            "train/step": self.exp_warmup["scheduler"].step_num,
+            "train/step": self.scheduler["scheduler"].step_num,
             "train/tot_self_loss": tot_self_loss,
             "train/weight": weight,
             "train/tot_supervised": strong_self_sup_loss,
@@ -133,7 +145,7 @@ class DESED(pl.LightningModule):
         # update EMA teacher
         self.update_ema(
             self.hparams["training"]["ema_factor"],
-            self.exp_warmup["scheduler"].step_num,
+            self.scheduler["scheduler"].step_num,
             self.sed_student,
             self.sed_teacher,
         )
@@ -142,25 +154,25 @@ class DESED(pl.LightningModule):
 
         mixture, labels, padded_indxs, filenames = batch
         labels_weak = (torch.sum(labels, -1) >= 1).float()
-        logmels = self.scaler(self.take_log(self.mels(mixture)))
+        logmels = self.scaler(self.take_log(self.feats(mixture)))
 
         # prediction for student
         strong_preds_student, weak_preds_student = self.sed_student(logmels)
-        loss_strong_student = self.bce(strong_preds_student, labels)
-        loss_weak_student = self.bce(weak_preds_student, labels_weak)
+        loss_strong_student = self.supervised_loss(strong_preds_student, labels)
+        loss_weak_student = self.supervised_loss(weak_preds_student, labels_weak)
         decoded_student = batched_decode_preds(
             strong_preds_student, filenames, self.encoder
         )
-        self.val_buffer_student.extend(decoded_student)
+        self.val_buffer_student = self.val_buffer_student.append(decoded_student)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.sed_teacher(logmels)
-        loss_strong_teacher = self.bce(strong_preds_teacher, labels)
-        loss_weak_teacher = self.bce(weak_preds_teacher, labels_weak)
+        loss_strong_teacher = self.supervised_loss(strong_preds_teacher, labels)
+        loss_weak_teacher = self.supervised_loss(weak_preds_teacher, labels_weak)
         decoded_teacher = batched_decode_preds(
             strong_preds_teacher, filenames, self.encoder
         )
 
-        self.val_buffer_teacher.extend(decoded_teacher)
+        self.val_buffer_teacher = self.val_buffer_teacher.append(decoded_teacher)
 
         output = OrderedDict(
             {
@@ -193,16 +205,10 @@ class DESED(pl.LightningModule):
         os.makedirs(save_dir, exist_ok=True)
 
         f1_student = log_sedeval_metrics(
-            pd.DataFrame(self.val_buffer_student),
-            ground_truth,
-            save_dir,
-            self.current_epoch,
+            self.val_buffer_student, ground_truth, save_dir, self.current_epoch,
         )
         f1_teacher = log_sedeval_metrics(
-            pd.DataFrame(self.val_buffer_teacher),
-            ground_truth,
-            save_dir,
-            self.current_epoch,
+            self.val_buffer_teacher, ground_truth, save_dir, self.current_epoch,
         )
 
         obj_function = -max(
@@ -231,13 +237,13 @@ class DESED(pl.LightningModule):
             }
         )
 
-        self.val_buffer_student = []  # free the buffers
-        self.val_buffer_teacher = []
+        self.val_buffer_student = pd.DataFrame()  # free the buffers
+        self.val_buffer_teacher = pd.DataFrame()
 
         return output
 
     def configure_optimizers(self):
-        return [self.opt], [self.exp_warmup]
+        return [self.opt], [self.scheduler]
 
     def train_dataloader(self):
 

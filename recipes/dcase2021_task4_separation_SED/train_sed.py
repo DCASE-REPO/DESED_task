@@ -14,6 +14,7 @@ from desed.dataio import ConcatDatasetBatchSampler
 from desed.nnet.CRNN import CRNN
 from copy import deepcopy
 from desed.dataio.parse_data import parse_files2json
+from desed.utils.scaler import TorchScaler
 
 parser = argparse.ArgumentParser("Training a SED system for DESED Task")
 parser.add_argument("--conf_file", default="./confs/sed.yaml")
@@ -43,6 +44,7 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
         train=True,
         target_len=configs["data"]["audio_max_len"],
     )
+
     weak_set = WeakSet(
         configs["data"]["weak_folder"],
         configs["data"]["weak_tsv"],
@@ -66,6 +68,7 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
         configs["data"]["synth_tsv"],
         encoder,
         train=False,
+        return_filename=True,
         target_len=configs["data"]["audio_max_len"],
     )
 
@@ -115,6 +118,8 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
         "interval": "step",
     }
 
+    scaler = TorchScaler("instance", "minmax", (1, 2))
+
     desed_training = DESED(
         configs,
         encoder,
@@ -125,12 +130,14 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
         valid_dataset,
         batch_sampler,
         exp_scheduler,
+        scaler,
     )
 
     logger = TensorBoardLogger(
         os.path.dirname(configs["log_dir"]), configs["log_dir"].split("/")[-1]
     )
 
+    checkpoint_resume = False if len(checkpoint_resume) == 0 else checkpoint_resume
     trainer = pl.Trainer(
         max_epochs=configs["training"]["n_epochs"],
         callbacks=[
