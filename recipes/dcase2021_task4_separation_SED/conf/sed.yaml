@@ -12,12 +12,17 @@ training:
   gradient_clip: 5
   save_top_k: 1
   median_window: 7
+  ema_factor: 0.999
+  self_sup_loss: mse
+  backend:
 data:
   synth_folder: ""
   synth_tsv: ""
   weak_folder: ""
   weak_tsv: ""
   unlabeled_folder: ""
+  val_folder: ""
+  val_tsv: ""
   audio_max_len: 10
   fs: 16000
   net_subsample: 4
@@ -25,9 +30,8 @@ opt:
   lr: 0.001
 feats:
   n_mels: 128
-  n_filters: 2048
-  kernel_size: 2048
-  stride: 256
-  window: hanning
-  fmin: 0
-  fmax: 8000
+  n_fft: 2048
+  window_length: 2048
+  hop_length: 256
+  fmin: 40
+  fmax: 7400

@@ -5,8 +5,6 @@ import os
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-from ray.tune.integration.pytorch_lightning import TuneReportCallback
-import ray.tune as tune
 from .local.sed_training import DESED
 from desed.utils.encoder import ManyHotEncoder
 from desed.dataio.datasets import StronglyAnnotatedSet, WeakSet, UnlabelledSet
@@ -15,6 +13,7 @@ from desed.utils.schedulers import ExponentialWarmup
 from desed.dataio import ConcatDatasetBatchSampler
 from desed.nnet.CRNN import CRNN
 from copy import deepcopy
+from desed.dataio.parse_data import parse_files2json
 
 parser = argparse.ArgumentParser("Training a SED system for DESED Task")
 parser.add_argument("--conf_file", default="./confs/sed.yaml")
@@ -53,7 +52,7 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
     unlabeled_json = "./parsed/unlabeled.json"
     if not os.path.exists(unlabeled_json):
         # create if not exist yet
-        parse_unlabelled(configs["data"]["unlabeled_folder"], "./parsed/unlabeled.json")
+        parse_files2json(configs["data"]["unlabeled_folder"], "./parsed/unlabeled.json")
 
     unlabeled_set = UnlabelledSet(
         unlabeled_json, encoder, target_len=configs["data"]["audio_max_len"]
@@ -122,7 +121,7 @@ def single_run(configs, log_dir, gpus, checkpoint_resume=None):
             )
         ],
         gpus=gpus,
-        distributed_backend=None,
+        distributed_backend=configs["training"]["backend"],
         accumulate_grad_batches=configs["training"]["accumulate_batches"],
         logger=logger,
         resume_from_checkpoint=checkpoint_resume,
@@ -140,17 +139,5 @@ if __name__ == "__main__":
 
     with open(args.conf_file, "r") as f:
         configs = yaml.load(f)
-
-    # configs.update(args.__dict__)
-    # overriding some default configs for hyper-param tuning
-    # configs["crnn_config"]["dropout"] = tune.randint(0, 7)*0.1
-    # configs["training"]["batch_size"][0] = tune.randint(8, 24)
-    # configs["training"]["batch_size"][1] = tune.randint(8, 24)
-    # configs["training"]["batch_size"][2] = tune.randint(8, 24)
-    # configs["training"]["accumulate_batches"] = tune.randint(1, 4)
-    # configs["training"]["n_epochs"] = configs["training"]["n_epochs"]*configs["training"]["accumulate_batches"]
-    # configs.lr = tune.loguniform(1e-4, 1e-1)
-    # configs.ema = 1. - tune.loguniform(1e-4, 1e-1)
-    # configs.warmup_epochs = tune.randint(30, 100)
 
     single_run(configs, args.log_dir, args.gpu, args.resume_from_checkpoint)
