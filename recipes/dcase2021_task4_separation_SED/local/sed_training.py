@@ -407,7 +407,10 @@ class DESED(pl.LightningModule):
         )
 
         obj_function = torch.tensor(
-            -max(eval_student_event_macro, eval_teacher_event_macro)
+            -max(
+                weak_student_seg_macro + synth_student_event_macro,
+                weak_teacher_seg_macro + synth_teacher_event_macro,
+            )
         )  # we want to maximize f1 event based score.
 
         tqdm_dict = {
