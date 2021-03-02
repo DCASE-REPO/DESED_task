@@ -635,7 +635,7 @@ if __name__ == "__main__":
         "--desed_soundbank",
         type=str,
         default=None,
-        help="Path to desed original soundbank, useful if already downloaded",
+        help="Path to desed original soundbank, useful if already downloaded (parent folder of'audio' and 'metadata')",
     )
     parser.add_argument(
         "--fsd50k",
@@ -653,7 +653,8 @@ if __name__ == "__main__":
         "--desed_real",
         type=str,
         default=None,
-        help="Path to desed_real, useful if already downloaded",
+        help="Path to desed_real (weak, unlabeled, validation), "
+             "useful if already downloaded (parent folder of'audio' and 'metadata')",
     )
     parser.add_argument(
         "--meta_infos",

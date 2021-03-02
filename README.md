@@ -16,18 +16,16 @@ Don't hesitate to generate your own synthetic dataset.
 ### Usage: 
 Needs 'desed >= 1.3.3' (`pip install --upgrade desed`)
 
-`python generate_dcase_task4_2021.py --basedir=data`
+- `python generate_dcase_task4_2021.py --basedir=data` (You can change basedir to the desired data folder.)
 
-You can change basedir to the desired data folder.
+It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] or [desed_real][desed].
 
-It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] or desed_real[desed].
+#### FSD50K, FUSS or DESED already downloaded
+If you already have "FUSS", "FSD50K", "desed_soundbank" or "desed_real" (audioset data same as previous years),
+- Specify their path using the specified arguments (e.g `--fuss "path_to_fuss_basedir"`), 
+  see `python generate_dcase_task4_2021.py --help`.
 
-If you already have "FUSS", "FSD50K", "desed_soundbank" or "desed_real" (audioset data same as previous years), 
-you can specify their path using the specified arguments (e.g `--fuss path_to_fuss_basedir`).
-The `--desed_soundbank` an `--desed_real` arguments should point to the folder containing 
-"audio" and "metadata" subfolders.
-
-#### Real data from Audioset
+#### Real data (weak, unlabeled, validaition) from Audioset
 If you don't have the "real data" (desed_real), you need to download it and send your missing files to the task 
 organisers to get the complete dataset (in priority to Francesca Ronchini and Romain serizel).
 
