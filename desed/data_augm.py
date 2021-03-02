@@ -14,7 +14,9 @@ def frame_shift(mels, labels, net_pooling=1):
     return torch.stack(shifted), torch.stack(new_labels)
 
 
-def mixup(audio_tensors, labels, alpha=2, beta=8):
+def mixup(audio_tensors, labels, alpha=2, beta=8, mixup_type="soft"):
+
+    assert mixup_type in ["soft", "hard"]
 
     audio1, audio2 = torch.chunk(audio_tensors, 2, dim=0)
     lab1, lab2 = torch.chunk(labels, 2, dim=0)
@@ -25,7 +27,12 @@ def mixup(audio_tensors, labels, alpha=2, beta=8):
         .reshape(-1, 1, 1)
     )
     mixed = audio1 * gains + audio2 * (1 - gains)
-    new_labels = torch.clamp(lab1 * gains + lab2 * (1 - gains), min=0, max=1)
+    if mixup_type == "soft":
+        new_labels = torch.clamp(lab1 * gains + lab2 * (1 - gains), min=0, max=1)
+    elif mixup_type == "hard":
+        new_labels = torch.clamp(lab1 + lab2, min=0, max=1)
+    else:
+        raise NotImplementedError
 
     return mixed, new_labels
 
