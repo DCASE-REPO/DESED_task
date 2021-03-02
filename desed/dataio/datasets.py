@@ -157,7 +157,7 @@ class WeakSet(Dataset):
             weak[0, :] = torch.from_numpy(weak_labels).float()
 
         if self.return_filename:
-            return mixture, weak.transpose(0, 1), padded_indx, file
+            return mixture, weak.transpose(0, 1), padded_indx, c_ex["mixture"]
         else:
             return mixture, weak.transpose(0, 1), padded_indx
 

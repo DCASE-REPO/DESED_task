@@ -45,8 +45,8 @@ def psds_results(predictions, gtruth_df, gtruth_durations):
         psds_score = psds.psds(alpha_ct=0, alpha_st=1, max_efpr=100)
         print(f"\nPSD-Score (0, 1, 100): {psds_score.value:.5f}")
     except psds_eval.psds.PSDSEvalError as e:
-        logger.error("psds did not work ....")
-        logger.error(e)
+        print("psds did not work ....")
+        raise EnvironmentError
 
 
 def event_based_evaluation_df(
