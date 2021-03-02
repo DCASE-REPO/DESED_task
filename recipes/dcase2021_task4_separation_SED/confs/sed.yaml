@@ -5,16 +5,16 @@ training:
   gamma: 0.5
   n_epochs_warmup: 50
   num_workers: 12
-  n_epochs: 1000
+  n_epochs: 1
   early_stop_patience: 10
   accumulate_batches: 1
-  gradient_clip: 50000
+  gradient_clip: 5
   save_top_k: 1
   median_window: 7
   ema_factor: 0.999
   self_sup_loss: mse
   backend:
-  noise_snr: [12, 40]
+  noise_snr: [12, 30]
   validation_interval: 10
 data:
   synth_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/synthetic20/soundscapes/"
@@ -50,9 +50,9 @@ net:
   n_RNN_cell: 128
   activation: glu
   rnn_type: BGRU
-  kernel_size: [3,3,3,3,3,3,3]
-  padding: [1,1,1,1,1,1,1]
-  stride: [1,1,1,1,1,1,1]
+  kernel_size: [3, 3, 3, 3, 3, 3, 3]
+  padding: [1, 1, 1, 1, 1, 1, 1]
+  stride: [1, 1, 1, 1, 1, 1, 1]
   nb_filters: [ 16, 32, 64, 128, 128, 128, 128 ]
   pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
   dropout_recurrent: 0

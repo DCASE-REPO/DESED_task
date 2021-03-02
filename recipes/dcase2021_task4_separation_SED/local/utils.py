@@ -23,6 +23,19 @@ def batched_decode_preds(
     return predictions
 
 
+def convert_to_event_based(weak_dataframe):
+
+    new = []
+    for i, r in weak_dataframe.iterrows():
+
+        events = r["event_labels"].split(",")
+        for e in events:
+            new.append(
+                {"filename": r["filename"], "event_label": e, "onset": 0, "offset": 1}
+            )
+    return pd.DataFrame(new)
+
+
 def log_sedeval_metrics(predictions, ground_truth, save_dir, current_epoch):
     event_res, segment_res = compute_sed_eval_metrics(predictions, ground_truth)
 

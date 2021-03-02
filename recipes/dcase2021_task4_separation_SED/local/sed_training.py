@@ -3,7 +3,7 @@ import torch
 import pytorch_lightning as pl
 from collections import OrderedDict
 import pandas as pd
-from .utils import batched_decode_preds, log_sedeval_metrics
+from .utils import batched_decode_preds, log_sedeval_metrics, convert_to_event_based
 from desed.data_augm import add_noise, mixup, frame_shift
 from desed.features import Fbanks
 from pathlib import Path
@@ -347,23 +347,20 @@ class DESED(pl.LightningModule):
             torch.stack([x["loss_strong_teacher_on_eval"] for x in outputs])
         )
 
-        # TODO uncomment this
-        """
+        # TODO maybe use lightning.metrics.f1_score for this
         # weak dataset
-        ground_truth = pd.read_csv(self.hparams["data"]["weak_val_tsv"],
-                                   sep="\t")
+        ground_truth = pd.read_csv(self.hparams["data"]["weak_val_tsv"], sep="\t")
+        ground_truth = convert_to_event_based(ground_truth)
+
         save_dir = os.path.join(self.logger.log_dir, "metrics_weak_val")
         os.makedirs(save_dir, exist_ok=True)
 
         _, _, weak_student_seg_macro, weak_student_seg_micro = log_sedeval_metrics(
-            self.val_buffer_student_weak, ground_truth, save_dir,
-            self.current_epoch,
+            self.val_buffer_student_weak, ground_truth, save_dir, self.current_epoch,
         )
         _, _, weak_teacher_seg_macro, weak_teacher_seg_micro = log_sedeval_metrics(
-            self.val_buffer_teacher_weak, ground_truth, save_dir,
-            self.current_epoch,
+            self.val_buffer_teacher_weak, ground_truth, save_dir, self.current_epoch,
         )
-        """
 
         # synth dataset
         ground_truth = pd.read_csv(self.hparams["data"]["synth_val_tsv"], sep="\t")
@@ -425,10 +422,18 @@ class DESED(pl.LightningModule):
             "val/synth/teacher/loss_strong": loss_strong_teacher_on_synth,
             "val/eval/student/loss_strong": loss_strong_student_on_eval,
             "val/eval/teacher/loss_strong": loss_strong_teacher_on_eval,
+            "val/weak/student/segment_macro_F1": weak_student_seg_macro,
+            "val/weak/teacher/segment_macro_F1": weak_teacher_seg_macro,
+            "val/weak/student/segment_micro_F1": weak_student_seg_micro,
+            "val/weak/teacher/segment_micro_F1": weak_teacher_seg_micro,
             "val/eval/student/event_macro_F1": eval_student_event_macro,
             "val/eval/teacher/event_macro_F1": eval_teacher_event_macro,
+            "val/eval/student/event_micro_F1": eval_student_event_micro,
+            "val/eval/teacher/event_micro_F1": eval_teacher_event_micro,
             "val/synth/student/event_macro_F1": synth_student_event_macro,
             "val/synth/teacher/event_macro_F1": synth_teacher_event_macro,
+            "val/synth/student/event_micro_F1": synth_student_event_micro,
+            "val/synth/teacher/event_micro_F1": synth_teacher_event_micro,
         }
 
         output = OrderedDict(
