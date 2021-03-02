@@ -1,2 +1,2 @@
-scaper==1.6.4
+scaper==1.6.5rc0
 desed==1.3.3

@@ -632,7 +632,7 @@ if __name__ == "__main__":
 
     # Existing/downloaded paths
     parser.add_argument(
-        "--`desed_soundbank`",
+        "--desed_soundbank",
         type=str,
         default=None,
         help="Path to desed original soundbank, useful if already downloaded",
