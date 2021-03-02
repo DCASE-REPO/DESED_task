@@ -31,7 +31,11 @@ def _create_symlink(src, dest, **kwargs):
 
 def create_real_dcase2021(desed_real_path, destination_folder):
     print("Creating symlinks for real data")
-    for split_set in ["train", "validation", "eval"]:
+    split_sets = ["train", "validation"]
+    if os.path.exists(os.path.join(desed_real_path, "audio", "eval")):
+        split_sets.append("eval")
+
+    for split_set in split_sets:
         # AUDIO
         split_audio_folder = os.path.join(desed_real_path, "audio", split_set)
         audio_subfolders = [
