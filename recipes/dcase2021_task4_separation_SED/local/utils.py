@@ -36,4 +36,9 @@ def log_sedeval_metrics(predictions, ground_truth, save_dir, current_epoch):
     ) as f:
         f.write(str(segment_res))
 
-    return event_res.results()["class_wise_average"]["f_measure"]["f_measure"]
+    return (
+        event_res.results()["class_wise_average"]["f_measure"]["f_measure"],
+        event_res.results()["overall"]["f_measure"]["f_measure"],
+        segment_res.results()["class_wise_average"]["f_measure"]["f_measure"],
+        segment_res.results()["overall"]["f_measure"]["f_measure"],
+    )  # return also segment measures
