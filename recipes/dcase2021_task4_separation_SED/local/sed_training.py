@@ -6,6 +6,8 @@ import pandas as pd
 from .utils import batched_decode_preds, log_sedeval_metrics
 from desed.data_augm import add_noise, mixup, frame_shift
 from desed.features import Fbanks
+from pathlib import Path
+from desed.utils.torch_utils import nanmean, nantensor
 
 
 class DESED(pl.LightningModule):
@@ -49,8 +51,14 @@ class DESED(pl.LightningModule):
 
         self.feats = Fbanks(**self.hparams["feats"], log=False)
 
-        self.val_buffer_student = pd.DataFrame()
-        self.val_buffer_teacher = pd.DataFrame()
+        self.val_buffer_student_synth = pd.DataFrame()
+        self.val_buffer_teacher_synth = pd.DataFrame()
+
+        self.val_buffer_student_weak = pd.DataFrame()
+        self.val_buffer_teacher_weak = pd.DataFrame()
+
+        self.val_buffer_student_eval = pd.DataFrame()
+        self.val_buffer_teacher_eval = pd.DataFrame()
 
     def update_ema(self, alpha, global_step, model, ema_model):
         # Use the true average until the exponential average is more correct
@@ -67,37 +75,15 @@ class DESED(pl.LightningModule):
         mixture, labels, padded_indxs = batch
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
         mixture = self.feats(mixture)
-        # mixture, labels = frame_shift(mixture, labels, self.hparams["data"]["net_subsample"])
 
-        new_mixture_strong, new_labels_strong = mixup(
-            mixture[:indx_synth], labels[:indx_synth]
-        )
-
-        mixture = torch.cat(
-            (
-                new_mixture_strong,
-                mixture[indx_synth : indx_weak + indx_synth],
-                mixture[indx_weak + indx_synth :],
-            ),
-            0,
-        )
-        labels = torch.cat(
-            (
-                new_labels_strong,
-                labels[indx_synth : indx_weak + indx_synth],
-                labels[indx_synth + indx_weak :],
-            ),
-            0,
-        )
-
-        mixture = add_noise(mixture)
+        mixture = add_noise(mixture, self.hparams["training"]["noise_snr"])
         mixture = self.take_log(mixture)
         batch_num = mixture.shape[0]
         # deriving masks for each dataset
         strong_mask = torch.zeros(batch_num).to(mixture).bool()
         weak_mask = torch.zeros(batch_num).to(mixture).bool()
-        strong_mask[: indx_synth // 2] = 1
-        weak_mask[indx_synth // 2 : indx_weak + indx_synth // 2] = 1
+        strong_mask[:indx_synth] = 1
+        weak_mask[indx_synth : indx_weak + indx_synth] = 1
         # deriving weak labels
         labels_weak = (torch.sum(labels[weak_mask], -1) > 0).float()
 
@@ -118,6 +104,13 @@ class DESED(pl.LightningModule):
         with torch.no_grad():
             strong_preds_teacher, weak_preds_teacher = self.sed_teacher(
                 self.scaler(mixture)
+            )
+            loss_strong_teacher = self.supervised_loss(
+                strong_preds_teacher[strong_mask], labels[strong_mask]
+            )
+
+            loss_weak_teacher = self.supervised_loss(
+                weak_preds_teacher[weak_mask], labels_weak
             )
 
         # we apply consistency between the predictions
@@ -144,14 +137,16 @@ class DESED(pl.LightningModule):
         }
 
         tensorboard_logs = {
-            "train/loss_strong": loss_strong,
-            "train/loss_weak": loss_weak,
+            "train/student/loss_strong": loss_strong,
+            "train/student/loss_weak": loss_weak,
+            "train/teacher/loss_strong": loss_strong_teacher,
+            "train/teacher/loss_weak": loss_weak_teacher,
             "train/step": self.scheduler["scheduler"].step_num,
-            "train/tot_self_loss": tot_self_loss,
+            "train/student/tot_self_loss": tot_self_loss,
             "train/weight": weight,
-            "train/tot_supervised": strong_self_sup_loss,
-            "train/weak_self_sup_loss": weak_self_sup_loss,
-            "train/strong_self_sup_loss": strong_self_sup_loss,
+            "train/student/tot_supervised": strong_self_sup_loss,
+            "train/student/weak_self_sup_loss": weak_self_sup_loss,
+            "train/student/strong_self_sup_loss": strong_self_sup_loss,
             "train/lr": self.opt.param_groups[-1]["lr"],
         }
 
@@ -172,80 +167,268 @@ class DESED(pl.LightningModule):
     def validation_step(self, batch, batch_indx):
 
         mixture, labels, padded_indxs, filenames = batch
-        labels_weak = (torch.sum(labels, -1) >= 1).float()
-        logmels = self.scaler(self.take_log(self.feats(mixture)))
 
         # prediction for student
+        logmels = self.scaler(self.take_log(self.feats(mixture)))
         strong_preds_student, weak_preds_student = self.sed_student(logmels)
-        loss_strong_student = self.supervised_loss(strong_preds_student, labels)
-        loss_weak_student = self.supervised_loss(weak_preds_student, labels_weak)
-        decoded_student = batched_decode_preds(
-            strong_preds_student, filenames, self.encoder
-        )
-        self.val_buffer_student = self.val_buffer_student.append(decoded_student)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.sed_teacher(logmels)
-        loss_strong_teacher = self.supervised_loss(strong_preds_teacher, labels)
-        loss_weak_teacher = self.supervised_loss(weak_preds_teacher, labels_weak)
-        decoded_teacher = batched_decode_preds(
-            strong_preds_teacher, filenames, self.encoder
-        )
 
-        self.val_buffer_teacher = self.val_buffer_teacher.append(decoded_teacher)
+        # we derive a mask based on folders of filenames
+        mask_weak = (
+            torch.tensor(
+                [
+                    str(Path(x).parent)
+                    == str(Path(self.hparams["data"]["weak_val_folder"]))
+                    for x in filenames
+                ]
+            )
+            .to(mixture)
+            .bool()
+        )
+        mask_synth = (
+            torch.tensor(
+                [
+                    str(Path(x).parent)
+                    == str(Path(self.hparams["data"]["synth_val_folder"]))
+                    for x in filenames
+                ]
+            )
+            .to(mixture)
+            .bool()
+        )
+        mask_eval = (
+            torch.tensor(
+                [
+                    str(Path(x).parent)
+                    == str(Path(self.hparams["data"]["pub_eval_folder"]))
+                    for x in filenames
+                ]
+            )
+            .to(mixture)
+            .bool()
+        )
 
         output = OrderedDict(
             {
-                "val_loss_student": loss_strong_student,
-                "val_loss_weak_student": loss_weak_student,
-                "val_loss_teacher": loss_strong_teacher,
-                "val_loss_weak_teacher": loss_weak_teacher,
+                "loss_weak_student_on_weak": nantensor(()).to(mixture),
+                "loss_weak_teacher_on_weak": nantensor(()).to(mixture),
+                "loss_strong_student_on_synth": nantensor(()).to(mixture),
+                "loss_strong_teacher_on_synth": nantensor(()).to(mixture),
+                "loss_strong_student_on_eval": nantensor(()).to(mixture),
+                "loss_strong_teacher_on_eval": nantensor(()).to(mixture),
             }
         )
+
+        if torch.any(mask_weak):
+            labels_weak = (torch.sum(labels[mask_weak], -1) >= 1).float()
+            loss_weak_student = self.supervised_loss(
+                weak_preds_student[mask_weak], labels_weak
+            )
+            loss_weak_teacher = self.supervised_loss(
+                weak_preds_teacher[mask_weak], labels_weak
+            )
+
+            output.update(
+                {
+                    "loss_weak_student_on_weak": loss_weak_student,
+                    "loss_weak_teacher_on_weak": loss_weak_teacher,
+                }
+            )
+            filenames_weak = [
+                x
+                for x in filenames
+                if Path(x).parent == Path(self.hparams["data"]["weak_val_folder"])
+            ]
+
+            decoded_student_weak = batched_decode_preds(
+                strong_preds_student[mask_weak], filenames_weak, self.encoder
+            )
+            self.val_buffer_student_weak = self.val_buffer_student_weak.append(
+                decoded_student_weak
+            )
+            decoded_teacher_weak = batched_decode_preds(
+                strong_preds_teacher[mask_weak], filenames_weak, self.encoder
+            )
+            self.val_buffer_teacher_weak = self.val_buffer_teacher_weak.append(
+                decoded_teacher_weak
+            )
+
+        if torch.any(mask_synth):
+            loss_strong_student = self.supervised_loss(
+                strong_preds_student[mask_synth], labels[mask_synth]
+            )
+            loss_strong_teacher = self.supervised_loss(
+                strong_preds_teacher[mask_synth], labels[mask_synth]
+            )
+
+            output.update(
+                {
+                    "loss_strong_student_on_synth": loss_strong_student,
+                    "loss_strong_teacher_on_synth": loss_strong_teacher,
+                }
+            )
+            filenames_synth = [
+                x
+                for x in filenames
+                if Path(x).parent == Path(self.hparams["data"]["synth_val_folder"])
+            ]
+
+            decoded_student_strong = batched_decode_preds(
+                strong_preds_student[mask_synth], filenames_synth, self.encoder
+            )
+            self.val_buffer_student_synth = self.val_buffer_student_synth.append(
+                decoded_student_strong
+            )
+
+            decoded_teacher_strong = batched_decode_preds(
+                strong_preds_teacher[mask_synth], filenames_synth, self.encoder
+            )
+            self.val_buffer_teacher_synth = self.val_buffer_teacher_synth.append(
+                decoded_teacher_strong
+            )
+
+        if torch.any(mask_eval):
+            loss_strong_student = self.supervised_loss(
+                strong_preds_student[mask_eval], labels[mask_eval]
+            )
+            loss_strong_teacher = self.supervised_loss(
+                strong_preds_teacher[mask_eval], labels[mask_eval]
+            )
+
+            output.update(
+                {
+                    "loss_strong_student_on_eval": loss_strong_student,
+                    "loss_strong_teacher_on_eval": loss_strong_teacher,
+                }
+            )
+            filenames_eval = [
+                x
+                for x in filenames
+                if Path(x).parent == Path(self.hparams["data"]["pub_eval_folder"])
+            ]
+
+            decoded_student_strong = batched_decode_preds(
+                strong_preds_student[mask_eval], filenames_eval, self.encoder
+            )
+            self.val_buffer_student_eval = self.val_buffer_student_eval.append(
+                decoded_student_strong
+            )
+
+            decoded_teacher_strong = batched_decode_preds(
+                strong_preds_teacher[mask_eval], filenames_eval, self.encoder
+            )
+            self.val_buffer_teacher_eval = self.val_buffer_teacher_eval.append(
+                decoded_teacher_strong
+            )
+
         return output
 
     def validation_epoch_end(self, outputs):
 
-        avg_loss_strong_student = torch.stack(
-            [x["val_loss_student"] for x in outputs]
-        ).mean()
-        avg_loss_weak_student = torch.stack(
-            [x["val_loss_weak_student"] for x in outputs]
-        ).mean()
+        loss_weak_student_on_weak = nanmean(
+            torch.stack([x["loss_weak_student_on_weak"] for x in outputs])
+        )
+        loss_weak_teacher_on_weak = nanmean(
+            torch.stack([x["loss_weak_teacher_on_weak"] for x in outputs])
+        )
 
-        avg_loss_strong_teacher = torch.stack(
-            [x["val_loss_teacher"] for x in outputs]
-        ).mean()
-        avg_loss_weak_teacher = torch.stack(
-            [x["val_loss_weak_teacher"] for x in outputs]
-        ).mean()
+        loss_strong_student_on_synth = nanmean(
+            torch.stack([x["loss_strong_student_on_synth"] for x in outputs])
+        )
+        loss_strong_teacher_on_synth = nanmean(
+            torch.stack([x["loss_strong_teacher_on_synth"] for x in outputs])
+        )
 
-        ground_truth = pd.read_csv(self.hparams["data"]["val_tsv"], sep="\t")
-        save_dir = os.path.join(self.logger.log_dir, "metrics")
+        loss_strong_student_on_eval = nanmean(
+            torch.stack([x["loss_strong_student_on_eval"] for x in outputs])
+        )
+        loss_strong_teacher_on_eval = nanmean(
+            torch.stack([x["loss_strong_teacher_on_eval"] for x in outputs])
+        )
+
+        # TODO uncomment this
+        """
+        # weak dataset
+        ground_truth = pd.read_csv(self.hparams["data"]["weak_val_tsv"],
+                                   sep="\t")
+        save_dir = os.path.join(self.logger.log_dir, "metrics_weak_val")
         os.makedirs(save_dir, exist_ok=True)
 
-        f1_student = log_sedeval_metrics(
-            self.val_buffer_student, ground_truth, save_dir, self.current_epoch,
+        _, _, weak_student_seg_macro, weak_student_seg_micro = log_sedeval_metrics(
+            self.val_buffer_student_weak, ground_truth, save_dir,
+            self.current_epoch,
         )
-        f1_teacher = log_sedeval_metrics(
-            self.val_buffer_teacher, ground_truth, save_dir, self.current_epoch,
+        _, _, weak_teacher_seg_macro, weak_teacher_seg_micro = log_sedeval_metrics(
+            self.val_buffer_teacher_weak, ground_truth, save_dir,
+            self.current_epoch,
+        )
+        """
+
+        # synth dataset
+        ground_truth = pd.read_csv(self.hparams["data"]["synth_val_tsv"], sep="\t")
+        save_dir = os.path.join(self.logger.log_dir, "metrics_synth_val")
+        os.makedirs(save_dir, exist_ok=True)
+
+        (
+            synth_student_event_macro,
+            synth_student_event_micro,
+            synth_student_seg_macro,
+            synth_student_seg_micro,
+        ) = log_sedeval_metrics(
+            self.val_buffer_student_synth, ground_truth, save_dir, self.current_epoch,
+        )
+        (
+            synth_teacher_event_macro,
+            synth_teacher_event_micro,
+            synth_teacher_seg_macro,
+            synth_teacher_seg_micro,
+        ) = log_sedeval_metrics(
+            self.val_buffer_teacher_eval, ground_truth, save_dir, self.current_epoch,
         )
 
-        obj_function = -max(
-            f1_student, f1_teacher
+        # pub eval dataset
+        ground_truth = pd.read_csv(self.hparams["data"]["pub_eval_tsv"], sep="\t")
+        save_dir = os.path.join(self.logger.log_dir, "metrics_pub_eval")
+        os.makedirs(save_dir, exist_ok=True)
+
+        (
+            eval_student_event_macro,
+            eval_student_event_micro,
+            eval_student_seg_macro,
+            eval_student_seg_micro,
+        ) = log_sedeval_metrics(
+            self.val_buffer_student_eval, ground_truth, save_dir, self.current_epoch,
+        )
+        (
+            eval_teacher_event_macro,
+            eval_teacher_event_micro,
+            eval_teacher_seg_macro,
+            eval_teacher_seg_micro,
+        ) = log_sedeval_metrics(
+            self.val_buffer_teacher_eval, ground_truth, save_dir, self.current_epoch,
+        )
+
+        obj_function = torch.tensor(
+            -max(eval_student_event_macro, eval_teacher_event_macro)
         )  # we want to maximize f1 event based score.
 
         tqdm_dict = {
-            "val_loss_student": avg_loss_strong_student,
+            "val_loss_student_eval": loss_strong_student_on_eval,
             "obj_metric": obj_function,
         }
 
         tensorboard_logs = {
-            "val/strong_loss_student": avg_loss_strong_student,
-            "val/weak_loss_student": avg_loss_weak_student,
-            "val/strong_loss_teacher": avg_loss_strong_teacher,
-            "val/weak_loss_teacher": avg_loss_weak_teacher,
-            "val/event_macro_F1_student": f1_student,
-            "val/event_macro_F1_teacher": f1_teacher,
+            "val/weak/student/loss_weak": loss_weak_student_on_weak,
+            "val/weak/teacher/loss_weak": loss_weak_teacher_on_weak,
+            "val/synth/student/loss_strong": loss_strong_student_on_synth,
+            "val/synth/teacher/loss_strong": loss_strong_teacher_on_synth,
+            "val/eval/student/loss_strong": loss_strong_student_on_eval,
+            "val/eval/teacher/loss_strong": loss_strong_teacher_on_eval,
+            "val/eval/student/event_macro_F1": eval_student_event_macro,
+            "val/eval/teacher/event_macro_F1": eval_teacher_event_macro,
+            "val/synth/student/event_macro_F1": synth_student_event_macro,
+            "val/synth/teacher/event_macro_F1": synth_teacher_event_macro,
         }
 
         output = OrderedDict(
@@ -256,8 +439,17 @@ class DESED(pl.LightningModule):
             }
         )
 
-        self.val_buffer_student = pd.DataFrame()  # free the buffers
-        self.val_buffer_teacher = pd.DataFrame()
+        # free the buffers
+        self.val_buffer_student_synth = pd.DataFrame()
+        self.val_buffer_teacher_synth = pd.DataFrame()
+
+        self.val_buffer_student_weak = pd.DataFrame()
+        self.val_buffer_teacher_weak = pd.DataFrame()
+
+        self.val_buffer_student_eval = pd.DataFrame()
+        self.val_buffer_teacher_eval = pd.DataFrame()
+
+        self.log("hp_metric", obj_function)  # log tensorboard hyperpar metric
 
         return output
 

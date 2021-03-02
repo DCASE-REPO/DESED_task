@@ -14,7 +14,6 @@ from desed.dataio import ConcatDatasetBatchSampler
 from desed.nnet.CRNN import CRNN
 from copy import deepcopy
 from desed.utils.scaler import TorchScaler
-from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
 
 parser = argparse.ArgumentParser("Training a SED system for DESED Task")
 parser.add_argument("--conf_file", default="./confs/sed.yaml")
@@ -26,11 +25,6 @@ parser.add_argument("--gpus", default="0")
 def single_run(config, log_dir, gpus, checkpoint_resume=""):
 
     config.update({"log_dir": log_dir})
-    config["training"]["n_epochs"] = (
-        config["training"]["n_epochs"] * config["training"]["accumulate_batches"]
-    )
-
-    config["training"]["ema_factor"] = 1.0 - config["training"]["ema_factor"]
 
     ##### data prep ##########
     encoder = ManyHotEncoder(
@@ -63,9 +57,27 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         target_len=config["data"]["audio_max_len"],
     )
 
-    valid_dataset = StronglyAnnotatedSet(
-        config["data"]["val_folder"],
-        config["data"]["val_tsv"],
+    synth_val = StronglyAnnotatedSet(
+        config["data"]["synth_val_folder"],
+        config["data"]["synth_val_tsv"],
+        encoder,
+        train=False,
+        return_filename=True,
+        target_len=config["data"]["audio_max_len"],
+    )
+
+    weak_eval = WeakSet(
+        config["data"]["weak_val_folder"],
+        config["data"]["weak_val_tsv"],
+        encoder,
+        target_len=config["data"]["audio_max_len"],
+        return_filename=True,
+        train=False,
+    )
+
+    public_eval = StronglyAnnotatedSet(
+        config["data"]["pub_eval_folder"],
+        config["data"]["pub_eval_tsv"],
         encoder,
         train=False,
         return_filename=True,
@@ -79,6 +91,8 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
     samplers = [torch.utils.data.RandomSampler(x) for x in tot_train_data]
     batch_sampler = ConcatDatasetBatchSampler(samplers, batch_sizes)
 
+    valid_dataset = torch.utils.data.ConcatDataset([weak_eval, synth_val, public_eval])
+
     epoch_len = min(
         [
             len(tot_train_data[indx])
@@ -89,26 +103,10 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
             for indx in range(len(tot_train_data))
         ]
     )
+
     ##### models and optimizers  ############
 
-    n_layers = 7
-    crnn_kwargs = {
-        "n_in_channel": 1,
-        "nclass": 10,
-        "attention": True,
-        "n_RNN_cell": 128,
-        "n_layers_RNN": config["net"]["rnn_layers"],
-        "activation": "glu",
-        "rnn_type": "BGRU",
-        "dropout": config["net"]["dropout"],
-        "kernel_size": n_layers * [3],
-        "padding": n_layers * [1],
-        "stride": n_layers * [1],
-        "nb_filters": [16, 32, 64, 128, 128, 128, 128],
-        "pooling": [[2, 2], [2, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]],
-    }
-
-    sed_student = CRNN(**crnn_kwargs)
+    sed_student = CRNN(**config["net"])
     sed_teacher = deepcopy(sed_student)
 
     opt = torch.optim.Adam(sed_student.parameters(), 1e-8, betas=(0.9, 0.999))
@@ -134,7 +132,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
     )
 
     logger = TensorBoardLogger(
-        os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1]
+        os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
     )
 
     checkpoint_resume = False if len(checkpoint_resume) == 0 else checkpoint_resume
@@ -142,14 +140,9 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         max_epochs=config["training"]["n_epochs"],
         callbacks=[
             EarlyStopping(
-                monitor="obj_function",
+                monitor="obj_metric",
                 patience=config["training"]["early_stop_patience"],
                 verbose=True,
-            ),
-            TuneReportCheckpointCallback(
-                metrics={"obj_metric": "obj_metric"},
-                filename="checkpoint",
-                on="validation_end",
             ),
         ],
         gpus=gpus,
@@ -158,49 +151,18 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         logger=logger,
         resume_from_checkpoint=checkpoint_resume,
         gradient_clip_val=config["training"]["gradient_clip"],
-        check_val_every_n_epoch=1,
+        check_val_every_n_epoch=config["training"]["validation_interval"],
+        num_sanity_val_steps=0,
     )
 
     trainer.fit(desed_training)
 
 
 if __name__ == "__main__":
-    import ray.tune as tune
 
     args = parser.parse_args()
 
     with open(args.conf_file, "r") as f:
         configs = yaml.load(f)
 
-    configs["net"]["dropout"] = tune.choice([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
-    configs["training"]["batch_size"][0] = tune.randint(4, 24)
-    configs["training"]["batch_size"][1] = tune.randint(4, 24)
-    configs["training"]["batch_size"][2] = tune.randint(4, 24)
-    configs["training"]["accumulate_batches"] = tune.randint(1, 4)
-    # configs["opt"]["lr"] = tune.loguniform(1e-4, 1e-1)
-    configs["training"]["ema_factor"] = tune.loguniform(1e-4, 1e-1)
-    configs["training"]["n_epochs_warmup"] = tune.randint(30, 100)
-    configs["training"]["self_sup_loss"] = tune.choice(["mse", "bce"])
-
-    scheduler = tune.schedulers.ASHAScheduler(grace_period=100)
-
-    reporter = tune.CLIReporter(
-        parameter_columns=["dropout", "lr", "self_sup_loss", "n_epochs_warmup"],
-        metric_columns=["obj_metric"],
-    )
-
-    analysis = tune.run(
-        tune.with_parameters(single_run, log_dir=args.log_dir, gpus=args.gpus,),
-        resources_per_trial={"cpu": 8, "gpu": 1},
-        config=configs,
-        metric="obj_metric",
-        mode="min",
-        num_samples=20,
-        scheduler=scheduler,
-        progress_reporter=reporter,
-        name="tune_mnist_pbt",
-    )
-
-    print("Best hyperparameters found were: ", analysis.best_config)
-
-    # single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint)
+    single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint)
