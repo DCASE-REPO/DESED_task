@@ -32,9 +32,9 @@ class StronglyAnnotatedSet(Dataset):
     def __init__(
         self,
         audio_folder,
-        tsv_file,
+        tsv_entries,
         encoder,
-        target_len=10,
+        pad_to=10,
         fs=16000,
         return_filename=False,
         train=False,
@@ -42,13 +42,13 @@ class StronglyAnnotatedSet(Dataset):
 
         self.encoder = encoder
         self.fs = fs
-        self.target_len = target_len * fs
+        self.pad_to = pad_to * fs
         self.return_filename = return_filename
         self.train = train
 
-        annotation = pd.read_csv(tsv_file, sep="\t")
+        # annotation = pd.read_csv(tsv_file, sep="\t")
         examples = {}
-        for i, r in annotation.iterrows():
+        for i, r in tsv_entries.iterrows():
             if r["filename"] not in examples.keys():
                 examples[r["filename"]] = {
                     "mixture": os.path.join(audio_folder, r["filename"]),
@@ -82,8 +82,11 @@ class StronglyAnnotatedSet(Dataset):
     def __getitem__(self, item):
         c_ex = self.examples[self.examples_list[item]]
         mixture, fs = sf.read(c_ex["mixture"])
-
-        mixture, padded_indx = pad_audio(to_mono(mixture, self.train), self.target_len)
+        mixture = to_mono(mixture, self.train)
+        if self.pad_to is not None:
+            mixture, padded_indx = pad_audio(mixture, self.pad_to)
+        else:
+            padded_indx = [None]
         mixture = torch.from_numpy(mixture).float()
 
         # labels
@@ -108,9 +111,9 @@ class WeakSet(Dataset):
     def __init__(
         self,
         audio_folder,
-        tsv_file,
+        tsv_entries,
         encoder,
-        target_len=10,
+        pad_to=10,
         fs=16000,
         train=True,
         return_filename=False,
@@ -118,13 +121,12 @@ class WeakSet(Dataset):
 
         self.encoder = encoder
         self.fs = fs
-        self.target_len = target_len * fs
+        self.pad_to = pad_to * fs
         self.train = train
         self.return_filename = return_filename
 
-        annotation = pd.read_csv(tsv_file, sep="\t")
         examples = {}
-        for i, r in annotation.iterrows():
+        for i, r in tsv_entries.iterrows():
 
             if r["filename"] not in examples.keys():
                 examples[r["filename"]] = {
@@ -142,8 +144,11 @@ class WeakSet(Dataset):
         file = self.examples_list[item]
         c_ex = self.examples[file]
         mixture, fs = sf.read(c_ex["mixture"])
-
-        mixture, padded_indx = pad_audio(to_mono(mixture, self.train), self.target_len)
+        mixture = to_mono(mixture, self.train)
+        if self.pad_to is not None:
+            mixture, padded_indx = pad_audio(mixture, self.pad_to)
+        else:
+            padded_indx = [None]
 
         mixture = torch.from_numpy(mixture).float()
 
@@ -163,11 +168,11 @@ class WeakSet(Dataset):
 
 
 class UnlabelledSet(Dataset):
-    def __init__(self, unlabeled_folder, encoder, target_len=10, fs=16000, train=True):
+    def __init__(self, unlabeled_folder, encoder, pad_to=10, fs=16000, train=True):
 
         self.encoder = encoder
         self.fs = fs
-        self.target_len = target_len * fs
+        self.pad_to = pad_to * fs
         self.examples = glob.glob(os.path.join(unlabeled_folder, "*.wav"))
         self.train = train
 
@@ -177,8 +182,11 @@ class UnlabelledSet(Dataset):
     def __getitem__(self, item):
         c_ex = self.examples[item]
         mixture, fs = sf.read(c_ex)
-
-        mixture, padded_indx = pad_audio(to_mono(mixture, self.train), self.target_len)
+        mixture = to_mono(mixture, self.train)
+        if self.pad_to is not None:
+            mixture, padded_indx = pad_audio(mixture, self.pad_to)
+        else:
+            padded_indx = None
         mixture = torch.from_numpy(mixture).float()
         max_len_targets = self.encoder.n_frames
         strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
