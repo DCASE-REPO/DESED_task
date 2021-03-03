@@ -37,6 +37,11 @@ class Fbanks(torch.nn.Module):
 
     def forward(self, x):
 
+        if x.ndim == 1:
+            x = x.reshape(-1, 1, 1)
+        elif x.ndim == 2:
+            x = x.unsqueeze(1)
+
         x = self.melg(x)
         if self.log:
             x = self.take_log(x)
