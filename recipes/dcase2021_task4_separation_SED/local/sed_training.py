@@ -10,10 +10,11 @@ from desed_task.data_augm import add_noise, frame_shift, mixup
 from desed_task.features import Fbanks
 from desed_task.utils.torch_utils import nanmean, nantensor
 
+
 from .utils import batched_decode_preds, convert_to_event_based, log_sedeval_metrics
 
 
-class DESED(pl.LightningModule):
+class SEDTask4_2021(pl.LightningModule):
     def __init__(
         self,
         hparams,
@@ -27,7 +28,7 @@ class DESED(pl.LightningModule):
         scheduler=None,
         scaler=None,
     ):
-        super(DESED, self).__init__()
+        super(SEDTask4_2021, self).__init__()
         self.hparams = hparams
 
         self.encoder = encoder
@@ -54,11 +55,25 @@ class DESED(pl.LightningModule):
 
         self.feats = Fbanks(**self.hparams["feats"], log=False)
 
+        # for weak labels we simply compute f1 score
+        self.get_weak_student_f1_seg_macro = pl.metrics.classification.F1(
+            len(self.encoder.labels),
+            average="macro",
+            multilabel=True,
+            compute_on_step=False,
+        )
+
+        self.get_weak_teacher_f1_seg_macro = pl.metrics.classification.F1(
+            len(self.encoder.labels),
+            average="macro",
+            multilabel=True,
+            compute_on_step=False,
+        )
+
+        # buffer for event based scores which we compute using sed-eval
+
         self.val_buffer_student_synth = pd.DataFrame()
         self.val_buffer_teacher_synth = pd.DataFrame()
-
-        self.val_buffer_student_weak = pd.DataFrame()
-        self.val_buffer_teacher_weak = pd.DataFrame()
 
         self.val_buffer_student_eval = pd.DataFrame()
         self.val_buffer_teacher_eval = pd.DataFrame()
@@ -67,7 +82,7 @@ class DESED(pl.LightningModule):
         # Use the true average until the exponential average is more correct
         alpha = min(1 - 1 / (global_step + 1), alpha)
         for ema_params, params in zip(ema_model.parameters(), model.parameters()):
-            ema_params.data.mul_(alpha).add_(1 - alpha, params.data)
+            ema_params.data.mul_(alpha).add_(params.data, alpha=1 - alpha)
 
     def take_log(self, mels):
 
@@ -238,29 +253,13 @@ class DESED(pl.LightningModule):
                     "loss_weak_teacher_on_weak": loss_weak_teacher,
                 }
             )
-            filenames_weak = [
-                x
-                for x in filenames
-                if Path(x).parent == Path(self.hparams["data"]["weak_val_folder"])
-            ]
 
-            decoded_student_weak = batched_decode_preds(
-                strong_preds_student[mask_weak],
-                filenames_weak,
-                self.encoder,
-                median_filter=self.hparams["training"]["median_window"],
+            # accumulate f1 score for weak labels
+            self.get_weak_student_f1_seg_macro(
+                weak_preds_student[mask_weak], labels_weak
             )
-            self.val_buffer_student_weak = self.val_buffer_student_weak.append(
-                decoded_student_weak
-            )
-            decoded_teacher_weak = batched_decode_preds(
-                strong_preds_teacher[mask_weak],
-                filenames_weak,
-                self.encoder,
-                median_filter=self.hparams["training"]["median_window"],
-            )
-            self.val_buffer_teacher_weak = self.val_buffer_teacher_weak.append(
-                decoded_teacher_weak
+            self.get_weak_teacher_f1_seg_macro(
+                weak_preds_teacher[mask_weak], labels_weak
             )
 
         if torch.any(mask_synth):
@@ -368,26 +367,8 @@ class DESED(pl.LightningModule):
             torch.stack([x["loss_strong_teacher_on_eval"] for x in outputs])
         )
 
-        # TODO maybe use lightning.metrics.f1_score for this
-        # weak dataset
-        ground_truth = pd.read_csv(self.hparams["data"]["weak_val_tsv"], sep="\t")
-        ground_truth = convert_to_event_based(ground_truth)
-
-        save_dir = os.path.join(self.logger.log_dir, "metrics_weak_val")
-        os.makedirs(save_dir, exist_ok=True)
-
-        _, _, weak_student_seg_macro, weak_student_seg_micro = log_sedeval_metrics(
-            self.val_buffer_student_weak,
-            ground_truth,
-            save_dir,
-            self.current_epoch,
-        )
-        _, _, weak_teacher_seg_macro, weak_teacher_seg_micro = log_sedeval_metrics(
-            self.val_buffer_teacher_weak,
-            ground_truth,
-            save_dir,
-            self.current_epoch,
-        )
+        weak_student_seg_macro = self.get_weak_student_f1_seg_macro.compute()
+        weak_teacher_seg_macro = self.get_weak_teacher_f1_seg_macro.compute()
 
         # synth dataset
         ground_truth = pd.read_csv(self.hparams["data"]["synth_val_tsv"], sep="\t")
@@ -400,10 +381,7 @@ class DESED(pl.LightningModule):
             synth_student_seg_macro,
             synth_student_seg_micro,
         ) = log_sedeval_metrics(
-            self.val_buffer_student_synth,
-            ground_truth,
-            save_dir,
-            self.current_epoch,
+            self.val_buffer_student_synth, ground_truth, save_dir, self.current_epoch,
         )
         (
             synth_teacher_event_macro,
@@ -411,10 +389,7 @@ class DESED(pl.LightningModule):
             synth_teacher_seg_macro,
             synth_teacher_seg_micro,
         ) = log_sedeval_metrics(
-            self.val_buffer_teacher_eval,
-            ground_truth,
-            save_dir,
-            self.current_epoch,
+            self.val_buffer_teacher_eval, ground_truth, save_dir, self.current_epoch,
         )
 
         # pub eval dataset
@@ -428,10 +403,7 @@ class DESED(pl.LightningModule):
             eval_student_seg_macro,
             eval_student_seg_micro,
         ) = log_sedeval_metrics(
-            self.val_buffer_student_eval,
-            ground_truth,
-            save_dir,
-            self.current_epoch,
+            self.val_buffer_student_eval, ground_truth, save_dir, self.current_epoch,
         )
         (
             eval_teacher_event_macro,
@@ -439,18 +411,15 @@ class DESED(pl.LightningModule):
             eval_teacher_seg_macro,
             eval_teacher_seg_micro,
         ) = log_sedeval_metrics(
-            self.val_buffer_teacher_eval,
-            ground_truth,
-            save_dir,
-            self.current_epoch,
+            self.val_buffer_teacher_eval, ground_truth, save_dir, self.current_epoch,
         )
 
         obj_function = torch.tensor(
             -max(
-                weak_student_seg_macro + synth_student_event_macro,
-                weak_teacher_seg_macro + synth_teacher_event_macro,
+                weak_student_seg_macro.item() + synth_student_event_macro,
+                weak_teacher_seg_macro.item() + synth_teacher_event_macro,
             )
-        )  # we want to maximize f1 event based score.
+        )
 
         tqdm_dict = {
             "val_loss_student_eval": loss_strong_student_on_eval,
@@ -466,16 +435,10 @@ class DESED(pl.LightningModule):
             "val/eval/teacher/loss_strong": loss_strong_teacher_on_eval,
             "val/weak/student/segment_macro_F1": weak_student_seg_macro,
             "val/weak/teacher/segment_macro_F1": weak_teacher_seg_macro,
-            "val/weak/student/segment_micro_F1": weak_student_seg_micro,
-            "val/weak/teacher/segment_micro_F1": weak_teacher_seg_micro,
             "val/eval/student/event_macro_F1": eval_student_event_macro,
             "val/eval/teacher/event_macro_F1": eval_teacher_event_macro,
-            "val/eval/student/event_micro_F1": eval_student_event_micro,
-            "val/eval/teacher/event_micro_F1": eval_teacher_event_micro,
             "val/synth/student/event_macro_F1": synth_student_event_macro,
             "val/synth/teacher/event_macro_F1": synth_teacher_event_macro,
-            "val/synth/student/event_micro_F1": synth_student_event_micro,
-            "val/synth/teacher/event_micro_F1": synth_teacher_event_micro,
         }
 
         output = OrderedDict(
@@ -490,8 +453,8 @@ class DESED(pl.LightningModule):
         self.val_buffer_student_synth = pd.DataFrame()
         self.val_buffer_teacher_synth = pd.DataFrame()
 
-        self.val_buffer_student_weak = pd.DataFrame()
-        self.val_buffer_teacher_weak = pd.DataFrame()
+        self.get_weak_student_f1_seg_macro.reset()
+        self.get_weak_teacher_f1_seg_macro.reset()
 
         self.val_buffer_student_eval = pd.DataFrame()
         self.val_buffer_teacher_eval = pd.DataFrame()

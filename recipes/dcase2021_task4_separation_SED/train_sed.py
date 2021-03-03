@@ -15,7 +15,7 @@ from desed_task.nnet.CRNN import CRNN
 from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
 from local.classes_dict import classes_labels
-from local.sed_training import DESED
+from local.sed_training import SEDTask4_2021
 
 parser = argparse.ArgumentParser("Training a SED system for DESED Task")
 parser.add_argument("--conf_file", default="./confs/sed.yaml")
@@ -120,7 +120,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
 
     scaler = TorchScaler("instance", "minmax", (1, 2))
 
-    desed_training = DESED(
+    desed_training = SEDTask4_2021(
         config,
         encoder,
         sed_student,
@@ -134,8 +134,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
     )
 
     logger = TensorBoardLogger(
-        os.path.dirname(config["log_dir"]),
-        config["log_dir"].split("/")[-1],
+        os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
     )
 
     checkpoint_resume = False if len(checkpoint_resume) == 0 else checkpoint_resume

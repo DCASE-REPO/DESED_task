@@ -15,8 +15,8 @@ training:
   ema_factor: 0.999
   self_sup_loss: mse
   backend:
-  noise_snr: [12, 30]
-  validation_interval: 10
+  noise_snr: [29, 30]
+  validation_interval: 1
 data:
   synth_folder: "/srv/storage/talc3@talc-data.nancy/multispeech/calcul/users/fronchini/dataset21/desed/audio/train/synthetic20_train/soundscapes/"
   synth_tsv: "/srv/storage/talc3@talc-data.nancy/multispeech/calcul/users/fronchini/dataset21/desed/metadata/train/synthetic20_train/soundscapes.tsv"
