@@ -1,13 +1,16 @@
 import os
-import torch
-import pytorch_lightning as pl
 from collections import OrderedDict
-import pandas as pd
-from .utils import batched_decode_preds, log_sedeval_metrics, convert_to_event_based
-from desed.data_augm import add_noise, mixup, frame_shift
-from desed.features import Fbanks
 from pathlib import Path
-from desed.utils.torch_utils import nanmean, nantensor
+
+import pandas as pd
+import pytorch_lightning as pl
+import torch
+
+from desed_task.data_augm import add_noise, frame_shift, mixup
+from desed_task.features import Fbanks
+from desed_task.utils.torch_utils import nanmean, nantensor
+
+from .utils import batched_decode_preds, convert_to_event_based, log_sedeval_metrics
 
 
 class DESED(pl.LightningModule):
@@ -242,13 +245,19 @@ class DESED(pl.LightningModule):
             ]
 
             decoded_student_weak = batched_decode_preds(
-                strong_preds_student[mask_weak], filenames_weak, self.encoder
+                strong_preds_student[mask_weak],
+                filenames_weak,
+                self.encoder,
+                median_filter=self.hparams["training"]["median_window"],
             )
             self.val_buffer_student_weak = self.val_buffer_student_weak.append(
                 decoded_student_weak
             )
             decoded_teacher_weak = batched_decode_preds(
-                strong_preds_teacher[mask_weak], filenames_weak, self.encoder
+                strong_preds_teacher[mask_weak],
+                filenames_weak,
+                self.encoder,
+                median_filter=self.hparams["training"]["median_window"],
             )
             self.val_buffer_teacher_weak = self.val_buffer_teacher_weak.append(
                 decoded_teacher_weak
@@ -275,14 +284,20 @@ class DESED(pl.LightningModule):
             ]
 
             decoded_student_strong = batched_decode_preds(
-                strong_preds_student[mask_synth], filenames_synth, self.encoder
+                strong_preds_student[mask_synth],
+                filenames_synth,
+                self.encoder,
+                median_filter=self.hparams["training"]["median_window"],
             )
             self.val_buffer_student_synth = self.val_buffer_student_synth.append(
                 decoded_student_strong
             )
 
             decoded_teacher_strong = batched_decode_preds(
-                strong_preds_teacher[mask_synth], filenames_synth, self.encoder
+                strong_preds_teacher[mask_synth],
+                filenames_synth,
+                self.encoder,
+                median_filter=self.hparams["training"]["median_window"],
             )
             self.val_buffer_teacher_synth = self.val_buffer_teacher_synth.append(
                 decoded_teacher_strong
@@ -309,14 +324,20 @@ class DESED(pl.LightningModule):
             ]
 
             decoded_student_strong = batched_decode_preds(
-                strong_preds_student[mask_eval], filenames_eval, self.encoder
+                strong_preds_student[mask_eval],
+                filenames_eval,
+                self.encoder,
+                median_filter=self.hparams["training"]["median_window"],
             )
             self.val_buffer_student_eval = self.val_buffer_student_eval.append(
                 decoded_student_strong
             )
 
             decoded_teacher_strong = batched_decode_preds(
-                strong_preds_teacher[mask_eval], filenames_eval, self.encoder
+                strong_preds_teacher[mask_eval],
+                filenames_eval,
+                self.encoder,
+                median_filter=self.hparams["training"]["median_window"],
             )
             self.val_buffer_teacher_eval = self.val_buffer_teacher_eval.append(
                 decoded_teacher_strong
@@ -356,10 +377,16 @@ class DESED(pl.LightningModule):
         os.makedirs(save_dir, exist_ok=True)
 
         _, _, weak_student_seg_macro, weak_student_seg_micro = log_sedeval_metrics(
-            self.val_buffer_student_weak, ground_truth, save_dir, self.current_epoch,
+            self.val_buffer_student_weak,
+            ground_truth,
+            save_dir,
+            self.current_epoch,
         )
         _, _, weak_teacher_seg_macro, weak_teacher_seg_micro = log_sedeval_metrics(
-            self.val_buffer_teacher_weak, ground_truth, save_dir, self.current_epoch,
+            self.val_buffer_teacher_weak,
+            ground_truth,
+            save_dir,
+            self.current_epoch,
         )
 
         # synth dataset
@@ -373,7 +400,10 @@ class DESED(pl.LightningModule):
             synth_student_seg_macro,
             synth_student_seg_micro,
         ) = log_sedeval_metrics(
-            self.val_buffer_student_synth, ground_truth, save_dir, self.current_epoch,
+            self.val_buffer_student_synth,
+            ground_truth,
+            save_dir,
+            self.current_epoch,
         )
         (
             synth_teacher_event_macro,
@@ -381,7 +411,10 @@ class DESED(pl.LightningModule):
             synth_teacher_seg_macro,
             synth_teacher_seg_micro,
         ) = log_sedeval_metrics(
-            self.val_buffer_teacher_eval, ground_truth, save_dir, self.current_epoch,
+            self.val_buffer_teacher_eval,
+            ground_truth,
+            save_dir,
+            self.current_epoch,
         )
 
         # pub eval dataset
@@ -395,7 +428,10 @@ class DESED(pl.LightningModule):
             eval_student_seg_macro,
             eval_student_seg_micro,
         ) = log_sedeval_metrics(
-            self.val_buffer_student_eval, ground_truth, save_dir, self.current_epoch,
+            self.val_buffer_student_eval,
+            ground_truth,
+            save_dir,
+            self.current_epoch,
         )
         (
             eval_teacher_event_macro,
@@ -403,7 +439,10 @@ class DESED(pl.LightningModule):
             eval_teacher_seg_macro,
             eval_teacher_seg_micro,
         ) = log_sedeval_metrics(
-            self.val_buffer_teacher_eval, ground_truth, save_dir, self.current_epoch,
+            self.val_buffer_teacher_eval,
+            ground_truth,
+            save_dir,
+            self.current_epoch,
         )
 
         obj_function = torch.tensor(

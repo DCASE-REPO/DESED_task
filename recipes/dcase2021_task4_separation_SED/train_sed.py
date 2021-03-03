@@ -1,19 +1,21 @@
-import pytorch_lightning as pl
 import argparse
-import yaml
 import os
-import torch
-from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.callbacks import EarlyStopping
-from local.sed_training import DESED
-from desed.utils.encoder import ManyHotEncoder
-from desed.dataio.datasets import StronglyAnnotatedSet, WeakSet, UnlabelledSet
-from local.classes_dict import classes_labels
-from desed.utils.schedulers import ExponentialWarmup
-from desed.dataio import ConcatDatasetBatchSampler
-from desed.nnet.CRNN import CRNN
 from copy import deepcopy
-from desed.utils.scaler import TorchScaler
+
+import pytorch_lightning as pl
+import torch
+import yaml
+from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.loggers import TensorBoardLogger
+
+from desed_task.utils.scaler import TorchScaler
+from desed_task.dataio import ConcatDatasetBatchSampler
+from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabelledSet, WeakSet
+from desed_task.nnet.CRNN import CRNN
+from desed_task.utils.encoder import ManyHotEncoder
+from desed_task.utils.schedulers import ExponentialWarmup
+from local.classes_dict import classes_labels
+from local.sed_training import DESED
 
 parser = argparse.ArgumentParser("Training a SED system for DESED Task")
 parser.add_argument("--conf_file", default="./confs/sed.yaml")
@@ -132,7 +134,8 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
     )
 
     logger = TensorBoardLogger(
-        os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
+        os.path.dirname(config["log_dir"]),
+        config["log_dir"].split("/")[-1],
     )
 
     checkpoint_resume = False if len(checkpoint_resume) == 0 else checkpoint_resume
