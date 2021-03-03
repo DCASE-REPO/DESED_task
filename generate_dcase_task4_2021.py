@@ -796,7 +796,7 @@ if __name__ == "__main__":
             out_dcase2021_soundscapes=out_soundscapes_folder,
             out_sources_dir=sources_folder,
             out_metadata_tsv=out_tsv,
-            use_class_probas=True,
+            use_class_probas=False,
         )
         print(
             f"Time to generate the subset {split_subset}: {time.time() - t_gen:.3f} s"
