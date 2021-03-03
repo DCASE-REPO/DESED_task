@@ -186,7 +186,7 @@ class UnlabelledSet(Dataset):
         if self.pad_to is not None:
             mixture, padded_indx = pad_audio(mixture, self.pad_to)
         else:
-            padded_indx = None
+            padded_indx = [None]
         mixture = torch.from_numpy(mixture).float()
         max_len_targets = self.encoder.n_frames
         strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
