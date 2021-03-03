@@ -40,7 +40,9 @@ def resample_folder(in_dir, out_dir, target_fs, regex):
             exist_ok=True,
         )
         torchaudio.save(
-            os.path.join(out_dir, Path(f).relative_to(Path(in_dir))), audio, target_fs,
+            os.path.join(out_dir, Path(f).relative_to(Path(in_dir))),
+            audio,
+            target_fs,
         )
 
 

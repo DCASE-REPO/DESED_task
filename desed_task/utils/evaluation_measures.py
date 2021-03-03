@@ -1,6 +1,6 @@
-import sed_eval
 import pandas as pd
 import psds_eval
+import sed_eval
 from psds_eval import PSDSEval
 
 

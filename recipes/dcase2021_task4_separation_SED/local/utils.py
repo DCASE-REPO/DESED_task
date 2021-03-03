@@ -1,8 +1,10 @@
-import scipy
-import pandas as pd
-from pathlib import Path
 import os
-from desed.utils.evaluation_measures import compute_sed_eval_metrics
+from pathlib import Path
+
+import pandas as pd
+import scipy
+
+from desed_task.utils.evaluation_measures import compute_sed_eval_metrics
 
 
 def batched_decode_preds(
