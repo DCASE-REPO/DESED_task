@@ -16,6 +16,9 @@ from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
 from local.classes_dict import classes_labels
 from local.sed_training import SEDTask4_2021
+import random
+import numpy as np
+import pandas as pd
 
 parser = argparse.ArgumentParser("Training a SED system for DESED Task")
 parser.add_argument("--conf_file", default="./confs/sed.yaml")
@@ -38,52 +41,59 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         fs=config["data"]["fs"],
     )
 
+    synth_df = pd.read_csv(config["data"]["synth_tsv"], sep="\t")
     synth_set = StronglyAnnotatedSet(
         config["data"]["synth_folder"],
-        config["data"]["synth_tsv"],
+        synth_df,
         encoder,
         train=True,
-        target_len=config["data"]["audio_max_len"],
+        pad_to=config["data"]["audio_max_len"],
     )
 
+    weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
+    train_weak_df = weak_df.sample(frac=config["training"]["weak_split"])
+    valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
+    train_weak_df = train_weak_df.reset_index(drop=True)
     weak_set = WeakSet(
         config["data"]["weak_folder"],
-        config["data"]["weak_tsv"],
+        train_weak_df,
         encoder,
-        target_len=config["data"]["audio_max_len"],
+        pad_to=config["data"]["audio_max_len"],
     )
 
     unlabeled_set = UnlabelledSet(
         config["data"]["unlabeled_folder"],
         encoder,
-        target_len=config["data"]["audio_max_len"],
+        pad_to=config["data"]["audio_max_len"],
     )
 
+    synth_df_val = pd.read_csv(config["data"]["synth_val_tsv"], sep="\t")
     synth_val = StronglyAnnotatedSet(
         config["data"]["synth_val_folder"],
-        config["data"]["synth_val_tsv"],
+        synth_df_val,
         encoder,
         train=False,
         return_filename=True,
-        target_len=config["data"]["audio_max_len"],
+        pad_to=config["data"]["audio_max_len"],
     )
 
     weak_eval = WeakSet(
-        config["data"]["weak_val_folder"],
-        config["data"]["weak_val_tsv"],
+        config["data"]["weak_folder"],
+        valid_weak_df,
         encoder,
-        target_len=config["data"]["audio_max_len"],
+        pad_to=config["data"]["audio_max_len"],
         return_filename=True,
         train=False,
     )
 
+    pub_eval_df = pd.read_csv(config["data"]["pub_eval_tsv"], sep="\t")
     public_eval = StronglyAnnotatedSet(
         config["data"]["pub_eval_folder"],
-        config["data"]["pub_eval_tsv"],
+        pub_eval_df,
         encoder,
         train=False,
         return_filename=True,
-        target_len=config["data"]["audio_max_len"],
+        pad_to=config["data"]["audio_max_len"],
     )
 
     tot_train_data = [synth_set, weak_set, unlabeled_set]
@@ -137,7 +147,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
     )
 
-    checkpoint_resume = False if len(checkpoint_resume) == 0 else checkpoint_resume
+    checkpoint_resume = None if len(checkpoint_resume) == 0 else checkpoint_resume
     trainer = pl.Trainer(
         max_epochs=config["training"]["n_epochs"],
         callbacks=[
@@ -166,5 +176,11 @@ if __name__ == "__main__":
 
     with open(args.conf_file, "r") as f:
         configs = yaml.load(f)
+
+    seed = configs["training"]["seed"]
+    if seed:
+        torch.random.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
 
     single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint)

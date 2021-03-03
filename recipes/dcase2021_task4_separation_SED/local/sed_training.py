@@ -6,12 +6,11 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 
-from desed_task.data_augm import add_noise, frame_shift, mixup
+from desed_task.data_augm import add_noise
 from desed_task.features import Fbanks
-from desed_task.utils.torch_utils import nanmean, nantensor
 
 
-from .utils import batched_decode_preds, convert_to_event_based, log_sedeval_metrics
+from .utils import batched_decode_preds, log_sedeval_metrics
 
 
 class SEDTask4_2021(pl.LightningModule):
@@ -147,31 +146,19 @@ class SEDTask4_2021(pl.LightningModule):
 
         tot_loss = tot_loss_supervised + tot_self_loss
 
-        tqdm_dict = {
-            "train_tot_sup": tot_loss_supervised,
-            "train_tot_self": tot_self_loss,
-            "lr": self.opt.param_groups[-1]["lr"],
-            "step": self.scheduler["scheduler"].step_num,
-        }
+        self.log("train/student/loss_strong", loss_strong)
+        self.log("train/student/loss_weak", loss_weak)
+        self.log("train/teacher/loss_strong", loss_strong_teacher)
+        self.log("train/teacher/loss_weak", loss_weak_teacher)
+        self.log("train/step", self.scheduler["scheduler"].step_num, prog_bar=True)
+        self.log("train/student/tot_self_loss", tot_self_loss, prog_bar=True)
+        self.log("train/weight", weight)
+        self.log("train/student/tot_supervised", strong_self_sup_loss, prog_bar=True)
+        self.log("train/student/weak_self_sup_loss", weak_self_sup_loss)
+        self.log("train/student/strong_self_sup_loss", strong_self_sup_loss)
+        self.log("train/lr", self.opt.param_groups[-1]["lr"], prog_bar=True)
 
-        tensorboard_logs = {
-            "train/student/loss_strong": loss_strong,
-            "train/student/loss_weak": loss_weak,
-            "train/teacher/loss_strong": loss_strong_teacher,
-            "train/teacher/loss_weak": loss_weak_teacher,
-            "train/step": self.scheduler["scheduler"].step_num,
-            "train/student/tot_self_loss": tot_self_loss,
-            "train/weight": weight,
-            "train/student/tot_supervised": strong_self_sup_loss,
-            "train/student/weak_self_sup_loss": weak_self_sup_loss,
-            "train/student/strong_self_sup_loss": strong_self_sup_loss,
-            "train/lr": self.opt.param_groups[-1]["lr"],
-        }
-
-        output = OrderedDict(
-            {"loss": tot_loss, "progress_bar": tqdm_dict, "log": tensorboard_logs}
-        )
-        return output
+        return tot_loss
 
     def on_before_zero_grad(self, *args, **kwargs):
         # update EMA teacher
@@ -197,7 +184,7 @@ class SEDTask4_2021(pl.LightningModule):
             torch.tensor(
                 [
                     str(Path(x).parent)
-                    == str(Path(self.hparams["data"]["weak_val_folder"]))
+                    == str(Path(self.hparams["data"]["weak_folder"]))
                     for x in filenames
                 ]
             )
@@ -227,17 +214,6 @@ class SEDTask4_2021(pl.LightningModule):
             .bool()
         )
 
-        output = OrderedDict(
-            {
-                "loss_weak_student_on_weak": nantensor(()).to(mixture),
-                "loss_weak_teacher_on_weak": nantensor(()).to(mixture),
-                "loss_strong_student_on_synth": nantensor(()).to(mixture),
-                "loss_strong_teacher_on_synth": nantensor(()).to(mixture),
-                "loss_strong_student_on_eval": nantensor(()).to(mixture),
-                "loss_strong_teacher_on_eval": nantensor(()).to(mixture),
-            }
-        )
-
         if torch.any(mask_weak):
             labels_weak = (torch.sum(labels[mask_weak], -1) >= 1).float()
             loss_weak_student = self.supervised_loss(
@@ -247,12 +223,8 @@ class SEDTask4_2021(pl.LightningModule):
                 weak_preds_teacher[mask_weak], labels_weak
             )
 
-            output.update(
-                {
-                    "loss_weak_student_on_weak": loss_weak_student,
-                    "loss_weak_teacher_on_weak": loss_weak_teacher,
-                }
-            )
+            self.log("loss_weak_student_on_weak", loss_weak_student)
+            self.log("loss_weak_teacher_on_weak", loss_weak_teacher)
 
             # accumulate f1 score for weak labels
             self.get_weak_student_f1_seg_macro(
@@ -270,12 +242,9 @@ class SEDTask4_2021(pl.LightningModule):
                 strong_preds_teacher[mask_synth], labels[mask_synth]
             )
 
-            output.update(
-                {
-                    "loss_strong_student_on_synth": loss_strong_student,
-                    "loss_strong_teacher_on_synth": loss_strong_teacher,
-                }
-            )
+            self.log("loss_strong_student_on_synth", loss_strong_student)
+            self.log("loss_strong_teacher_on_synth", loss_strong_teacher)
+
             filenames_synth = [
                 x
                 for x in filenames
@@ -310,12 +279,9 @@ class SEDTask4_2021(pl.LightningModule):
                 strong_preds_teacher[mask_eval], labels[mask_eval]
             )
 
-            output.update(
-                {
-                    "loss_strong_student_on_eval": loss_strong_student,
-                    "loss_strong_teacher_on_eval": loss_strong_teacher,
-                }
-            )
+            self.log("loss_strong_student_on_eval", loss_strong_student)
+            self.log("loss_strong_teacher_on_eval", loss_strong_teacher)
+
             filenames_eval = [
                 x
                 for x in filenames
@@ -342,29 +308,27 @@ class SEDTask4_2021(pl.LightningModule):
                 decoded_teacher_strong
             )
 
-        return output
+        return
 
     def validation_epoch_end(self, outputs):
 
-        loss_weak_student_on_weak = nanmean(
-            torch.stack([x["loss_weak_student_on_weak"] for x in outputs])
+        loss_weak_student_on_weak = self.trainer.callback_metrics.get(
+            "loss_weak_student_on_weak"
         )
-        loss_weak_teacher_on_weak = nanmean(
-            torch.stack([x["loss_weak_teacher_on_weak"] for x in outputs])
+        loss_weak_teacher_on_weak = self.trainer.callback_metrics.get(
+            "loss_weak_teacher_on_weak"
         )
-
-        loss_strong_student_on_synth = nanmean(
-            torch.stack([x["loss_strong_student_on_synth"] for x in outputs])
+        loss_strong_student_on_synth = self.trainer.callback_metrics.get(
+            "loss_strong_student_on_synth"
         )
-        loss_strong_teacher_on_synth = nanmean(
-            torch.stack([x["loss_strong_teacher_on_synth"] for x in outputs])
+        loss_strong_teacher_on_synth = self.trainer.callback_metrics.get(
+            "loss_strong_teacher_on_synth"
         )
-
-        loss_strong_student_on_eval = nanmean(
-            torch.stack([x["loss_strong_student_on_eval"] for x in outputs])
+        loss_strong_student_on_eval = self.trainer.callback_metrics.get(
+            "loss_strong_student_on_eval"
         )
-        loss_strong_teacher_on_eval = nanmean(
-            torch.stack([x["loss_strong_teacher_on_eval"] for x in outputs])
+        loss_strong_teacher_on_eval = self.trainer.callback_metrics.get(
+            "loss_strong_teacher_on_eval"
         )
 
         weak_student_seg_macro = self.get_weak_student_f1_seg_macro.compute()
