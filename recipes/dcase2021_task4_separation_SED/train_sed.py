@@ -86,10 +86,10 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         train=False,
     )
 
-    pub_eval_df = pd.read_csv(config["data"]["pub_eval_tsv"], sep="\t")
-    public_eval = StronglyAnnotatedSet(
-        config["data"]["pub_eval_folder"],
-        pub_eval_df,
+    devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
+    devtest_dataset = StronglyAnnotatedSet(
+        config["data"]["test_folder"],
+        devtest_df,
         encoder,
         train=False,
         return_filename=True,
@@ -103,7 +103,8 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
     samplers = [torch.utils.data.RandomSampler(x) for x in tot_train_data]
     batch_sampler = ConcatDatasetBatchSampler(samplers, batch_sizes)
 
-    valid_dataset = torch.utils.data.ConcatDataset([weak_eval, synth_val, public_eval])
+    valid_dataset = torch.utils.data.ConcatDataset([weak_eval, synth_val])
+    test_dataset = devtest_dataset
 
     epoch_len = min(
         [
@@ -138,6 +139,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         opt,
         train_dataset,
         valid_dataset,
+        test_dataset,
         batch_sampler,
         exp_scheduler,
         scaler,
@@ -168,6 +170,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
     )
 
     trainer.fit(desed_training)
+    trainer.test(desed_training)
 
 
 if __name__ == "__main__":
