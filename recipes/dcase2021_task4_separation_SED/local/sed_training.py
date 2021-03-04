@@ -223,8 +223,8 @@ class SEDTask4_2021(pl.LightningModule):
                 weak_preds_teacher[mask_weak], labels_weak
             )
 
-            self.log("loss_weak_student_on_weak", loss_weak_student)
-            self.log("loss_weak_teacher_on_weak", loss_weak_teacher)
+            self.log("val/weak/student/loss_weak", loss_weak_student)
+            self.log("val/weak/teacher/loss_weak", loss_weak_teacher)
 
             # accumulate f1 score for weak labels
             self.get_weak_student_f1_seg_macro(
@@ -242,8 +242,8 @@ class SEDTask4_2021(pl.LightningModule):
                 strong_preds_teacher[mask_synth], labels[mask_synth]
             )
 
-            self.log("loss_strong_student_on_synth", loss_strong_student)
-            self.log("loss_strong_teacher_on_synth", loss_strong_teacher)
+            self.log("val/synth/student/loss_strong", loss_strong_student)
+            self.log("val/synth/teacher/loss_strong", loss_strong_teacher)
 
             filenames_synth = [
                 x
@@ -279,8 +279,8 @@ class SEDTask4_2021(pl.LightningModule):
                 strong_preds_teacher[mask_eval], labels[mask_eval]
             )
 
-            self.log("loss_strong_student_on_eval", loss_strong_student)
-            self.log("loss_strong_teacher_on_eval", loss_strong_teacher)
+            self.log("val/eval/student/loss_strong", loss_strong_student)
+            self.log("val/eval/teacher/loss_strong", loss_strong_teacher)
 
             filenames_eval = [
                 x
@@ -311,25 +311,6 @@ class SEDTask4_2021(pl.LightningModule):
         return
 
     def validation_epoch_end(self, outputs):
-
-        loss_weak_student_on_weak = self.trainer.callback_metrics.get(
-            "loss_weak_student_on_weak"
-        )
-        loss_weak_teacher_on_weak = self.trainer.callback_metrics.get(
-            "loss_weak_teacher_on_weak"
-        )
-        loss_strong_student_on_synth = self.trainer.callback_metrics.get(
-            "loss_strong_student_on_synth"
-        )
-        loss_strong_teacher_on_synth = self.trainer.callback_metrics.get(
-            "loss_strong_teacher_on_synth"
-        )
-        loss_strong_student_on_eval = self.trainer.callback_metrics.get(
-            "loss_strong_student_on_eval"
-        )
-        loss_strong_teacher_on_eval = self.trainer.callback_metrics.get(
-            "loss_strong_teacher_on_eval"
-        )
 
         weak_student_seg_macro = self.get_weak_student_f1_seg_macro.compute()
         weak_teacher_seg_macro = self.get_weak_teacher_f1_seg_macro.compute()
@@ -386,17 +367,10 @@ class SEDTask4_2021(pl.LightningModule):
         )
 
         tqdm_dict = {
-            "val_loss_student_eval": loss_strong_student_on_eval,
             "obj_metric": obj_function,
         }
 
         tensorboard_logs = {
-            "val/weak/student/loss_weak": loss_weak_student_on_weak,
-            "val/weak/teacher/loss_weak": loss_weak_teacher_on_weak,
-            "val/synth/student/loss_strong": loss_strong_student_on_synth,
-            "val/synth/teacher/loss_strong": loss_strong_teacher_on_synth,
-            "val/eval/student/loss_strong": loss_strong_student_on_eval,
-            "val/eval/teacher/loss_strong": loss_strong_teacher_on_eval,
             "val/weak/student/segment_macro_F1": weak_student_seg_macro,
             "val/weak/teacher/segment_macro_F1": weak_teacher_seg_macro,
             "val/eval/student/event_macro_F1": eval_student_event_macro,
