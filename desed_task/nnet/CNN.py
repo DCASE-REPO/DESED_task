@@ -41,7 +41,7 @@ class CNN(nn.Module):
         stride=[1, 1, 1],
         nb_filters=[64, 64, 64],
         pooling=[(1, 4), (1, 4), (1, 4)],
-        batch_norm=True,
+        normalization="batch",
         **transformer_kwargs
     ):
         """
@@ -55,25 +55,28 @@ class CNN(nn.Module):
             stride: list, stride
             nb_filters: number of filters
             pooling: list of tuples, time and frequency pooling
-            batch_norm: bool, batch normalization s
+            normalization: choose between "batch" for BatchNormalization and "layer" for LayerNormalization.
         """
         super(CNN, self).__init__()
 
         self.nb_filters = nb_filters
         cnn = nn.Sequential()
 
-        def conv(i, batchNormalization=False, dropout=None, activ="relu"):
+        def conv(i, normalization="batch", dropout=None, activ="relu"):
             nIn = n_in_channel if i == 0 else nb_filters[i - 1]
             nOut = nb_filters[i]
             cnn.add_module(
                 "conv{0}".format(i),
                 nn.Conv2d(nIn, nOut, kernel_size[i], stride[i], padding[i]),
             )
-            if batchNormalization:
+            if normalization == "batch":
                 cnn.add_module(
                     "batchnorm{0}".format(i),
                     nn.BatchNorm2d(nOut, eps=0.001, momentum=0.99),
                 )
+            elif normalization == "layer":
+                cnn.add_module("layernorm{0}".format(i), nn.GroupNorm(1, nOut))
+
             if activ.lower() == "leakyrelu":
                 cnn.add_module("relu{0}".format(i), nn.LeakyReLU(0.2))
             elif activ.lower() == "relu":
@@ -88,9 +91,7 @@ class CNN(nn.Module):
 
         # 128x862x64
         for i in range(len(nb_filters)):
-            conv(
-                i, batchNormalization=batch_norm, dropout=conv_dropout, activ=activation
-            )
+            conv(i, normalization=normalization, dropout=conv_dropout, activ=activation)
             cnn.add_module(
                 "pooling{0}".format(i), nn.AvgPool2d(pooling[i])
             )  # bs x tframe x mels
