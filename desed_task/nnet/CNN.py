@@ -98,17 +98,6 @@ class CNN(nn.Module):
 
         self.cnn = cnn
 
-    def load_state_dict(self, state_dict, strict=True):
-        self.cnn.load_state_dict(state_dict)
-
-    def state_dict(self, destination=None, prefix="", keep_vars=False):
-        return self.cnn.state_dict(
-            destination=destination, prefix=prefix, keep_vars=keep_vars
-        )
-
-    def save(self, filename):
-        torch.save(self.cnn.state_dict(), filename)
-
     def forward(self, x):
         # input size : (batch_size, n_channels, n_frames, n_freq)
         # conv features

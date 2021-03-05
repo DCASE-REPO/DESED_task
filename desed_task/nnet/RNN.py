@@ -44,19 +44,6 @@ class BidirectionalLSTM(nn.Module):
         )
         self.embedding = nn.Linear(nHidden * 2, nOut)
 
-    def save(self, filename):
-        torch.save(self.state_dict(), filename)
-
-    def load(self, filename=None, parameters=None):
-        if filename is not None:
-            self.load_state_dict(torch.load(filename))
-        elif parameters is not None:
-            self.load_state_dict(parameters)
-        else:
-            raise NotImplementedError(
-                "load is a filename or a list of parameters (state_dict)"
-            )
-
     def forward(self, input_feat):
         recurrent, _ = self.rnn(input_feat)
         b, T, h = recurrent.size()

@@ -80,39 +80,6 @@ class CRNN(nn.Module):
             self.dense_softmax = nn.Linear(n_RNN_cell * 2, nclass)
             self.softmax = nn.Softmax(dim=-1)
 
-    def load_cnn(self, state_dict):
-        self.cnn.load_state_dict(state_dict)
-        if not self.train_cnn:
-            for param in self.cnn.parameters():
-                param.requires_grad = False
-
-    def load_state_dict(self, state_dict, strict=True):
-        self.cnn.load_state_dict(state_dict["cnn"])
-        self.rnn.load_state_dict(state_dict["rnn"])
-        self.dense.load_state_dict(state_dict["dense"])
-
-    def state_dict(self, destination=None, prefix="", keep_vars=False):
-        state_dict = {
-            "cnn": self.cnn.state_dict(
-                destination=destination, prefix=prefix, keep_vars=keep_vars
-            ),
-            "rnn": self.rnn.state_dict(
-                destination=destination, prefix=prefix, keep_vars=keep_vars
-            ),
-            "dense": self.dense.state_dict(
-                destination=destination, prefix=prefix, keep_vars=keep_vars
-            ),
-        }
-        return state_dict
-
-    def save(self, filename):
-        parameters = {
-            "cnn": self.cnn.state_dict(),
-            "rnn": self.rnn.state_dict(),
-            "dense": self.dense.state_dict(),
-        }
-        torch.save(parameters, filename)
-
     def forward(self, x):
 
         x = x.transpose(1, 2).unsqueeze(1)
