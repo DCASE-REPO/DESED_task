@@ -22,7 +22,8 @@ def resample(audio, orig_fs, target_fs):
     out = []
     for c in range(audio.shape[0]):
         tmp = audio[c].detach().cpu().numpy()
-        tmp = librosa.resample(tmp, orig_fs, target_fs)
+        if target_fs != orig_fs:
+            tmp = librosa.resample(tmp, orig_fs, target_fs)
         out.append(torch.from_numpy(tmp))
     out = torch.stack(out)
     return out
@@ -40,9 +41,7 @@ def resample_folder(in_dir, out_dir, target_fs, regex):
             exist_ok=True,
         )
         torchaudio.save(
-            os.path.join(out_dir, Path(f).relative_to(Path(in_dir))),
-            audio,
-            target_fs,
+            os.path.join(out_dir, Path(f).relative_to(Path(in_dir))), audio, target_fs,
         )
 
 
