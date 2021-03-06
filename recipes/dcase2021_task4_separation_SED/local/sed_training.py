@@ -294,31 +294,18 @@ class SEDTask4_2021(pl.LightningModule):
             self.val_buffer_teacher_synth, ground_truth, save_dir, self.current_epoch,
         )
 
-        obj_function = torch.tensor(
+        obj_metric = torch.tensor(
             -max(
                 weak_student_seg_macro.item() + synth_student_event_macro,
                 weak_teacher_seg_macro.item() + synth_teacher_event_macro,
             )
         )
 
-        tqdm_dict = {
-            "obj_metric": obj_function,
-        }
-
-        tensorboard_logs = {
-            "val/weak/student/segment_macro_F1": weak_student_seg_macro,
-            "val/weak/teacher/segment_macro_F1": weak_teacher_seg_macro,
-            "val/synth/student/event_macro_F1": synth_student_event_macro,
-            "val/synth/teacher/event_macro_F1": synth_teacher_event_macro,
-        }
-
-        output = OrderedDict(
-            {
-                "obj_metric": obj_function,
-                "progress_bar": tqdm_dict,
-                "log": tensorboard_logs,
-            }
-        )
+        self.log("obj_metric", obj_metric, prog_bar=True)
+        self.log("val/weak/student/segment_macro_F1", weak_student_seg_macro)
+        self.log("val/weak/teacher/segment_macro_F1", weak_teacher_seg_macro)
+        self.log("val/synth/student/event_macro_F1", synth_student_event_macro)
+        self.log("val/synth/teacher/event_macro_F1", synth_teacher_event_macro)
 
         # free the buffers
         self.val_buffer_student_synth = pd.DataFrame()
@@ -327,7 +314,7 @@ class SEDTask4_2021(pl.LightningModule):
         self.get_weak_student_f1_seg_macro.reset()
         self.get_weak_teacher_f1_seg_macro.reset()
 
-        return output
+        return obj_metric
 
     def test_step(self, batch, batch_indx):
 

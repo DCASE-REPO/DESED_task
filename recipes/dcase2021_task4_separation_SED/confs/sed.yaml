@@ -14,10 +14,10 @@ training:
   ema_factor: 0.999
   self_sup_loss: mse
   backend:
-  noise_snr: [29, 30]
-  validation_interval: 1
+  noise_snr: [12, 15]
+  validation_interval: 10
   weak_split: 0.9
-  seed: 777
+  seed: 42
 data:
   synth_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/synthetic20/soundscapes/"
   synth_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/train/synthetic20/soundscapes.tsv"
