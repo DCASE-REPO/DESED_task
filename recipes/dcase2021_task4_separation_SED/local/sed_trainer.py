@@ -11,33 +11,32 @@ from desed_task.features import Fbanks
 from desed_task.utils.scaler import TorchScaler
 
 from .utils import batched_decode_preds, log_sedeval_metrics
+from .sed_init import init_SED
 
 
 class SEDTask4_2021(pl.LightningModule):
     def __init__(
-        self,
-        hparams,
-        sed_student,
-        sed_teacher,
-        encoder=None,
-        optimizer=None,
-        train_data=None,
-        valid_data=None,
-        test_data=None,
-        train_sampler=None,
-        scheduler=None,
+        self, hparams,
     ):
         super(SEDTask4_2021, self).__init__()
         self.hparams = hparams
 
-        # save yaml configuration
-        with open(os.path.join(self.logger.log_dir, "metrics_synth_val"), "w") as f:
-            yaml.dump(hparams, f)
+        (
+            encoder,
+            sed_student,
+            sed_teacher,
+            opt,
+            train_data,
+            valid_data,
+            test_data,
+            train_sampler,
+            scheduler,
+        ) = init_SED(self.hparams)
 
         self.encoder = encoder
         self.sed_student = sed_student
         self.sed_teacher = sed_teacher
-        self.opt = optimizer
+        self.opt = opt
         self.train_data = train_data
         self.valid_data = valid_data
         self.test_data = test_data
