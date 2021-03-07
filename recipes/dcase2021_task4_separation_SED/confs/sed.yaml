@@ -18,6 +18,11 @@ training:
   validation_interval: 10
   weak_split: 0.9
   seed: 42
+scaler:
+  statistic: dataset
+  normtype: mvn
+  dims: [1, 2]
+  savepath: ./scaler.ckpt
 data:
   synth_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/synthetic20/soundscapes/"
   synth_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/train/synthetic20/soundscapes.tsv"
