@@ -8,7 +8,7 @@ import yaml
 from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from desed_task.utils.scaler import TorchScaler
+
 from desed_task.dataio import ConcatDatasetBatchSampler
 from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabelledSet, WeakSet
 from desed_task.nnet.CRNN import CRNN
@@ -77,7 +77,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         pad_to=config["data"]["audio_max_len"],
     )
 
-    weak_eval = WeakSet(
+    weak_val = WeakSet(
         config["data"]["weak_folder"],
         valid_weak_df,
         encoder,
@@ -103,7 +103,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
     samplers = [torch.utils.data.RandomSampler(x) for x in tot_train_data]
     batch_sampler = ConcatDatasetBatchSampler(samplers, batch_sizes)
 
-    valid_dataset = torch.utils.data.ConcatDataset([weak_eval, synth_val])
+    valid_dataset = torch.utils.data.ConcatDataset([weak_val, synth_val])
     test_dataset = devtest_dataset
 
     epoch_len = min(
@@ -129,8 +129,6 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         "interval": "step",
     }
 
-    scaler = TorchScaler("instance", "minmax", (1, 2))
-
     desed_training = SEDTask4_2021(
         config,
         encoder,
@@ -142,7 +140,6 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         test_dataset,
         batch_sampler,
         exp_scheduler,
-        scaler,
     )
 
     logger = TensorBoardLogger(
