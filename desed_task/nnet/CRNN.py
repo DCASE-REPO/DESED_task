@@ -37,7 +37,7 @@ class CRNN(nn.Module):
             n_layer_RNN: int, number of RNN layers
             dropout_recurrent: float, recurrent layers dropout
             cnn_integration: bool, integration of cnn
-            **kwargs: keywords arguments
+            **kwargs: keywords arguments for CNN.
         """
         super(CRNN, self).__init__()
         self.n_in_channel = n_in_channel
@@ -80,7 +80,7 @@ class CRNN(nn.Module):
             self.dense_softmax = nn.Linear(n_RNN_cell * 2, nclass)
             self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, x):
+    def forward(self, x, pad_mask=None):
 
         x = x.transpose(1, 2).unsqueeze(1)
 
@@ -112,6 +112,8 @@ class CRNN(nn.Module):
         strong = self.sigmoid(strong)
         if self.attention:
             sof = self.dense_softmax(x)  # [bs, frames, nclass]
+            if not pad_mask is None:
+                sof = sof.masked_fill(pad_mask.transpose(1, 2), -1e30)  # mask attention
             sof = self.softmax(sof)
             sof = torch.clamp(sof, min=1e-7, max=1)
             weak = (strong * sof).sum(1) / sof.sum(1)  # [bs, nclass]
