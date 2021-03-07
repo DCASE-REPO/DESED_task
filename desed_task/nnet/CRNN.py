@@ -21,6 +21,7 @@ class CRNN(nn.Module):
         n_layers_RNN=2,
         dropout_recurrent=0,
         cnn_integration=False,
+        freeze_bn=False,
         **kwargs,
     ):
         """
@@ -43,6 +44,7 @@ class CRNN(nn.Module):
         self.n_in_channel = n_in_channel
         self.attention = attention
         self.cnn_integration = cnn_integration
+        self.freeze_bn = freeze_bn
 
         n_in_cnn = n_in_channel
 
@@ -120,3 +122,20 @@ class CRNN(nn.Module):
         else:
             weak = strong.mean(1)
         return strong.transpose(1, 2), weak
+
+    def train(self, mode=True):
+        """
+        Override the default train() to freeze the BN parameters
+        """
+        super(CRNN, self).train(mode)
+        if self.freeze_bn:
+            print("Freezing Mean/Var of BatchNorm2D.")
+            if self.freeze_bn_affine:
+                print("Freezing Weight/Bias of BatchNorm2D.")
+        if self.freeze_bn:
+            for m in self.modules():
+                if isinstance(m, nn.BatchNorm2d):
+                    m.eval()
+                    if self.freeze_bn_affine:
+                        m.weight.requires_grad = False
+                        m.bias.requires_grad = False
