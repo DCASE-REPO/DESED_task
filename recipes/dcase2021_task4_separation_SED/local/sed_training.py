@@ -1,6 +1,6 @@
 import os
-from collections import OrderedDict
 from pathlib import Path
+import yaml
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -8,7 +8,7 @@ import torch
 
 from desed_task.data_augm import add_noise
 from desed_task.features import Fbanks
-
+from desed_task.utils.scaler import TorchScaler
 
 from .utils import batched_decode_preds, log_sedeval_metrics
 
@@ -17,19 +17,22 @@ class SEDTask4_2021(pl.LightningModule):
     def __init__(
         self,
         hparams,
-        encoder,
         sed_student,
         sed_teacher,
-        optimizer,
-        train_data,
-        valid_data,
-        test_data,
+        encoder=None,
+        optimizer=None,
+        train_data=None,
+        valid_data=None,
+        test_data=None,
         train_sampler=None,
         scheduler=None,
-        scaler=None,
     ):
         super(SEDTask4_2021, self).__init__()
         self.hparams = hparams
+
+        # save yaml configuration
+        with open(os.path.join(self.logger.log_dir, "metrics_synth_val"), "w") as f:
+            yaml.dump(hparams, f)
 
         self.encoder = encoder
         self.sed_student = sed_student
@@ -40,10 +43,6 @@ class SEDTask4_2021(pl.LightningModule):
         self.test_data = test_data
         self.train_sampler = train_sampler
         self.scheduler = scheduler
-        if scaler is None:
-            self.scaler = lambda x: x
-        else:
-            self.scaler = scaler
 
         # instantiating losses
         self.supervised_loss = torch.nn.BCELoss()
@@ -71,6 +70,8 @@ class SEDTask4_2021(pl.LightningModule):
             compute_on_step=False,
         )
 
+        self.scaler = self._init_scaler()
+
         # buffer for event based scores which we compute using sed-eval
 
         self.val_buffer_student_synth = pd.DataFrame()
@@ -88,22 +89,64 @@ class SEDTask4_2021(pl.LightningModule):
         for ema_params, params in zip(ema_model.parameters(), model.parameters()):
             ema_params.data.mul_(alpha).add_(params.data, alpha=1 - alpha)
 
+    def _init_scaler(self):
+
+        if self.hparams["scaler"]["statistic"] == "instance":
+            self.scaler = TorchScaler(
+                "instance", "minmax", self.hparams["scaler"]["dims"]
+            )
+        elif self.hparams["scaler"]["statistic"] == "dataset":
+            # we fit the scaler
+            scaler = TorchScaler(
+                "dataset",
+                self.hparams["scaler"]["normtype"],
+                self.hparams["scaler"]["dims"],
+            )
+        else:
+            raise NotImplementedError
+        if self.hparams["scaler"]["savepath"] is not None:
+            if os.path.exists(self.hparams["scaler"]["savepath"]):
+                scaler = torch.load(self.hparams["scaler"]["savepath"])
+                print(
+                    "Loaded Scaler from previous checkpoint from {}".format(
+                        self.hparams["scaler"]["savepath"]
+                    )
+                )
+                return scaler
+
+        self.train_loader = self.train_dataloader()
+        scaler.fit(
+            self.train_loader, transform_func=lambda x: self.extract_feats(x[0], False)
+        )
+        if self.hparams["scaler"]["savepath"] is not None:
+            torch.save(scaler, self.hparams["scaler"]["savepath"])
+            print(
+                "Saving Scaler from previous checkpoint at {}".format(
+                    self.hparams["scaler"]["savepath"]
+                )
+            )
+            return scaler
+
     def take_log(self, mels):
 
         return Fbanks.take_log(mels)
 
+    def extract_feats(self, audio, train=False):
+        mels = self.feats(audio)
+        if train:
+            mels = add_noise(mels, self.hparams["training"]["noise_snr"])
+        return self.take_log(mels)
+
     def training_step(self, batch, batch_indx):
 
-        mixture, labels, padded_indxs = batch
+        audio, labels, padded_indxs = batch
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
-        mixture = self.feats(mixture)
+        features = self.extract_feats(audio)
 
-        mixture = add_noise(mixture, self.hparams["training"]["noise_snr"])
-        mixture = self.take_log(mixture)
-        batch_num = mixture.shape[0]
+        batch_num = features.shape[0]
         # deriving masks for each dataset
-        strong_mask = torch.zeros(batch_num).to(mixture).bool()
-        weak_mask = torch.zeros(batch_num).to(mixture).bool()
+        strong_mask = torch.zeros(batch_num).to(features).bool()
+        weak_mask = torch.zeros(batch_num).to(features).bool()
         strong_mask[:indx_synth] = 1
         weak_mask[indx_synth : indx_weak + indx_synth] = 1
         # deriving weak labels
@@ -111,7 +154,7 @@ class SEDTask4_2021(pl.LightningModule):
 
         # sed student forward
         strong_preds_student, weak_preds_student = self.sed_student(
-            self.scaler(mixture)
+            self.scaler(features)
         )
 
         # supervised loss on strong labels
@@ -124,8 +167,9 @@ class SEDTask4_2021(pl.LightningModule):
         tot_loss_supervised = loss_strong + loss_weak
 
         with torch.no_grad():
+            ema_features = self.extract_feats(audio)
             strong_preds_teacher, weak_preds_teacher = self.sed_teacher(
-                self.scaler(mixture)
+                self.scaler(ema_features)
             )
             loss_strong_teacher = self.supervised_loss(
                 strong_preds_teacher[strong_mask], labels[strong_mask]
@@ -176,10 +220,10 @@ class SEDTask4_2021(pl.LightningModule):
 
     def validation_step(self, batch, batch_indx):
 
-        mixture, labels, padded_indxs, filenames = batch
+        audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        logmels = self.scaler(self.take_log(self.feats(mixture)))
+        logmels = self.scaler(self.extract_feats(audio))
         strong_preds_student, weak_preds_student = self.sed_student(logmels)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.sed_teacher(logmels)
@@ -193,7 +237,7 @@ class SEDTask4_2021(pl.LightningModule):
                     for x in filenames
                 ]
             )
-            .to(mixture)
+            .to(audio)
             .bool()
         )
         mask_synth = (
@@ -204,7 +248,7 @@ class SEDTask4_2021(pl.LightningModule):
                     for x in filenames
                 ]
             )
-            .to(mixture)
+            .to(audio)
             .bool()
         )
 
@@ -318,10 +362,10 @@ class SEDTask4_2021(pl.LightningModule):
 
     def test_step(self, batch, batch_indx):
 
-        mixture, labels, padded_indxs, filenames = batch
+        audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        logmels = self.scaler(self.take_log(self.feats(mixture)))
+        logmels = self.scaler(self.extract_feats(audio))
         strong_preds_student, weak_preds_student = self.sed_student(logmels)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.sed_teacher(logmels)
