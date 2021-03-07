@@ -47,4 +47,4 @@ def resample_folder(in_dir, out_dir, target_fs, regex):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    resample_folder(args.in_dir, args.out_dir, args.target_fs, args.regex)
+    resample_folder(args.in_dir, args.out_dir, int(args.target_fs), args.regex)
