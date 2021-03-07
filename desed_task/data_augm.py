@@ -38,9 +38,12 @@ def mixup(audio_tensors, labels, alpha=2, beta=8, mixup_type="soft"):
 
 
 def add_noise(mels, snrs=(6, 30)):
-    snr = (snrs[0] - snrs[1]) * torch.rand(
-        (mels.shape[0],), device=mels.device
-    ).reshape(-1, 1, 1) + snrs[1]
+    if isinstance(snrs, (list, tuple)):
+        snr = (snrs[0] - snrs[1]) * torch.rand(
+            (mels.shape[0],), device=mels.device
+        ).reshape(-1, 1, 1) + snrs[1]
+    else:
+        snr = snrs
 
     snr = 10 ** (snr / 20)  # linear domain
     sigma = torch.std(mels, dim=(1, 2), keepdim=True) / snr
