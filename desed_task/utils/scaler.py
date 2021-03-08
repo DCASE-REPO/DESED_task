@@ -21,19 +21,22 @@ class TorchScaler(torch.nn.Module):
         self.dims = dims
         self.eps = eps
 
-    def fit(self, dataloader, transform_func=None):
+    def fit(self, dataloader, transform_func=lambda x: x[0]):
 
         indx = 0
         for batch in tqdm.tqdm(dataloader):
-            feats = batch[0]
-            if transform_func is not None:
-                feats = transform_func(feats)
+
+            feats = transform_func(batch)
             if indx == 0:
-                mean = torch.mean(feats, self.dims, keepdim=True)
-                mean_squared = torch.mean(feats ** 2, self.dims, keepdim=True)
+                mean = torch.mean(feats, self.dims, keepdim=True).mean(0).unsqueeze(0)
+                mean_squared = (
+                    torch.mean(feats ** 2, self.dims, keepdim=True).mean(0).unsqueeze(0)
+                )
             else:
-                mean += torch.mean(feats, self.dims, keepdim=True)
-                mean_squared += torch.mean(feats ** 2, self.dims, keepdim=True)
+                mean += torch.mean(feats, self.dims, keepdim=True).mean(0).unsqueeze(0)
+                mean_squared += (
+                    torch.mean(feats ** 2, self.dims, keepdim=True).mean(0).unsqueeze(0)
+                )
             indx += 1
 
         mean /= indx + 1
@@ -48,8 +51,13 @@ class TorchScaler(torch.nn.Module):
                 self, "mean_squared"
             ), "TorchScaler should be fit before used if statistics=dataset"
             assert tensor.ndim == self.mean.ndim, "Pre-computed statistics "
-            var = self.mean_squared - self.mean ** 2
-            return (tensor - self.mean) / (var + self.eps)
+            if self.normtype == "mn":
+                return tensor - self.mean
+            elif self.normtype == "mvn":
+                var = self.mean_squared - self.mean ** 2
+                return (tensor - self.mean) / (var + self.eps)
+            else:
+                raise NotImplementedError
 
         else:
             if self.normtype == "mn":

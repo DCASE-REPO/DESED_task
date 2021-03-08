@@ -8,12 +8,16 @@ from desed_task.utils.evaluation_measures import compute_sed_eval_metrics
 
 
 def batched_decode_preds(
-    strong_preds, filenames, encoder, threshold=0.5, median_filter=7
+    strong_preds, filenames, encoder, threshold=0.5, median_filter=7, pad_indx=None
 ):
 
     predictions = pd.DataFrame()
     for j in range(strong_preds.shape[0]):  # over batches
+
         c_preds = strong_preds[j]
+        if not pad_indx is None:
+            true_len = int(c_preds.shape[-1] * pad_indx[j].item())
+            c_preds = c_preds[:true_len]
         pred = c_preds.transpose(0, 1).detach().cpu().numpy()
         pred = pred > threshold
         pred = scipy.ndimage.filters.median_filter(pred, (median_filter, 1))
