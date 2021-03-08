@@ -5,6 +5,7 @@ import pandas as pd
 import scipy
 
 from desed_task.utils.evaluation_measures import compute_sed_eval_metrics
+import json
 
 
 def batched_decode_preds(
@@ -61,3 +62,60 @@ def log_sedeval_metrics(predictions, ground_truth, save_dir, current_epoch):
         segment_res.results()["class_wise_average"]["f_measure"]["f_measure"],
         segment_res.results()["overall"]["f_measure"]["f_measure"],
     )  # return also segment measures
+
+
+def parse_jams(jams_list, encoder, out_json):
+
+    if len(jams_list) == 0:
+        raise IndexError("jams list is empty ! Wrong path ?")
+
+    backgrounds = []
+    sources = []
+    for jamfile in jams_list:
+
+        with open(jamfile, "r") as f:
+            jdata = json.load(f)
+
+        # check if we have annotations for each source in scaper
+        assert len(jdata["annotations"][0]["data"]) == len(
+            jdata["annotations"][-1]["sandbox"]["scaper"]["isolated_events_audio_path"]
+        )
+
+        for indx, sound in enumerate(jdata["annotations"][0]["data"]):
+            source_name = Path(
+                jdata["annotations"][-1]["sandbox"]["scaper"][
+                    "isolated_events_audio_path"
+                ][indx]
+            ).stem
+            source_file = os.path.join(
+                Path(jamfile).parent,
+                Path(jamfile).stem + "_events",
+                source_name + ".wav",
+            )
+
+            if sound["value"]["role"] == "background":
+                backgrounds.append(source_file)
+            else:  # it is an event
+                if (
+                    sound["value"]["label"] not in encoder.labels
+                ):  # correct different labels
+                    if sound["value"]["label"].startswith("Frying"):
+                        sound["value"]["label"] = "Frying"
+                    elif sound["value"]["label"].startswith("Vacuum_cleaner"):
+                        sound["value"]["label"] = "Vacuum_cleaner"
+                    else:
+                        raise NotImplementedError
+
+                sources.append(
+                    {
+                        "filename": source_file,
+                        "onset": sound["value"]["event_time"],
+                        "offset": sound["value"]["event_time"]
+                        + sound["value"]["event_duration"],
+                        "event_label": sound["value"]["label"],
+                    }
+                )
+
+    os.makedirs(Path(out_json).parent, exist_ok=True)
+    with open(out_json, "w") as f:
+        json.dump({"backgrounds": backgrounds, "sources": sources}, f, indent=4)
