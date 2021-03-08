@@ -117,6 +117,7 @@ class WeakSet(Dataset):
         fs=16000,
         train=True,
         return_filename=False,
+        max_n_sources=None,
     ):
 
         self.encoder = encoder
@@ -124,6 +125,7 @@ class WeakSet(Dataset):
         self.pad_to = pad_to * fs
         self.train = train
         self.return_filename = return_filename
+        self.max_n_sources = max_n_sources
 
         examples = {}
         for i, r in tsv_entries.iterrows():
@@ -161,20 +163,39 @@ class WeakSet(Dataset):
             weak_labels = self.encoder.encode_weak(labels)
             weak[0, :] = torch.from_numpy(weak_labels).float()
 
+        out_args = [mixture, weak.transpose(0, 1), padded_indx]
+
+        if self.max_n_sources is not None:
+            dummy_sources = (
+                torch.zeros_like(mixture).unsqueeze(0).repeat(self.max_n_sources, 1)
+            )
+            out_args.append(dummy_sources)
+
         if self.return_filename:
-            return mixture, weak.transpose(0, 1), padded_indx, c_ex["mixture"]
-        else:
-            return mixture, weak.transpose(0, 1), padded_indx
+            out_args.append(c_ex["mixture"])
+
+        return out_args
 
 
 class UnlabelledSet(Dataset):
-    def __init__(self, unlabeled_folder, encoder, pad_to=10, fs=16000, train=True):
+    def __init__(
+        self,
+        unlabeled_folder,
+        encoder,
+        pad_to=10,
+        fs=16000,
+        train=True,
+        max_n_sources=None,
+        return_filename=False,
+    ):
 
         self.encoder = encoder
         self.fs = fs
         self.pad_to = pad_to * fs
         self.examples = glob.glob(os.path.join(unlabeled_folder, "*.wav"))
         self.train = train
+        self.return_filename = return_filename
+        self.max_n_sources = max_n_sources
 
     def __len__(self):
         return len(self.examples)
@@ -191,4 +212,32 @@ class UnlabelledSet(Dataset):
         max_len_targets = self.encoder.n_frames
         strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
 
-        return mixture, strong.transpose(0, 1), padded_indx
+        out_args = [mixture, strong.transpose(0, 1), padded_indx]
+
+        if self.max_n_sources is not None:
+            dummy_sources = (
+                torch.zeros_like(mixture).unsqueeze(0).repeat(self.max_n_sources, 1)
+            )
+            out_args.append(dummy_sources)
+
+        if self.return_filename:
+            out_args.append(c_ex["mixture"])
+
+        return out_args
+
+
+class SeparationSet(Dataset):
+    def __init__(
+        self,
+        parsed_jams,
+        encoder,
+        pad_to=10,
+        fs=16000,
+        train=True,
+        max_n_sources=None,
+        return_filename=False,
+    ):
+        # we parse from the jam the source files
+        self.encoder = encoder
+        for j in jams_list:
+            pass
