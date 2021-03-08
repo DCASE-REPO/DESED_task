@@ -6,18 +6,10 @@ synth_train_audio= # path to synthetic strong annotated audio folder
 synth_val_audio= # path to synthetic validation audio folder
 dev_set_audio= # path to dev-set audio folder
 
-eval_audio= # path to evaluation audio folder
-#NOTE: The evaluation set will be released later on
-
-if [ $1 == 'dev' ]; then 
-  echo "Resampling datasets for $1" 
-  paths=(${unlabel_audio} ${weak_audio} ${synth_train_audio} ${synth_val_audio} ${dev_set_audio})
-elif [ $1 == 'eval' ]; then
-  paths=${eval_audio}
-else
-  echo "Not valid input!"
-fi
-
+#eval_audio= # path to evaluation audio folder
+#NOTE: The evaluation set will be released at a later time
+ 
+paths=(${unlabel_audio} ${weak_audio} ${synth_train_audio} ${synth_val_audio} ${dev_set_audio})
 
 for in_folder in ${paths[*]};
 do

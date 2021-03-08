@@ -29,7 +29,7 @@ def resample(audio, orig_fs, target_fs):
     return out
 
 
-def resample_folder(in_dir, out_dir, target_fs, regex):
+def resample_folder(in_dir, out_dir, target_fs=16000, regex="*.wav"):
 
     files = glob.glob(os.path.join(in_dir, regex))
     for f in tqdm.tqdm(files):
