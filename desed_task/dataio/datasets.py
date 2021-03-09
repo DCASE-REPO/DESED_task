@@ -5,6 +5,8 @@ import numpy as np
 import soundfile as sf
 import torch
 import glob
+import json
+import random
 
 
 def to_mono(mixture, random_ch=False):
@@ -229,15 +231,65 @@ class UnlabelledSet(Dataset):
 class SeparationSet(Dataset):
     def __init__(
         self,
-        parsed_jams,
+        soundscapes_json,
         encoder,
         pad_to=10,
         fs=16000,
         train=True,
         max_n_sources=None,
-        return_filename=False,
     ):
-        # we parse from the jam the source files
+
         self.encoder = encoder
-        for j in jams_list:
-            pass
+        self.pad_to = pad_to
+        self.fs = fs
+        self.train = train
+        self.max_n_sources = max_n_sources
+        # we parse from the jam the source files
+        with open(soundscapes_json, "r") as f:
+            soundscapes = json.load(f)
+
+        self.backgrounds = soundscapes["backgrounds"]
+        self.sources = soundscapes["sources"]
+
+    def __len__(self):
+        return len(self.backgrounds)
+
+    def __getitem__(self, item):
+
+        background_file = self.backgrounds[item]
+
+        mixture, fs = sf.read(background_file)
+        assert fs == self.fs
+
+        n_sources = random.randint(1, self.max_n_sources)
+        sources_meta = np.random.choice(self.sources, n_sources)
+
+        labels = self.encoder.encode_strong_df(pd.DataFrame(sources_meta))
+        sources = []
+        for i in range(n_sources):
+            tmp, fs = sf.read(sources_meta[i]["filename"])
+            assert fs == self.fs
+            sources.append(tmp)
+            mixture += tmp
+
+        padded_indx = [1.0]
+        sources = np.stack(sources)
+
+        if len(sources) < self.max_n_sources:
+            # add dummy sources
+            sources = np.concatenate(
+                (
+                    sources,
+                    np.zeros((self.max_n_sources - len(sources), sources.shape[-1])),
+                ),
+                0,
+            )
+
+        sources = torch.from_numpy(sources).float()
+
+        return (
+            torch.from_numpy(mixture).float(),
+            torch.from_numpy(labels.T).float(),
+            padded_indx,
+            sources,
+        )

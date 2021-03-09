@@ -130,12 +130,12 @@ class CRNN(nn.Module):
         super(CRNN, self).train(mode)
         if self.freeze_bn:
             print("Freezing Mean/Var of BatchNorm2D.")
-            if self.freeze_bn_affine:
+            if self.freeze_bn:
                 print("Freezing Weight/Bias of BatchNorm2D.")
         if self.freeze_bn:
             for m in self.modules():
                 if isinstance(m, nn.BatchNorm2d):
                     m.eval()
-                    if self.freeze_bn_affine:
+                    if self.freeze_bn:
                         m.weight.requires_grad = False
                         m.bias.requires_grad = False
