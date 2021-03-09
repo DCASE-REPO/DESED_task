@@ -10,6 +10,14 @@ from copy import deepcopy
 
 
 def init_SED(config):
+    """[summary]
+
+    Args:
+        config ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
 
     ##### data prep ##########
     encoder = ManyHotEncoder(

@@ -6,10 +6,10 @@ target_fs = 16000
 audio_folder_paths = dict(
     unlabel_audio_path=" ", # path to unlabel audio folder
     weak_audio_path=" ", # path to weak audio folder
-    synth_train_audio_path=" ", # path to synthetic train audio folder
-    synth_valid_audio_path=" ", # path to synthetic validation audio folder
+    synth_train_audio_path="", # path to synthetic train audio folder
+    synth_valid_audio_path="", # path to synthetic validation audio folder
     dev_test_audio_path=" ", # path to development set audio folder
-    #eval_test_audio_path="" # path to evaluation audio folder
+    eval_test_audio_path="" # path to evaluation audio folder
 )
 
 #NOTE: The evaluation set will be released at a later time. 
