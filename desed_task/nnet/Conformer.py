@@ -1,13 +1,12 @@
+import torch.nn as nn
+import torch
+import numpy as np
 import math
 
-import numpy as np
-import torch
-import torch.nn as nn
-
-from utils.utils import to_cuda_if_available
 from utils_model.CNN import CNN
 from utils_model.ConformerEncoder import ConformerEncoder
 from utils_model.PSClassifier import PSClassifier
+from utils.utils import to_cuda_if_available
 
 
 class Conformer(nn.Module):
@@ -25,6 +24,7 @@ class Conformer(nn.Module):
 
         self.n_in_channel = n_in_channel
 
+        # CNN-based feature extractor 
         self.cnn = CNN(
             n_in_channel=self.n_in_channel,
             activation=activation_cnn,
@@ -33,8 +33,10 @@ class Conformer(nn.Module):
         )
 
         self.feature_embedding = nn.Linear(embed_dim, att_units)
+        # Transformer
         self.conformer_block = ConformerEncoder(**confomer_kwargs)
 
+        # position wise classifier
         self.ps_classifier = PSClassifier(**confomer_kwargs)
 
     def forward(self, x):
@@ -45,7 +47,7 @@ class Conformer(nn.Module):
         x = x.squeeze(-1)
         x = x.permute(0, 2, 1)  # [bs, frames, chan] 
 
-        # adding special tag
+        # special tag 
         token = torch.ones(x.size(0), 1, x.size(2)) * 0.2
         token = to_cuda_if_available(token)
         x = torch.cat([token, x], dim=1)  # [bs, frames, ch] 
