@@ -51,19 +51,15 @@ def convert_to_event_based(weak_dataframe):
     return pd.DataFrame(new)
 
 
-def log_sedeval_metrics(predictions, ground_truth, current_epoch, save_dir=None):
+def log_sedeval_metrics(predictions, ground_truth, save_dir=None):
     gt = pd.read_csv(ground_truth, sep="\t")
     event_res, segment_res = compute_sed_eval_metrics(predictions, gt)
 
     if save_dir is not None:
-        with open(
-            os.path.join(save_dir, "event_f1_{}.txt".format(current_epoch)), "w"
-        ) as f:
+        with open(os.path.join(save_dir, "event_f1.txt"), "w") as f:
             f.write(str(event_res))
 
-        with open(
-            os.path.join(save_dir, "segment_f1_{}.txt".format(current_epoch)), "w"
-        ) as f:
+        with open(os.path.join(save_dir, "segment_f1.txt"), "w") as f:
             f.write(str(segment_res))
 
     return (
@@ -91,7 +87,7 @@ def compute_pdsd_macro_f1(prediction_dfs, ground_truth_file, durations_file):
 
 
 def compute_psds_from_operating_points(
-    prediction_dfs, ground_truth_file, durations_file, filename_roc_curves=None
+    prediction_dfs, ground_truth_file, durations_file, save_dir=None
 ):
 
     gt = pd.read_csv(ground_truth_file, sep="\t")
@@ -104,16 +100,11 @@ def compute_psds_from_operating_points(
     psds_ct_score = psds.psds(alpha_ct=1, alpha_st=0, max_efpr=100)
     psds_macro_score = psds.psds(alpha_ct=0, alpha_st=1, max_efpr=100)
 
-    if filename_roc_curves is not None:
-        if os.path.dirname(filename_roc_curves) != "":
-            os.makedirs(os.path.dirname(filename_roc_curves), exist_ok=True)
-        import ipdb
-
-        ipdb.set_trace()
-        base, ext = os.path.splitext(filename_roc_curves)
-        plot_psd_roc(psds_score, filename=f"{base}_0_0_100{ext}")
-        plot_psd_roc(psds_ct_score, filename=f"{base}_1_0_100{ext}")
-        plot_psd_roc(psds_score, filename=f"{base}_0_1_100{ext}")
+    if save_dir is not None:
+        os.makedirs(os.path.dirname(save_dir), exist_ok=True)
+        plot_psd_roc(psds_score, filename=os.path.join(save_dir, "PSDS_0_0_100"))
+        plot_psd_roc(psds_ct_score, filename=os.path.join(save_dir, "PSDS_1_0_100"))
+        plot_psd_roc(psds_score, filename=os.path.join(save_dir, "PSDS_0_1_100"))
 
     return psds_score.value, psds_ct_score.value, psds_macro_score.value
 

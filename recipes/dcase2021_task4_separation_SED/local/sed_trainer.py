@@ -403,9 +403,7 @@ class SEDTask4_2021(pl.LightningModule):
         )
 
         synth_student_event_macro = log_sedeval_metrics(
-            self.val_buffer_student_synth[0.5],
-            self.hparams["data"]["synth_val_tsv"],
-            self.current_epoch,
+            self.val_buffer_student_synth[0.5], self.hparams["data"]["synth_val_tsv"],
         )[0]
 
         psds_f1_macro_teacher = compute_pdsd_macro_f1(
@@ -415,9 +413,7 @@ class SEDTask4_2021(pl.LightningModule):
         )
 
         synth_teacher_event_macro = log_sedeval_metrics(
-            self.val_buffer_teacher_synth[0.5],
-            self.hparams["data"]["synth_val_tsv"],
-            self.current_epoch,
+            self.val_buffer_teacher_synth[0.5], self.hparams["data"]["synth_val_tsv"],
         )[0]
 
         # dev-test dataset
@@ -560,19 +556,17 @@ class SEDTask4_2021(pl.LightningModule):
             os.path.join(save_dir, "teacher"),
         )
 
-        """
         event_macro_student = log_sedeval_metrics(
             self.test_eventF1_buffer_student,
             self.hparams["data"]["test_tsv"],
-            os.path.join(save_dir, "student")
+            os.path.join(save_dir, "student"),
         )[0]
 
         event_macro_teacher = log_sedeval_metrics(
             self.test_eventF1_buffer_teacher,
             self.hparams["data"]["test_tsv"],
-            os.path.join(save_dir, "teacher")
+            os.path.join(save_dir, "teacher"),
         )[0]
-        """
 
         best_test_result = torch.tensor(-max(psds_score, psds_score_teacher))
 
@@ -583,6 +577,8 @@ class SEDTask4_2021(pl.LightningModule):
         self.log("test/teacher/psds_score", psds_score_teacher)
         self.log("test/teacher/psds_ct_score", psds_ct_score_teacher)
         self.log("test/teacher/psds_macro_score", psds_macro_score_teacher)
+        self.log("test/student/event_f1_macro", event_macro_student)
+        self.log("test/teacher/event_f1_macro", event_macro_teacher)
 
     def configure_optimizers(self):
         return [self.opt], [self.scheduler]
