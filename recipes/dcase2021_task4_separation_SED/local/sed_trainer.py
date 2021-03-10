@@ -424,9 +424,7 @@ class SEDTask4_2021(pl.LightningModule):
         )
 
         test_student_event_macro = log_sedeval_metrics(
-            self.val_buffer_student_test[0.5],
-            self.hparams["data"]["test_tsv"],
-            self.current_epoch,
+            self.val_buffer_student_test[0.5], self.hparams["data"]["test_tsv"],
         )[0]
 
         psds_f1_macro_teacher_test = compute_pdsd_macro_f1(
@@ -436,9 +434,7 @@ class SEDTask4_2021(pl.LightningModule):
         )
 
         test_teacher_event_macro = log_sedeval_metrics(
-            self.val_buffer_teacher_test[0.5],
-            self.hparams["data"]["test_tsv"],
-            self.current_epoch,
+            self.val_buffer_teacher_test[0.5], self.hparams["data"]["test_tsv"],
         )[0]
 
         obj_metric = torch.tensor(
@@ -501,7 +497,7 @@ class SEDTask4_2021(pl.LightningModule):
         self.log("test/student/loss_strong", loss_strong_student)
         self.log("test/teacher/loss_strong", loss_strong_teacher)
 
-        # compute F1 score
+        # compute psds
         decoded_student_strong = batched_decode_preds(
             strong_preds_student,
             filenames,
@@ -528,11 +524,35 @@ class SEDTask4_2021(pl.LightningModule):
                 th
             ].append(decoded_teacher_strong[th])
 
+        # compute f1 score
+        decoded_student_strong = batched_decode_preds(
+            strong_preds_student,
+            filenames,
+            self.encoder,
+            median_filter=self.hparams["training"]["median_window"],
+            thresholds=[0.5],
+        )
+
+        self.test_eventF1_buffer_student = self.test_eventF1_buffer_student.append(
+            decoded_student_strong[0.5]
+        )
+
+        decoded_teacher_strong = batched_decode_preds(
+            strong_preds_teacher,
+            filenames,
+            self.encoder,
+            median_filter=self.hparams["training"]["median_window"],
+            thresholds=[0.5],
+        )
+
+        self.test_eventF1_buffer_teacher = self.test_eventF1_buffer_teacher.append(
+            decoded_teacher_strong[0.5]
+        )
+
     def on_test_epoch_end(self):
 
         # pub eval dataset
         save_dir = os.path.join(self.logger.log_dir, "metrics_test")
-        os.makedirs(save_dir, exist_ok=True)
 
         (
             psds_score,

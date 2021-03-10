@@ -4,35 +4,38 @@ training:
   batch_size_val: 24
   const_max: 2
   n_epochs_warmup: 50
-  num_workers: 12
+  num_workers: 6
   n_epochs: 200
   early_stop_patience: 10
   accumulate_batches: 1
   gradient_clip: 0
-  save_top_k: 1
   median_window: 7
+  val_thresholds: [0.5]
+  n_test_thresholds: 50
   ema_factor: 0.999
   self_sup_loss: mse
   backend:
   noise_snr: [12, 15]
-  validation_interval: 10
+  validation_interval: 1
   weak_split: 0.9
-  seed: 42
+  seed: 28
 scaler:
-  statistic: dataset
-  normtype: mvn
+  statistic: instance
+  normtype: minmax
   dims: [1, 2]
   savepath: ./scaler.ckpt
 data:
-  synth_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/synthetic20/soundscapes/"
-  synth_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/train/synthetic20/soundscapes.tsv"
-  weak_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/weak_16k/"
-  weak_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/train/weak.tsv"
-  unlabeled_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/unlabel_in_domain_16k/"
-  synth_val_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/train/synthetic20/soundscapes/"
-  synth_val_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/train/synthetic20/soundscapes.tsv"
-  test_folder: "/media/sam/bx500/DCASE_DATA/dataset/audio/validation_16k/"
-  test_tsv: "/media/sam/bx500/DCASE_DATA/dataset/metadata/validation/validation.tsv"
+  synth_folder: "/home/scornell/dcase21/egs/iterative_sed_sep/new_synth/audio/train/synthetic21_train/soundscapes_16k/"
+  synth_tsv:  "/home/scornell/dcase21/egs/iterative_sed_sep/new_synth/metadata/train/synhtetic21_train/soundscapes.tsv"
+  weak_folder: "/disks/disk1/dcase/dataset/audio/train/weak_16k/"
+  weak_tsv: "/disks/disk1/dcase/dataset/metadata/train/weak.tsv"
+  unlabeled_folder: "/disks/disk1/dcase/dataset/audio/train/unlabel_in_domain_16k/"
+  synth_val_folder: "/home/scornell/dcase21/egs/iterative_sed_sep/new_synth/audio/validation/synthetic21_validation/soundscapes_16k/"
+  synth_val_tsv:  "/home/scornell/dcase21/egs/iterative_sed_sep/new_synth/metadata/validation/synhtetic21_validation/soundscapes.tsv"
+  synth_val_dur: "./durations_tsv/synth_val_durations.tsv"
+  test_folder: "/disks/disk1/dcase/dataset/audio/validation_16k/"
+  test_tsv: "/disks/disk1/dcase/dataset/metadata/validation/validation.tsv"
+  test_dur: "/disks/disk1/dcase/dataset/metadata/validation/validation_durations.tsv"
   audio_max_len: 10
   fs: 16000
   net_subsample: 4
@@ -61,5 +64,3 @@ net:
   nb_filters: [ 16, 32, 64, 128, 128, 128, 128 ]
   pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
   dropout_recurrent: 0
-
-

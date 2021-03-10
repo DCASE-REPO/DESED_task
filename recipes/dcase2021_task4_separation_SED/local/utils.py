@@ -56,6 +56,7 @@ def log_sedeval_metrics(predictions, ground_truth, save_dir=None):
     event_res, segment_res = compute_sed_eval_metrics(predictions, gt)
 
     if save_dir is not None:
+        os.makedirs(save_dir, exist_ok=True)
         with open(os.path.join(save_dir, "event_f1.txt"), "w") as f:
             f.write(str(event_res))
 
@@ -101,7 +102,7 @@ def compute_psds_from_operating_points(
     psds_macro_score = psds.psds(alpha_ct=0, alpha_st=1, max_efpr=100)
 
     if save_dir is not None:
-        os.makedirs(os.path.dirname(save_dir), exist_ok=True)
+        os.makedirs(save_dir, exist_ok=True)
         plot_psd_roc(psds_score, filename=os.path.join(save_dir, "PSDS_0_0_100"))
         plot_psd_roc(psds_ct_score, filename=os.path.join(save_dir, "PSDS_1_0_100"))
         plot_psd_roc(psds_score, filename=os.path.join(save_dir, "PSDS_0_1_100"))

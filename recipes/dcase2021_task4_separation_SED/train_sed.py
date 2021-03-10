@@ -168,7 +168,6 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         gradient_clip_val=config["training"]["gradient_clip"],
         check_val_every_n_epoch=config["training"]["validation_interval"],
         num_sanity_val_steps=0,
-        limit_train_batches=2,
     )
 
     trainer.fit(desed_training)
