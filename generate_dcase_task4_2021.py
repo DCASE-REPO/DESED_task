@@ -41,7 +41,7 @@ def create_real_dcase2021(desed_real_path, destination_folder):
         audio_subfolders = [
             d
             for d in os.listdir(split_audio_folder)
-            if os.path.isdir(os.path.join(desed_real_path, d))
+            if os.path.isdir(os.path.join(split_audio_folder, d))
         ]
         # Manage the validation case which changed from 2020
         if split_set == "validation" and not len(audio_subfolders):
@@ -58,7 +58,7 @@ def create_real_dcase2021(desed_real_path, destination_folder):
             _create_symlink(abs_src_folder, dest_folder)
 
         # META
-        split_meta_folder = os.path.join(desed_real_path, "audio", split_set)
+        split_meta_folder = os.path.join(desed_real_path, "metadata", split_set)
         meta_files = glob.glob(os.path.join(split_meta_folder, "*.tsv"))
         for meta_file in meta_files:
             dest_file = os.path.join(
