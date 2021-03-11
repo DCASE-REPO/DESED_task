@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-import yaml
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -9,29 +8,32 @@ import torch
 from desed_task.data_augm import add_noise
 from desed_task.features import Fbanks
 from desed_task.utils.scaler import TorchScaler
+import numpy as np
 
-from .utils import batched_decode_preds, log_sedeval_metrics
-from .sed_init import init_SED
+from .utils import (
+    batched_decode_preds,
+    compute_pdsd_macro_f1,
+    compute_psds_from_operating_points,
+    log_sedeval_metrics,
+)
 
 
 class SEDTask4_2021(pl.LightningModule):
     def __init__(
-        self, hparams,
+        self,
+        hparams,
+        encoder,
+        sed_student,
+        sed_teacher,
+        opt,
+        train_data,
+        valid_data,
+        test_data,
+        train_sampler,
+        scheduler,
     ):
         super(SEDTask4_2021, self).__init__()
         self.hparams = hparams
-
-        (
-            encoder,
-            sed_student,
-            sed_teacher,
-            opt,
-            train_data,
-            valid_data,
-            test_data,
-            train_sampler,
-            scheduler,
-        ) = init_SED(self.hparams)
 
         self.encoder = encoder
         self.sed_student = sed_student
@@ -73,14 +75,29 @@ class SEDTask4_2021(pl.LightningModule):
 
         # buffer for event based scores which we compute using sed-eval
 
-        self.val_buffer_student_synth = pd.DataFrame()
-        self.val_buffer_teacher_synth = pd.DataFrame()
+        self.val_buffer_student_synth = {
+            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
+        }
+        self.val_buffer_teacher_synth = {
+            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
+        }
 
-        self.test_buffer_student = pd.DataFrame()
-        self.test_buffer_teacher = pd.DataFrame()
+        self.val_buffer_student_test = {
+            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
+        }
+        self.val_buffer_teacher_test = {
+            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
+        }
 
-        self.val_buffer_student_eval = pd.DataFrame()
-        self.val_buffer_teacher_eval = pd.DataFrame()
+        test_n_thresholds = self.hparams["training"]["n_test_thresholds"]
+        test_thresholds = np.arange(
+            1 / (test_n_thresholds * 2), 1, 1 / test_n_thresholds
+        )
+        self.test_psds_buffer_student = {k: pd.DataFrame() for k in test_thresholds}
+        self.test_psds_buffer_teacher = {k: pd.DataFrame() for k in test_thresholds}
+
+        self.test_eventF1_buffer_student = pd.DataFrame()
+        self.test_eventF1_buffer_teacher = pd.DataFrame()
 
     def update_ema(self, alpha, global_step, model, ema_model):
         # Use the true average until the exponential average is more correct
@@ -94,6 +111,7 @@ class SEDTask4_2021(pl.LightningModule):
             scaler = TorchScaler(
                 "instance", "minmax", self.hparams["scaler"]["dims"]
             )
+            return self.scaler
         elif self.hparams["scaler"]["statistic"] == "dataset":
             # we fit the scaler
             scaler = TorchScaler(
@@ -116,8 +134,9 @@ class SEDTask4_2021(pl.LightningModule):
 
         self.train_loader = self.train_dataloader()
         scaler.fit(
-            self.train_loader, transform_func=lambda x: self.extract_feats(x[0], False)
+            self.train_loader, transform_func=lambda x: self.take_log(self.feats(x[0]))
         )
+
         if self.hparams["scaler"]["savepath"] is not None:
             torch.save(scaler, self.hparams["scaler"]["savepath"])
             print(
@@ -131,17 +150,11 @@ class SEDTask4_2021(pl.LightningModule):
 
         return Fbanks.take_log(mels)
 
-    def extract_feats(self, audio, train=False):
-        mels = self.feats(audio)
-        if train:
-            mels = add_noise(mels, self.hparams["training"]["noise_snr"])
-        return self.take_log(mels)
-
     def training_step(self, batch, batch_indx):
 
         audio, labels, padded_indxs = batch
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
-        features = self.extract_feats(audio)
+        features = self.feats(audio)
 
         batch_num = features.shape[0]
         # deriving masks for each dataset
@@ -154,7 +167,11 @@ class SEDTask4_2021(pl.LightningModule):
 
         # sed student forward
         strong_preds_student, weak_preds_student = self.sed_student(
-            self.scaler(features)
+            self.scaler(
+                self.take_log(
+                    add_noise(features, self.hparams["training"]["noise_snr"])
+                )
+            )
         )
 
         # supervised loss on strong labels
@@ -167,7 +184,11 @@ class SEDTask4_2021(pl.LightningModule):
         tot_loss_supervised = loss_strong + loss_weak
 
         with torch.no_grad():
-            ema_features = self.extract_feats(audio)
+            ema_features = self.scaler(
+                self.take_log(
+                    add_noise(features, self.hparams["training"]["noise_snr"])
+                )
+            )
             strong_preds_teacher, weak_preds_teacher = self.sed_teacher(
                 self.scaler(ema_features)
             )
@@ -223,12 +244,12 @@ class SEDTask4_2021(pl.LightningModule):
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        logmels = self.scaler(self.extract_feats(audio))
+        logmels = self.scaler(self.take_log(self.feats(audio)))
         strong_preds_student, weak_preds_student = self.sed_student(logmels)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.sed_teacher(logmels)
 
-        # we derive a mask based on folders of filenames
+        # we derive masks for each dataset based on folders of filenames
         mask_weak = (
             torch.tensor(
                 [
@@ -245,6 +266,18 @@ class SEDTask4_2021(pl.LightningModule):
                 [
                     str(Path(x).parent)
                     == str(Path(self.hparams["data"]["synth_val_folder"]))
+                    for x in filenames
+                ]
+            )
+            .to(audio)
+            .bool()
+        )
+
+        mask_devtest = (
+            torch.tensor(
+                [
+                    str(Path(x).parent)
+                    == str(Path(self.hparams["data"]["test_folder"]))
                     for x in filenames
                 ]
             )
@@ -294,20 +327,67 @@ class SEDTask4_2021(pl.LightningModule):
                 filenames_synth,
                 self.encoder,
                 median_filter=self.hparams["training"]["median_window"],
+                thresholds=list(self.val_buffer_student_synth.keys()),
             )
-            self.val_buffer_student_synth = self.val_buffer_student_synth.append(
-                decoded_student_strong
-            )
+
+            for th in self.val_buffer_student_synth.keys():
+                self.val_buffer_student_synth[th] = self.val_buffer_student_synth[
+                    th
+                ].append(decoded_student_strong[th])
 
             decoded_teacher_strong = batched_decode_preds(
                 strong_preds_teacher[mask_synth],
                 filenames_synth,
                 self.encoder,
                 median_filter=self.hparams["training"]["median_window"],
+                thresholds=list(self.val_buffer_teacher_synth.keys()),
             )
-            self.val_buffer_teacher_synth = self.val_buffer_teacher_synth.append(
-                decoded_teacher_strong
+            for th in self.val_buffer_teacher_synth.keys():
+                self.val_buffer_teacher_synth[th] = self.val_buffer_teacher_synth[
+                    th
+                ].append(decoded_teacher_strong[th])
+
+        if torch.any(mask_devtest):
+            loss_strong_student = self.supervised_loss(
+                strong_preds_student[mask_devtest], labels[mask_devtest]
             )
+            loss_strong_teacher = self.supervised_loss(
+                strong_preds_teacher[mask_devtest], labels[mask_devtest]
+            )
+
+            self.log("val/test/student/loss_strong", loss_strong_student)
+            self.log("val/test/teacher/loss_strong", loss_strong_teacher)
+
+            filenames_test = [
+                x
+                for x in filenames
+                if Path(x).parent == Path(self.hparams["data"]["test_folder"])
+            ]
+
+            decoded_student_strong = batched_decode_preds(
+                strong_preds_student[mask_devtest],
+                filenames_test,
+                self.encoder,
+                median_filter=self.hparams["training"]["median_window"],
+                thresholds=list(self.val_buffer_student_test.keys()),
+            )
+
+            for th in self.val_buffer_student_test.keys():
+                self.val_buffer_student_test[th] = self.val_buffer_student_test[
+                    th
+                ].append(decoded_student_strong[th])
+
+            decoded_teacher_strong = batched_decode_preds(
+                strong_preds_teacher[mask_devtest],
+                filenames_test,
+                self.encoder,
+                median_filter=self.hparams["training"]["median_window"],
+                thresholds=list(self.val_buffer_teacher_test.keys()),
+            )
+            for th in self.val_buffer_teacher_test.keys():
+                self.val_buffer_teacher_test[th] = self.val_buffer_teacher_test[
+                    th
+                ].append(decoded_teacher_strong[th])
 
         return
 
@@ -317,55 +397,97 @@ class SEDTask4_2021(pl.LightningModule):
         weak_teacher_seg_macro = self.get_weak_teacher_f1_seg_macro.compute()
 
         # synth dataset
-        ground_truth = pd.read_csv(self.hparams["data"]["synth_val_tsv"], sep="\t")
-        save_dir = os.path.join(self.logger.log_dir, "metrics_synth_val")
-        os.makedirs(save_dir, exist_ok=True)
+        psds_f1_macro_student = compute_pdsd_macro_f1(
+            self.val_buffer_student_synth,
+            self.hparams["data"]["synth_val_tsv"],
+            self.hparams["data"]["test_dur"],
+        )
 
-        (
-            synth_student_event_macro,
-            synth_student_event_micro,
-            synth_student_seg_macro,
-            synth_student_seg_micro,
-        ) = log_sedeval_metrics(
-            self.val_buffer_student_synth, ground_truth, save_dir, self.current_epoch,
+        synth_student_event_macro = log_sedeval_metrics(
+            self.val_buffer_student_synth[0.5], self.hparams["data"]["synth_val_tsv"],
+        )[0]
+
+        psds_f1_macro_teacher = compute_pdsd_macro_f1(
+            self.val_buffer_teacher_synth,
+            self.hparams["data"]["synth_val_tsv"],
+            self.hparams["data"]["test_dur"],
         )
-        (
-            synth_teacher_event_macro,
-            synth_teacher_event_micro,
-            synth_teacher_seg_macro,
-            synth_teacher_seg_micro,
-        ) = log_sedeval_metrics(
-            self.val_buffer_teacher_synth, ground_truth, save_dir, self.current_epoch,
+
+        synth_teacher_event_macro = log_sedeval_metrics(
+            self.val_buffer_teacher_synth[0.5], self.hparams["data"]["synth_val_tsv"],
+        )[0]
+
+        # dev-test dataset
+        psds_f1_macro_student_test = compute_pdsd_macro_f1(
+            self.val_buffer_student_test,
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
         )
+
+        test_student_event_macro = log_sedeval_metrics(
+            self.val_buffer_student_test[0.5], self.hparams["data"]["test_tsv"],
+        )[0]
+
+        psds_f1_macro_teacher_test = compute_pdsd_macro_f1(
+            self.val_buffer_teacher_test,
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+        )
+
+        test_teacher_event_macro = log_sedeval_metrics(
+            self.val_buffer_teacher_test[0.5], self.hparams["data"]["test_tsv"],
+        )[0]
 
         obj_metric = torch.tensor(
             -max(
-                weak_student_seg_macro.item() + synth_student_event_macro,
-                weak_teacher_seg_macro.item() + synth_teacher_event_macro,
+                weak_student_seg_macro.item() + psds_f1_macro_student,
+                weak_teacher_seg_macro.item() + psds_f1_macro_teacher,
             )
         )
 
-        self.log("obj_metric", obj_metric, prog_bar=True)
+        self.log("val/obj_metric", obj_metric, prog_bar=True)
         self.log("val/weak/student/segment_macro_F1", weak_student_seg_macro)
         self.log("val/weak/teacher/segment_macro_F1", weak_teacher_seg_macro)
-        self.log("val/synth/student/event_macro_F1", synth_student_event_macro)
-        self.log("val/synth/teacher/event_macro_F1", synth_teacher_event_macro)
+        self.log("val/synth/student/psds_f1_macro", psds_f1_macro_student)
+        self.log("val/synth/teacher/psds_f1_macro", psds_f1_macro_teacher)
+        self.log("val/synth/student/event_f1_macro", synth_student_event_macro)
+        self.log("val/synth/teacher/event_f1_macro", synth_teacher_event_macro)
+        self.log("val/test/student/psds_f1_macro", psds_f1_macro_student_test)
+        self.log("val/test/student/event_f1_macro", test_student_event_macro)
+        self.log("val/test/teacher/psds_f1_macro", psds_f1_macro_teacher_test)
+        self.log("val/test/teacher/event_f1_macro", test_teacher_event_macro)
 
         # free the buffers
-        self.val_buffer_student_synth = pd.DataFrame()
-        self.val_buffer_teacher_synth = pd.DataFrame()
+        self.val_buffer_student_synth = {
+            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
+        }
+        self.val_buffer_teacher_synth = {
+            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
+        }
+
+        self.val_buffer_student_test = {
+            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
+        }
+        self.val_buffer_teacher_test = {
+            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
+        }
 
         self.get_weak_student_f1_seg_macro.reset()
         self.get_weak_teacher_f1_seg_macro.reset()
 
         return obj_metric
 
+    def on_save_checkpoint(self, checkpoint):
+        checkpoint["sed_student"] = self.sed_student.state_dict()
+        checkpoint["sed_teacher"] = self.sed_teacher.state_dict()
+        return checkpoint
+
     def test_step(self, batch, batch_indx):
 
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        logmels = self.scaler(self.extract_feats(audio))
+        logmels = self.scaler(self.take_log(self.feats(audio)))
         strong_preds_student, weak_preds_student = self.sed_student(logmels)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.sed_teacher(logmels)
@@ -376,15 +498,44 @@ class SEDTask4_2021(pl.LightningModule):
         self.log("test/student/loss_strong", loss_strong_student)
         self.log("test/teacher/loss_strong", loss_strong_teacher)
 
-        # compute F1 score
+        # compute psds
         decoded_student_strong = batched_decode_preds(
             strong_preds_student,
             filenames,
             self.encoder,
             median_filter=self.hparams["training"]["median_window"],
+            thresholds=list(self.test_psds_buffer_student.keys()),
         )
-        self.test_buffer_student = self.test_buffer_student.append(
-            decoded_student_strong
+
+        for th in self.test_psds_buffer_student.keys():
+            self.test_psds_buffer_student[th] = self.test_psds_buffer_student[
+                th
+            ].append(decoded_student_strong[th])
+
+        decoded_teacher_strong = batched_decode_preds(
+            strong_preds_teacher,
+            filenames,
+            self.encoder,
+            median_filter=self.hparams["training"]["median_window"],
+            thresholds=list(self.test_psds_buffer_teacher.keys()),
+        )
+
+        for th in self.test_psds_buffer_teacher.keys():
+            self.test_psds_buffer_teacher[th] = self.test_psds_buffer_teacher[
+                th
+            ].append(decoded_teacher_strong[th])
+
+        # compute f1 score
+        decoded_student_strong = batched_decode_preds(
+            strong_preds_student,
+            filenames,
+            self.encoder,
+            median_filter=self.hparams["training"]["median_window"],
+            thresholds=[0.5],
+        )
+
+        self.test_eventF1_buffer_student = self.test_eventF1_buffer_student.append(
+            decoded_student_strong[0.5]
         )
 
         decoded_teacher_strong = batched_decode_preds(
@@ -392,47 +543,63 @@ class SEDTask4_2021(pl.LightningModule):
             filenames,
             self.encoder,
             median_filter=self.hparams["training"]["median_window"],
+            thresholds=[0.5],
         )
 
-        self.test_buffer_teacher = self.test_buffer_student.append(
-            decoded_teacher_strong
+        self.test_eventF1_buffer_teacher = self.test_eventF1_buffer_teacher.append(
+            decoded_teacher_strong[0.5]
         )
-
-        # TODO computing psds
 
     def on_test_epoch_end(self):
 
         # pub eval dataset
-        ground_truth = pd.read_csv(self.hparams["data"]["test_tsv"], sep="\t")
         save_dir = os.path.join(self.logger.log_dir, "metrics_test")
-        os.makedirs(save_dir, exist_ok=True)
 
         (
-            test_student_event_macro,
-            test_student_event_micro,
-            test_student_seg_macro,
-            test_student_seg_micro,
-        ) = log_sedeval_metrics(
-            self.test_buffer_student, ground_truth, save_dir, self.current_epoch,
-        )
-        (
-            test_teacher_event_macro,
-            test_teacher_event_micro,
-            test_teacher_seg_macro,
-            test_teacher_seg_micro,
-        ) = log_sedeval_metrics(
-            self.test_buffer_teacher, ground_truth, save_dir, self.current_epoch,
+            psds_score,
+            psds_ct_score,
+            psds_macro_score,
+        ) = compute_psds_from_operating_points(
+            self.test_psds_buffer_student,
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+            os.path.join(save_dir, "student"),
         )
 
-        best_test_result = torch.tensor(
-            -max(test_student_event_macro, test_teacher_event_macro)
+        (
+            psds_score_teacher,
+            psds_ct_score_teacher,
+            psds_macro_score_teacher,
+        ) = compute_psds_from_operating_points(
+            self.test_psds_buffer_teacher,
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+            os.path.join(save_dir, "teacher"),
         )
+
+        event_macro_student = log_sedeval_metrics(
+            self.test_eventF1_buffer_student,
+            self.hparams["data"]["test_tsv"],
+            os.path.join(save_dir, "student"),
+        )[0]
+
+        event_macro_teacher = log_sedeval_metrics(
+            self.test_eventF1_buffer_teacher,
+            self.hparams["data"]["test_tsv"],
+            os.path.join(save_dir, "teacher"),
+        )[0]
+
+        best_test_result = torch.tensor(-max(psds_score, psds_score_teacher))
 
         self.log("hp_metric", best_test_result)  # log tensorboard hyperpar metric
-        self.log("test/student/segment_macro_F1", test_student_seg_macro)
-        self.log("test/teacher/segment_macro_F1", test_teacher_seg_macro)
-        self.log("test/student/event_macro_F1", test_student_event_macro)
-        self.log("test/teacher/event_macro_F1", test_teacher_event_macro)
+        self.log("test/student/psds_score", psds_score)
+        self.log("test/student/psds_ct_score", psds_ct_score)
+        self.log("test/student/psds_macro_score", psds_macro_score)
+        self.log("test/teacher/psds_score", psds_score_teacher)
+        self.log("test/teacher/psds_ct_score", psds_ct_score_teacher)
+        self.log("test/teacher/psds_macro_score", psds_macro_score_teacher)
+        self.log("test/student/event_f1_macro", event_macro_student)
+        self.log("test/teacher/event_f1_macro", event_macro_teacher)
 
     def configure_optimizers(self):
         return [self.opt], [self.scheduler]
