@@ -39,8 +39,8 @@ class TorchScaler(torch.nn.Module):
                 )
             indx += 1
 
-        mean /= indx + 1
-        mean_squared /= indx + 1
+        mean /= indx
+        mean_squared /= indx
 
         self.register_buffer("mean", mean)
         self.register_buffer("mean_squared", mean_squared)
@@ -54,8 +54,8 @@ class TorchScaler(torch.nn.Module):
             if self.normtype == "mn":
                 return tensor - self.mean
             elif self.normtype == "mvn":
-                var = self.mean_squared - self.mean ** 2
-                return (tensor - self.mean) / (var + self.eps)
+                std = torch.sqrt(self.mean_squared - self.mean ** 2)
+                return (tensor - self.mean) / (std + self.eps)
             else:
                 raise NotImplementedError
 
@@ -64,7 +64,7 @@ class TorchScaler(torch.nn.Module):
                 return tensor - torch.mean(tensor, self.dims, keepdim=True)
             elif self.normtype == "mvn":
                 return (tensor - torch.mean(tensor, self.dims, keepdim=True)) / (
-                    torch.var(tensor, self.dims, keepdim=True) + self.eps
+                    torch.std(tensor, self.dims, keepdim=True) + self.eps
                 )
             elif self.normtype == "minmax":
                 return (tensor - torch.amin(tensor, dim=self.dims, keepdim=True)) / (
