@@ -22,7 +22,6 @@ class TorchScaler(torch.nn.Module):
         self.eps = eps
 
     def fit(self, dataloader, transform_func=lambda x: x[0]):
-
         indx = 0
         for batch in tqdm.tqdm(dataloader):
 

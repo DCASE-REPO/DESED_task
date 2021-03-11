@@ -52,7 +52,11 @@ def convert_to_event_based(weak_dataframe):
 
 
 def log_sedeval_metrics(predictions, ground_truth, save_dir=None):
+    if predictions.empty:
+        return 0., 0., 0., 0.
+
     gt = pd.read_csv(ground_truth, sep="\t")
+
     event_res, segment_res = compute_sed_eval_metrics(predictions, gt)
 
     if save_dir is not None:
@@ -78,11 +82,14 @@ def compute_pdsd_macro_f1(prediction_dfs, ground_truth_file, durations_file):
 
     psds = PSDSEval(ground_truth=gt, metadata=durations)
     psds_macro_f1 = []
-    for k in prediction_dfs.keys():
-        tmp, _ = psds.compute_macro_f_score(prediction_dfs[k])
-        if np.isnan(tmp):
-            tmp = 0.0
-        psds_macro_f1.append(tmp)
+    for threshold in prediction_dfs.keys():
+        if not prediction_dfs[threshold].empty:
+            threshold_f1, _ = psds.compute_macro_f_score(prediction_dfs[threshold])
+        else:
+            threshold_f1 = 0
+        if np.isnan(threshold_f1):
+            threshold_f1 = 0.0
+        psds_macro_f1.append(threshold_f1)
     psds_macro_f1 = np.mean(psds_macro_f1)
     return psds_macro_f1
 

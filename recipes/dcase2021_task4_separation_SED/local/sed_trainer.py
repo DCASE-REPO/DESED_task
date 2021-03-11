@@ -31,6 +31,7 @@ class SEDTask4_2021(pl.LightningModule):
         test_data,
         train_sampler,
         scheduler,
+        dev_try_run=False
     ):
         super(SEDTask4_2021, self).__init__()
         self.hparams = hparams
@@ -44,6 +45,11 @@ class SEDTask4_2021(pl.LightningModule):
         self.test_data = test_data
         self.train_sampler = train_sampler
         self.scheduler = scheduler
+        self.dev_try_run = dev_try_run
+        if self.dev_try_run:
+            self.num_workers = 1
+        else:
+            self.num_workers = self.hparams["training"]["num_workers"]
 
         # instantiating losses
         self.supervised_loss = torch.nn.BCELoss()
@@ -119,7 +125,6 @@ class SEDTask4_2021(pl.LightningModule):
             ema_params.data.mul_(alpha).add_(params.data, alpha=1 - alpha)
 
     def _init_scaler(self):
-
         if self.hparams["scaler"]["statistic"] == "instance":
             self.scaler = TorchScaler(
                 "instance", "minmax", self.hparams["scaler"]["dims"]
@@ -623,7 +628,7 @@ class SEDTask4_2021(pl.LightningModule):
         self.train_loader = torch.utils.data.DataLoader(
             self.train_data,
             batch_sampler=self.train_sampler,
-            num_workers=self.hparams["training"]["num_workers"],
+            num_workers=self.num_workers,
         )
 
         return self.train_loader
@@ -632,7 +637,7 @@ class SEDTask4_2021(pl.LightningModule):
         self.val_loader = torch.utils.data.DataLoader(
             self.valid_data,
             batch_size=self.hparams["training"]["batch_size_val"],
-            num_workers=self.hparams["training"]["num_workers"],
+            num_workers=self.num_workers,
             shuffle=False,
             drop_last=False,
         )
@@ -642,7 +647,7 @@ class SEDTask4_2021(pl.LightningModule):
         self.test_loader = torch.utils.data.DataLoader(
             self.test_data,
             batch_size=self.hparams["training"]["batch_size_val"],
-            num_workers=self.hparams["training"]["num_workers"],
+            num_workers=self.num_workers,
             shuffle=False,
             drop_last=False,
         )

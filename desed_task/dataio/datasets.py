@@ -40,6 +40,7 @@ class StronglyAnnotatedSet(Dataset):
         fs=16000,
         return_filename=False,
         train=False,
+        random_channel=False
     ):
 
         self.encoder = encoder
@@ -47,6 +48,7 @@ class StronglyAnnotatedSet(Dataset):
         self.pad_to = pad_to * fs
         self.return_filename = return_filename
         self.train = train
+        self.random_channel = random_channel
 
         # annotation = pd.read_csv(tsv_file, sep="\t")
         examples = {}
@@ -84,7 +86,7 @@ class StronglyAnnotatedSet(Dataset):
     def __getitem__(self, item):
         c_ex = self.examples[self.examples_list[item]]
         mixture, fs = sf.read(c_ex["mixture"])
-        mixture = to_mono(mixture, self.train)
+        mixture = to_mono(mixture, self.random_channel)
         if self.pad_to is not None:
             mixture, padded_indx = pad_audio(mixture, self.pad_to)
         else:
@@ -120,6 +122,7 @@ class WeakSet(Dataset):
         train=True,
         return_filename=False,
         max_n_sources=None,
+        random_channel=False
     ):
 
         self.encoder = encoder
@@ -128,6 +131,7 @@ class WeakSet(Dataset):
         self.train = train
         self.return_filename = return_filename
         self.max_n_sources = max_n_sources
+        self.random_channel = random_channel
 
         examples = {}
         for i, r in tsv_entries.iterrows():
@@ -148,7 +152,7 @@ class WeakSet(Dataset):
         file = self.examples_list[item]
         c_ex = self.examples[file]
         mixture, fs = sf.read(c_ex["mixture"])
-        mixture = to_mono(mixture, self.train)
+        mixture = to_mono(mixture, self.random_channel)
         if self.pad_to is not None:
             mixture, padded_indx = pad_audio(mixture, self.pad_to)
         else:
@@ -189,6 +193,7 @@ class UnlabelledSet(Dataset):
         train=True,
         max_n_sources=None,
         return_filename=False,
+        random_channel=False
     ):
 
         self.encoder = encoder
@@ -198,6 +203,7 @@ class UnlabelledSet(Dataset):
         self.train = train
         self.return_filename = return_filename
         self.max_n_sources = max_n_sources
+        self.random_channel = random_channel
 
     def __len__(self):
         return len(self.examples)
@@ -205,7 +211,7 @@ class UnlabelledSet(Dataset):
     def __getitem__(self, item):
         c_ex = self.examples[item]
         mixture, fs = sf.read(c_ex)
-        mixture = to_mono(mixture, self.train)
+        mixture = to_mono(mixture, self.random_channel)
         if self.pad_to is not None:
             mixture, padded_indx = pad_audio(mixture, self.pad_to)
         else:

@@ -26,16 +26,16 @@ scaler:
   savepath: ./scaler.ckpt
 data:
   synth_folder: "../../data/dcase2020/audio/train/synthetic20_train/soundscapes_16k/"
-  synth_tsv:  "../../data/dcase2020/metadata/train/synhtetic20_train/soundscapes.tsv"
+  synth_tsv:  "../../data/dcase2020/metadata/train/synthetic20_train/soundscapes.tsv"
   weak_folder: "../../data/dcase2021/dataset/audio/train/weak_16k/"
   weak_tsv: "../../data/dcase2021/dataset/metadata/train/weak.tsv"
   unlabeled_folder: "../../data/dcase2021/dataset/audio/train/unlabel_in_domain_16k/"
   synth_val_folder: "../../data/dcase2020/audio/validation/synthetic20_validation/soundscapes_16k/"
-  synth_val_tsv:  "../../data/dcase2020/metadata/validation/synhtetic20_validation/soundscapes.tsv"
-  synth_val_dur: "../../data/dcase2020/metadata/validation/synhtetic20_validation/durations.tsv"
-  test_folder: "/disks/disk1/dcase/dataset/audio/validation_16k/"
-  test_tsv: "/disks/disk1/dcase/dataset/metadata/validation/validation.tsv"
-  test_dur: "/disks/disk1/dcase/dataset/metadata/validation/validation_durations.tsv"
+  synth_val_tsv:  "../../data/dcase2020/metadata/validation/synthetic20_validation/soundscapes.tsv"
+  synth_val_dur: "../../data/dcase2020/metadata/validation/synthetic20_validation/durations.tsv"
+  test_folder: "../../data/dcase2021/dataset/audio/validation/validation_16k/"
+  test_tsv: "../../data/dcase2021/dataset/metadata/validation/validation.tsv"
+  test_dur: "../../data/dcase2021/dataset/metadata/validation/validation_durations.tsv"
   audio_max_len: 10
   fs: 16000
   net_subsample: 4

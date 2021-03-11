@@ -27,9 +27,10 @@ parser.add_argument("--conf_file", default="./confs/sed.yaml")
 parser.add_argument("--log_dir", default="./exp/sed_new")
 parser.add_argument("--resume_from_checkpoint", default="")
 parser.add_argument("--gpus", default="0")
+parser.add_argument("--dev_try_run", action="store_true", default=False)
 
 
-def single_run(config, log_dir, gpus, checkpoint_resume=""):
+def single_run(config, log_dir, gpus, checkpoint_resume="", dev_try_run=False):
 
     config.update({"log_dir": log_dir})
 
@@ -38,7 +39,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         list(classes_labels.keys()),
         audio_len=config["data"]["audio_max_len"],
         frame_len=config["feats"]["n_filters"],
-        frame_hop=config["feats"]["stride"],
+        frame_hop=config["feats"]["hop_length"],
         net_pooling=config["data"]["net_subsample"],
         fs=config["data"]["fs"],
     )
@@ -144,15 +145,26 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         test_dataset,
         batch_sampler,
         exp_scheduler,
+        dev_try_run=dev_try_run,
     )
 
     logger = TensorBoardLogger(
         os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
     )
 
+    if dev_try_run:
+        limit_train_batches = 2
+        limit_val_batches = 2
+        limit_test_batches = 2
+    else:
+        limit_train_batches = 1.
+        limit_val_batches = 1.
+        limit_test_batches = 1.
+
     checkpoint_resume = None if len(checkpoint_resume) == 0 else checkpoint_resume
+    n_epochs = config["training"]["n_epochs"] if not dev_try_run else 3
     trainer = pl.Trainer(
-        max_epochs=config["training"]["n_epochs"],
+        max_epochs=n_epochs,
         callbacks=[
             EarlyStopping(
                 monitor="val/obj_metric",
@@ -168,6 +180,9 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
         gradient_clip_val=config["training"]["gradient_clip"],
         check_val_every_n_epoch=config["training"]["validation_interval"],
         num_sanity_val_steps=0,
+        limit_train_batches=limit_train_batches,
+        limit_val_batches=limit_val_batches,
+        limit_test_batches=limit_test_batches,
     )
 
     trainer.fit(desed_training)
@@ -187,4 +202,4 @@ if __name__ == "__main__":
         np.random.seed(seed)
         random.seed(seed)
 
-    single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint)
+    single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint, args.dev_try_run)

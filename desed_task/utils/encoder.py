@@ -30,8 +30,11 @@ class ManyHotEncoder:
         self.fs = fs
         self.net_pooling = net_pooling
         n_frames = self.audio_len * self.fs
+        # self.n_frames = int(
+        #     int(((n_frames - self.frame_len) / self.frame_hop)) / self.net_pooling
+        # )
         self.n_frames = int(
-            int(((n_frames - self.frame_len) / self.frame_hop)) / self.net_pooling
+            int((n_frames / self.frame_hop)) / self.net_pooling
         )
 
     def encode_weak(self, labels):
