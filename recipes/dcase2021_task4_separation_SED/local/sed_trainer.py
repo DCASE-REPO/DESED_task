@@ -111,7 +111,7 @@ class SEDTask4_2021(pl.LightningModule):
             scaler = TorchScaler(
                 "instance", "minmax", self.hparams["scaler"]["dims"]
             )
-            return self.scaler
+            return scaler
         elif self.hparams["scaler"]["statistic"] == "dataset":
             # we fit the scaler
             scaler = TorchScaler(
@@ -119,7 +119,6 @@ class SEDTask4_2021(pl.LightningModule):
                 self.hparams["scaler"]["normtype"],
                 self.hparams["scaler"]["dims"],
             )
-
         else:
             raise NotImplementedError
         if self.hparams["scaler"]["savepath"] is not None:
