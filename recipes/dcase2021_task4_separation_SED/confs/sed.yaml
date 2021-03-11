@@ -20,19 +20,19 @@ training:
   weak_split: 0.9
   seed: 28
 scaler:
-  statistic: instance
-  normtype: minmax
-  dims: [1, 2]
+  statistic: dataset
+  normtype: mvn
+  dims: [0, 2]
   savepath: ./scaler.ckpt
 data:
-  synth_folder: "/home/scornell/dcase21/egs/iterative_sed_sep/new_synth/audio/train/synthetic21_train/soundscapes_16k/"
-  synth_tsv:  "/home/scornell/dcase21/egs/iterative_sed_sep/new_synth/metadata/train/synhtetic21_train/soundscapes.tsv"
-  weak_folder: "/disks/disk1/dcase/dataset/audio/train/weak_16k/"
-  weak_tsv: "/disks/disk1/dcase/dataset/metadata/train/weak.tsv"
-  unlabeled_folder: "/disks/disk1/dcase/dataset/audio/train/unlabel_in_domain_16k/"
-  synth_val_folder: "/home/scornell/dcase21/egs/iterative_sed_sep/new_synth/audio/validation/synthetic21_validation/soundscapes_16k/"
-  synth_val_tsv:  "/home/scornell/dcase21/egs/iterative_sed_sep/new_synth/metadata/validation/synhtetic21_validation/soundscapes.tsv"
-  synth_val_dur: "./durations_tsv/synth_val_durations.tsv"
+  synth_folder: "../../data/dcase2020/audio/train/synthetic20_train/soundscapes_16k/"
+  synth_tsv:  "../../data/dcase2020/metadata/train/synhtetic20_train/soundscapes.tsv"
+  weak_folder: "../../data/dcase2021/dataset/audio/train/weak_16k/"
+  weak_tsv: "../../data/dcase2021/dataset/metadata/train/weak.tsv"
+  unlabeled_folder: "../../data/dcase2021/dataset/audio/train/unlabel_in_domain_16k/"
+  synth_val_folder: "../../data/dcase2020/audio/validation/synthetic20_validation/soundscapes_16k/"
+  synth_val_tsv:  "../../data/dcase2020/metadata/validation/synhtetic20_validation/soundscapes.tsv"
+  synth_val_dur: "../../data/dcase2020/metadata/validation/synhtetic20_validation/durations.tsv"
   test_folder: "/disks/disk1/dcase/dataset/audio/validation_16k/"
   test_tsv: "/disks/disk1/dcase/dataset/metadata/validation/validation.tsv"
   test_dur: "/disks/disk1/dcase/dataset/metadata/validation/validation_durations.tsv"
@@ -44,8 +44,9 @@ opt:
 feats:
   n_mels: 128
   n_filters: 2048
-  kernel_size: 2048
-  stride: 256
+  #  kernel_size: 2048
+  hop_length: 256
+  n_window: 2048
   sample_rate: 16000
   f_min: 0
   f_max: 8000
