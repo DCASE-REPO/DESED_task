@@ -4,9 +4,9 @@ from pathlib import Path
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 
 from desed_task.data_augm import add_noise
-from desed_task.features import Fbanks
 from desed_task.utils.scaler import TorchScaler
 import numpy as np
 
@@ -54,7 +54,20 @@ class SEDTask4_2021(pl.LightningModule):
         else:
             raise NotImplementedError
 
-        self.feats = Fbanks(**self.hparams["feats"], log=False)
+        feat_params = self.hparams["feats"]
+        self.mel_spec = MelSpectrogram(
+            sample_rate=feat_params["sample_rate"],
+            n_fft=feat_params["n_window"],
+            win_length=feat_params["n_window"],
+            hop_length=feat_params["hop_length"],
+            f_min=feat_params["f_min"],
+            f_max=feat_params["f_max"],
+            n_mels=feat_params["n_mels"],
+            window_fn=torch.hamming_window,
+            wkwargs={"periodic": False},
+            power=1,
+        )
+        # self.feats = Fbanks(**self.hparams["feats"], log=False)
 
         # for weak labels we simply compute f1 score
         self.get_weak_student_f1_seg_macro = pl.metrics.classification.F1(
@@ -133,7 +146,7 @@ class SEDTask4_2021(pl.LightningModule):
 
         self.train_loader = self.train_dataloader()
         scaler.fit(
-            self.train_loader, transform_func=lambda x: self.take_log(self.feats(x[0]))
+            self.train_loader, transform_func=lambda x: self.take_log(self.mel_spec(x[0]))
         )
 
         if self.hparams["scaler"]["savepath"] is not None:
@@ -147,13 +160,14 @@ class SEDTask4_2021(pl.LightningModule):
 
     def take_log(self, mels):
 
-        return Fbanks.take_log(mels)
+        amp_to_db = AmplitudeToDB(stype='amplitude')
+        return amp_to_db(mels)
 
     def training_step(self, batch, batch_indx):
 
         audio, labels, padded_indxs = batch
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
-        features = self.feats(audio)
+        features = self.mel_spec(audio)
 
         batch_num = features.shape[0]
         # deriving masks for each dataset
@@ -243,7 +257,7 @@ class SEDTask4_2021(pl.LightningModule):
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        logmels = self.scaler(self.take_log(self.feats(audio)))
+        logmels = self.scaler(self.take_log(self.mel_spec(audio)))
         strong_preds_student, weak_preds_student = self.sed_student(logmels)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.sed_teacher(logmels)
@@ -438,10 +452,11 @@ class SEDTask4_2021(pl.LightningModule):
         )[0]
 
         obj_metric = torch.tensor(
-            -max(
-                weak_student_seg_macro.item() + psds_f1_macro_student,
-                weak_teacher_seg_macro.item() + psds_f1_macro_teacher,
-            )
+            # -max(
+            #     weak_student_seg_macro.item() + psds_f1_macro_student,
+            #     weak_teacher_seg_macro.item() + psds_f1_macro_teacher,
+            # )
+            -(weak_student_seg_macro.item() + synth_student_event_macro)
         )
 
         self.log("val/obj_metric", obj_metric, prog_bar=True)
@@ -486,7 +501,7 @@ class SEDTask4_2021(pl.LightningModule):
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        logmels = self.scaler(self.take_log(self.feats(audio)))
+        logmels = self.scaler(self.take_log(self.mel_spec(audio)))
         strong_preds_student, weak_preds_student = self.sed_student(logmels)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.sed_teacher(logmels)
