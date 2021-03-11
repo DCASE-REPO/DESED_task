@@ -87,10 +87,10 @@ def _create_non_target_fg_dir(
     fuss_ids = [os.path.splitext(fname)[0] for fname in os.listdir(fuss_dir_split)]
 
     print("Creating non target dir ... Creating symlinks from FUSS dataset")
-    non_target_classes = pd.read_csv(non_target_tsv, sep="\t")
+    non_target_classes = pd.read_csv(non_target_tsv, sep="\t", index_col=0)
     converter = pd.read_csv(mid_to_class_tsv, sep="\t")
     fsd_gt_dev = pd.read_csv(
-        os.path.join(fsd50k_dir, "FSD50K.ground_truth/dev.csv"), sep=","
+        os.path.join(fsd50k_dir, "FSD50K.ground_truth/dev.csv"), sep=",", dtype=str
     )
 
     # One class per row
@@ -99,6 +99,7 @@ def _create_non_target_fg_dir(
 
     # Retrieve non target classes from FUSS/FSD
     fuss_df = fsd_gt_dev[fsd_gt_dev["fname"].isin(fuss_ids)]
+    assert len(fuss_df) > 0, "Impossible to filter non target files"
     non_target_fuss = fuss_df[fuss_df["mids"].isin(non_target_classes["mid"])]
 
     # Keep only files in the FSD corresponding set (train or valid)
@@ -272,7 +273,7 @@ def create_2021_soundbank(
     return soundbank_dirs
 
 
-def draw_file_nb(series_class):
+def draw_file_nb(series_class, random_state=None):
     """ Get the number of fpreground events from statistics.
 
     Args:
@@ -287,7 +288,7 @@ def draw_file_nb(series_class):
     sigma = series_class["std"]
     mu = series_class["mean"]
     a, b = (trunc_min - mu) / float(sigma), (trunc_max - mu) / float(sigma)
-    sample = scipy.stats.truncnorm.rvs(a, b, mu, sigma)
+    sample = scipy.stats.truncnorm.rvs(a, b, mu, sigma, random_state=random_state)
     return int(np.around(np.array(sample).item()))
 
 
@@ -389,7 +390,7 @@ def instantiate_soundscape(
     event_class = events_list[0]["label"][1]
 
     class_stats = event_dist.loc[event_dist["event_class"] == event_class].iloc[0]
-    nb_events = draw_file_nb(class_stats)
+    nb_events = draw_file_nb(class_stats, sc.random_state)
     event_cooc = event_cooc[event_class]
     event_cooc_dist = (
         event_cooc.to_frame()
@@ -761,6 +762,9 @@ if __name__ == "__main__":
     event_cooc_df = pd.read_csv(
         os.path.join(meta_classes_folder, "event_cooc.tsv"), sep="\t"
     )
+    # Allow reproducibility between machines
+    target_nb_df = target_nb_df.round(6)
+    event_cooc_df = event_cooc_df.round(6)
 
     for split_subset in ["train", "validation"]:
         t_gen = time.time()
