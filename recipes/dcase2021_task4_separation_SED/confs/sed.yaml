@@ -6,7 +6,7 @@ training:
   n_epochs_warmup: 50
   num_workers: 6
   n_epochs: 200
-  early_stop_patience: 10
+  early_stop_patience: 100
   accumulate_batches: 1
   gradient_clip: 0
   median_window: 7
@@ -23,7 +23,7 @@ scaler:
   statistic: dataset
   normtype: mvn
   dims: [0, 2]
-  savepath: ./scaler.ckpt
+  savepath: ./scaler_pad50.ckpt
 data:
   synth_folder: "../../data/dcase2020/audio/train/synthetic20_train/soundscapes_16k/"
   synth_tsv:  "../../data/dcase2020/metadata/train/synthetic20_train/soundscapes.tsv"

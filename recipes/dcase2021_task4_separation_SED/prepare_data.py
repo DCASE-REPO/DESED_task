@@ -34,3 +34,21 @@ generate_tsv_wav_durations(
 generate_tsv_wav_durations(
     synth_val_audio_folder, os.path.join(synth_audio_folder, "synth_val_durations.tsv")
 )
+
+
+### For synthetic data:
+import pandas as pd
+input_tsv = "../../data/dcase2020/metadata/validation/snthetic20_validation/soundscapes.tsv"
+output_tsv = "../../data/dcase2020/metadata/validation/snthetic20_validation/durations.tsv"
+os.makedirs(os.path.dirname(output_tsv), exist_ok=True)
+df = pd.read_csv(input_tsv, sep="\t")
+df_fname = df[["filename"]].drop_duplicates()
+df_fname["duration"] = 10.
+df_fname.to_csv(output_tsv, sep="\t", index=False)
+
+validation_folder = "../../data/dcase2021/metadata/validation/validation"
+output_tsv = "../../data/dcase2021/metadata/validation/validation_durations.tsv"
+os.makedirs(os.path.dirname(output_tsv), exist_ok=True)
+generate_tsv_wav_durations(
+    validation_folder, output_tsv
+)

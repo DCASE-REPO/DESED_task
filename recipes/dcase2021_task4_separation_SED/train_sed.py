@@ -27,10 +27,10 @@ parser.add_argument("--conf_file", default="./confs/sed.yaml")
 parser.add_argument("--log_dir", default="./exp/sed_new")
 parser.add_argument("--resume_from_checkpoint", default="")
 parser.add_argument("--gpus", default="0")
-parser.add_argument("--dev_try_run", action="store_true", default=False)
+parser.add_argument("--fast_dev_run", action="store_true", default=False)
 
 
-def single_run(config, log_dir, gpus, checkpoint_resume="", dev_try_run=False):
+def single_run(config, log_dir, gpus, checkpoint_resume="", fast_dev_run=False):
 
     config.update({"log_dir": log_dir})
 
@@ -49,12 +49,11 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", dev_try_run=False):
         config["data"]["synth_folder"],
         synth_df,
         encoder,
-        train=True,
         pad_to=config["data"]["audio_max_len"],
     )
 
     weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
-    train_weak_df = weak_df.sample(frac=config["training"]["weak_split"])
+    train_weak_df = weak_df.sample(frac=config["training"]["weak_split"], random_state=2021)
     valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
     train_weak_df = train_weak_df.reset_index(drop=True)
     weak_set = WeakSet(
@@ -75,7 +74,6 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", dev_try_run=False):
         config["data"]["synth_val_folder"],
         synth_df_val,
         encoder,
-        train=False,
         return_filename=True,
         pad_to=config["data"]["audio_max_len"],
     )
@@ -86,7 +84,6 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", dev_try_run=False):
         encoder,
         pad_to=config["data"]["audio_max_len"],
         return_filename=True,
-        train=False,
     )
 
     devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
@@ -94,7 +91,6 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", dev_try_run=False):
         config["data"]["test_folder"],
         devtest_df,
         encoder,
-        train=False,
         return_filename=True,
         pad_to=config["data"]["audio_max_len"],
     )
@@ -145,24 +141,15 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", dev_try_run=False):
         test_dataset,
         batch_sampler,
         exp_scheduler,
-        dev_try_run=dev_try_run,
+        fast_dev_run=fast_dev_run,
     )
 
     logger = TensorBoardLogger(
         os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
     )
 
-    if dev_try_run:
-        limit_train_batches = 2
-        limit_val_batches = 2
-        limit_test_batches = 2
-    else:
-        limit_train_batches = 1.
-        limit_val_batches = 1.
-        limit_test_batches = 1.
-
     checkpoint_resume = None if len(checkpoint_resume) == 0 else checkpoint_resume
-    n_epochs = config["training"]["n_epochs"] if not dev_try_run else 3
+    n_epochs = config["training"]["n_epochs"] if not fast_dev_run else 3
     trainer = pl.Trainer(
         max_epochs=n_epochs,
         callbacks=[
@@ -180,9 +167,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", dev_try_run=False):
         gradient_clip_val=config["training"]["gradient_clip"],
         check_val_every_n_epoch=config["training"]["validation_interval"],
         num_sanity_val_steps=0,
-        limit_train_batches=limit_train_batches,
-        limit_val_batches=limit_val_batches,
-        limit_test_batches=limit_test_batches,
+        fast_dev_run=fast_dev_run
     )
 
     trainer.fit(desed_training)
@@ -202,4 +187,4 @@ if __name__ == "__main__":
         np.random.seed(seed)
         random.seed(seed)
 
-    single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint, args.dev_try_run)
+    single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint, args.fast_dev_run)

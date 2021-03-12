@@ -31,7 +31,7 @@ class SEDTask4_2021(pl.LightningModule):
         test_data,
         train_sampler,
         scheduler,
-        dev_try_run=False
+        fast_dev_run=False,
     ):
         super(SEDTask4_2021, self).__init__()
         self.hparams = hparams
@@ -45,8 +45,8 @@ class SEDTask4_2021(pl.LightningModule):
         self.test_data = test_data
         self.train_sampler = train_sampler
         self.scheduler = scheduler
-        self.dev_try_run = dev_try_run
-        if self.dev_try_run:
+        self.fast_dev_run = fast_dev_run
+        if self.fast_dev_run:
             self.num_workers = 1
         else:
             self.num_workers = self.hparams["training"]["num_workers"]
@@ -166,7 +166,8 @@ class SEDTask4_2021(pl.LightningModule):
     def take_log(self, mels):
 
         amp_to_db = AmplitudeToDB(stype='amplitude')
-        return amp_to_db(mels)
+        amp_to_db.amin = 1e-5 # amin= 1e-5 as in librosa
+        return amp_to_db(mels).clamp(min=-50, max=80)  # clamp to reproduce old code
 
     def training_step(self, batch, batch_indx):
 
@@ -217,7 +218,6 @@ class SEDTask4_2021(pl.LightningModule):
             loss_weak_teacher = self.supervised_loss(
                 weak_preds_teacher[weak_mask], labels_weak
             )
-
         # we apply consistency between the predictions
         weight = (
             self.hparams["training"]["const_max"]
@@ -258,7 +258,6 @@ class SEDTask4_2021(pl.LightningModule):
         )
 
     def validation_step(self, batch, batch_indx):
-
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
@@ -351,7 +350,7 @@ class SEDTask4_2021(pl.LightningModule):
             for th in self.val_buffer_student_synth.keys():
                 self.val_buffer_student_synth[th] = self.val_buffer_student_synth[
                     th
-                ].append(decoded_student_strong[th])
+                ].append(decoded_student_strong[th], ignore_index=True)
 
             decoded_teacher_strong = batched_decode_preds(
                 strong_preds_teacher[mask_synth],
@@ -363,7 +362,7 @@ class SEDTask4_2021(pl.LightningModule):
             for th in self.val_buffer_teacher_synth.keys():
                 self.val_buffer_teacher_synth[th] = self.val_buffer_teacher_synth[
                     th
-                ].append(decoded_teacher_strong[th])
+                ].append(decoded_teacher_strong[th], ignore_index=True)
 
         if torch.any(mask_devtest):
             loss_strong_student = self.supervised_loss(
@@ -393,7 +392,7 @@ class SEDTask4_2021(pl.LightningModule):
             for th in self.val_buffer_student_test.keys():
                 self.val_buffer_student_test[th] = self.val_buffer_student_test[
                     th
-                ].append(decoded_student_strong[th])
+                ].append(decoded_student_strong[th], ignore_index=True)
 
             decoded_teacher_strong = batched_decode_preds(
                 strong_preds_teacher[mask_devtest],
@@ -405,12 +404,11 @@ class SEDTask4_2021(pl.LightningModule):
             for th in self.val_buffer_teacher_test.keys():
                 self.val_buffer_teacher_test[th] = self.val_buffer_teacher_test[
                     th
-                ].append(decoded_teacher_strong[th])
+                ].append(decoded_teacher_strong[th], ignore_index=True)
 
         return
 
     def validation_epoch_end(self, outputs):
-
         weak_student_seg_macro = self.get_weak_student_f1_seg_macro.compute()
         weak_teacher_seg_macro = self.get_weak_teacher_f1_seg_macro.compute()
 
@@ -463,7 +461,6 @@ class SEDTask4_2021(pl.LightningModule):
             # )
             -(weak_student_seg_macro.item() + synth_student_event_macro)
         )
-
         self.log("val/obj_metric", obj_metric, prog_bar=True)
         self.log("val/weak/student/segment_macro_F1", weak_student_seg_macro)
         self.log("val/weak/teacher/segment_macro_F1", weak_teacher_seg_macro)
@@ -529,7 +526,7 @@ class SEDTask4_2021(pl.LightningModule):
         for th in self.test_psds_buffer_student.keys():
             self.test_psds_buffer_student[th] = self.test_psds_buffer_student[
                 th
-            ].append(decoded_student_strong[th])
+            ].append(decoded_student_strong[th], ignore_index=True)
 
         decoded_teacher_strong = batched_decode_preds(
             strong_preds_teacher,
@@ -542,7 +539,7 @@ class SEDTask4_2021(pl.LightningModule):
         for th in self.test_psds_buffer_teacher.keys():
             self.test_psds_buffer_teacher[th] = self.test_psds_buffer_teacher[
                 th
-            ].append(decoded_teacher_strong[th])
+            ].append(decoded_teacher_strong[th], ignore_index=True)
 
         # compute f1 score
         decoded_student_strong = batched_decode_preds(
@@ -572,7 +569,7 @@ class SEDTask4_2021(pl.LightningModule):
     def on_test_epoch_end(self):
 
         # pub eval dataset
-        save_dir = os.path.join(self.logger.log_dir, "metrics_test")
+        save_dir = os.path.join(self.hparams["log_dir"], "metrics_test")
 
         (
             psds_score,

@@ -39,7 +39,6 @@ class StronglyAnnotatedSet(Dataset):
         pad_to=10,
         fs=16000,
         return_filename=False,
-        train=False,
         random_channel=False
     ):
 
@@ -47,7 +46,6 @@ class StronglyAnnotatedSet(Dataset):
         self.fs = fs
         self.pad_to = pad_to * fs
         self.return_filename = return_filename
-        self.train = train
         self.random_channel = random_channel
 
         # annotation = pd.read_csv(tsv_file, sep="\t")
@@ -119,7 +117,6 @@ class WeakSet(Dataset):
         encoder,
         pad_to=10,
         fs=16000,
-        train=True,
         return_filename=False,
         max_n_sources=None,
         random_channel=False
@@ -128,7 +125,6 @@ class WeakSet(Dataset):
         self.encoder = encoder
         self.fs = fs
         self.pad_to = pad_to * fs
-        self.train = train
         self.return_filename = return_filename
         self.max_n_sources = max_n_sources
         self.random_channel = random_channel
@@ -190,7 +186,6 @@ class UnlabelledSet(Dataset):
         encoder,
         pad_to=10,
         fs=16000,
-        train=True,
         max_n_sources=None,
         return_filename=False,
         random_channel=False
@@ -200,7 +195,6 @@ class UnlabelledSet(Dataset):
         self.fs = fs
         self.pad_to = pad_to * fs
         self.examples = glob.glob(os.path.join(unlabeled_folder, "*.wav"))
-        self.train = train
         self.return_filename = return_filename
         self.max_n_sources = max_n_sources
         self.random_channel = random_channel
