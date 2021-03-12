@@ -186,7 +186,6 @@ def single_run(config, log_dir, gpus, checkpoint_resume=""):
 if __name__ == "__main__":
 
     args = parser.parse_args()
-    print("Synthetic 2020 split, instance minmax")
 
     with open(args.conf_file, "r") as f:
         configs = yaml.load(f)
