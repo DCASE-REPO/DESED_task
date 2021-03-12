@@ -90,6 +90,7 @@ class SEDTask4_2021(pl.LightningModule):
         }
 
         test_n_thresholds = self.hparams["training"]["n_test_thresholds"]
+
         test_thresholds = np.arange(
             1 / (test_n_thresholds * 2), 1, 1 / test_n_thresholds
         )
@@ -126,9 +127,8 @@ class SEDTask4_2021(pl.LightningModule):
         """
 
         if self.hparams["scaler"]["statistic"] == "instance":
-            scaler = TorchScaler(
-                "instance", "minmax", self.hparams["scaler"]["dims"]
-            )
+            scaler = TorchScaler("instance", "minmax", self.hparams["scaler"]["dims"])
+
             return scaler
         elif self.hparams["scaler"]["statistic"] == "dataset":
             # we fit the scaler
