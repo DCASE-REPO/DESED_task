@@ -21,6 +21,14 @@ class TorchScaler(torch.nn.Module):
         self.eps = eps
 
     def fit(self, dataloader, transform_func=lambda x: x[0]):
+        """
+        Scaler fitting
+
+        Args:
+            dataloader (DataLoader): training data DataLoader
+            transform_func (lambda function, optional): Transforms applied to the data.
+                Defaults to lambdax:x[0].
+        """
         indx = 0
         for batch in tqdm.tqdm(dataloader):
 

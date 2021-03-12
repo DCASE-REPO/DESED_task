@@ -26,6 +26,7 @@ class CRNN(nn.Module):
     ):
         """
             Initialization of CRNN model
+        
         Args:
             n_in_channel: int, number of input channel
             n_class: int, number of classes
@@ -38,6 +39,7 @@ class CRNN(nn.Module):
             n_layer_RNN: int, number of RNN layers
             dropout_recurrent: float, recurrent layers dropout
             cnn_integration: bool, integration of cnn
+            freeze_bn: 
             **kwargs: keywords arguments for CNN.
         """
         super(CRNN, self).__init__()

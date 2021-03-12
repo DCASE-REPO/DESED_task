@@ -170,11 +170,13 @@ def parse_jams(jams_list, encoder, out_json):
 def generate_tsv_wav_durations(audio_dir, out_tsv):
     """
         Generate a dataframe with filename and duration of the file
+    
     Args:
         audio_dir: str, the path of the folder where audio files are (used by glob.glob)
         out_tsv: str, the path of the output tsv file
+    
     Returns:
-        meta_df: pd.DataFrame, the dataframe containing filenames and durations
+        pd.DataFrame: the dataframe containing filenames and durations
     """
     meta_list = []
     for file in glob.glob(os.path.join(audio_dir, "*.wav")):

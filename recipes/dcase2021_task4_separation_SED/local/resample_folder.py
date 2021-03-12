@@ -25,7 +25,7 @@ def resample(audio, orig_fs, target_fs):
     original sample rate are different. 
 
     Args:
-        audio (Tensor): audio to resamplee
+        audio (Tensor): audio to resample 
         orig_fs (int): original sample rate 
         target_fs (int): target sample rate
 
@@ -47,8 +47,8 @@ def resample_folder(in_dir, out_dir, target_fs=16000, regex="*.wav"):
     Resamples the audio files contained in the in_dir folder and saves them in out_dir folder
 
     Args:
-        in_dir (str): path to audio input directory
-        out_dir (str): path to audio resampled output directory
+        in_dir (str): path to audio directory (audio to be resampled)
+        out_dir (str): path to audio resampled directory
         target_fs (int, optional): target sample rate. Defaults to 16000.
         regex (str, optional): regular expression for extension of file. Defaults to "*.wav".
     """
