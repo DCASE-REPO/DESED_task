@@ -15,10 +15,10 @@ training:
   ema_factor: 0.999
   self_sup_loss: mse
   backend:
-  noise_snr: [12, 15]
-  validation_interval: 1
+  noise_snr: [6, 30]
+  validation_interval: 10
   weak_split: 0.9
-  seed: 28
+  seed: 42
 scaler:
   statistic: instance
   normtype: minmax
