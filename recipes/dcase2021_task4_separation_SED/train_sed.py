@@ -1,37 +1,27 @@
 import argparse
+from copy import deepcopy
+import numpy as np
 import os
-
-import pytorch_lightning as pl
+import pandas as pd
+import random
 import torch
 import yaml
-from pytorch_lightning.callbacks import EarlyStopping
+
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
-
-
-from local.sed_trainer import SEDTask4_2021
-import random
-import numpy as np
 
 from desed_task.dataio import ConcatDatasetBatchSampler
 from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabelledSet, WeakSet
 from desed_task.nnet.CRNN import CRNN
 from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
+
 from local.classes_dict import classes_labels
-import pandas as pd
-from copy import deepcopy
+from local.sed_trainer import SEDTask4_2021
 
 
-parser = argparse.ArgumentParser("Training a SED system for DESED Task")
-parser.add_argument("--conf_file", default="./confs/sed.yaml")
-parser.add_argument("--log_dir", default="./exp/sed_new")
-parser.add_argument("--resume_from_checkpoint", default="")
-parser.add_argument("--gpus", default="0")
-parser.add_argument("--fast_dev_run", action="store_true", default=False)
-
-
-def single_run(config, log_dir, gpus, checkpoint_resume="", fast_dev_run=False):
-
+def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoint=None, fast_dev_run=False):
     config.update({"log_dir": log_dir})
 
     ##### data prep ##########
@@ -53,7 +43,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", fast_dev_run=False):
     )
 
     weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
-    train_weak_df = weak_df.sample(frac=config["training"]["weak_split"], random_state=2021)
+    train_weak_df = weak_df.sample(frac=config["training"]["weak_split"], random_state=config["training"]["seed"])
     valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
     train_weak_df = train_weak_df.reset_index(drop=True)
     weak_set = WeakSet(
@@ -122,8 +112,10 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", fast_dev_run=False):
 
     sed_student = CRNN(**config["net"])
     sed_teacher = deepcopy(sed_student)
+    for param in sed_teacher.parameters():
+        param.detach_()
 
-    opt = torch.optim.Adam(sed_student.parameters(), 1e-8, betas=(0.9, 0.999))
+    opt = torch.optim.Adam(sed_student.parameters(), 1e-3, betas=(0.9, 0.999))
     exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
     exp_scheduler = {
         "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps),
@@ -148,7 +140,6 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", fast_dev_run=False):
         os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
     )
 
-    checkpoint_resume = None if len(checkpoint_resume) == 0 else checkpoint_resume
     n_epochs = config["training"]["n_epochs"] if not fast_dev_run else 3
     trainer = pl.Trainer(
         max_epochs=n_epochs,
@@ -158,6 +149,11 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", fast_dev_run=False):
                 patience=config["training"]["early_stop_patience"],
                 verbose=True,
             ),
+            ModelCheckpoint(
+                logger.save_dir,
+                monitor="val/obj_metric",
+                save_top_k=1
+            )
         ],
         gpus=gpus,
         distributed_backend=config["training"]["backend"],
@@ -169,13 +165,22 @@ def single_run(config, log_dir, gpus, checkpoint_resume="", fast_dev_run=False):
         num_sanity_val_steps=0,
         fast_dev_run=fast_dev_run
     )
-
-    trainer.fit(desed_training)
+    if test_from_checkpoint is None:
+        trainer.fit(desed_training)
+    else:
+        checkpoint = torch.load(test_from_checkpoint)
+        desed_training.on_load_checkpoint(checkpoint)
     trainer.test(desed_training)
 
 
 if __name__ == "__main__":
-
+    parser = argparse.ArgumentParser("Training a SED system for DESED Task")
+    parser.add_argument("--conf_file", default="./confs/sed.yaml")
+    parser.add_argument("--log_dir", default="./exp/sed_new")
+    parser.add_argument("--resume_from_checkpoint", default=None)
+    parser.add_argument("--test_from_checkpoint", default=None)
+    parser.add_argument("--gpus", default="0")
+    parser.add_argument("--fast_dev_run", action="store_true", default=False)
     args = parser.parse_args()
 
     with open(args.conf_file, "r") as f:
@@ -186,5 +191,7 @@ if __name__ == "__main__":
         torch.random.manual_seed(seed)
         np.random.seed(seed)
         random.seed(seed)
+        pl.seed_everything(seed)
 
-    single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint, args.fast_dev_run)
+    single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint, args.test_from_checkpoint,
+               args.fast_dev_run)

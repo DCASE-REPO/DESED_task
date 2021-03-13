@@ -6,9 +6,9 @@ training:
   n_epochs_warmup: 50
   num_workers: 6
   n_epochs: 200
-  early_stop_patience: 100
+  early_stop_patience: 200
   accumulate_batches: 1
-  gradient_clip: 0
+  gradient_clip: 0.
   median_window: 7
   val_thresholds: [0.5]
   n_test_thresholds: 50
@@ -18,7 +18,7 @@ training:
   noise_snr: [12, 15]
   validation_interval: 1
   weak_split: 0.9
-  seed: 28
+  seed: 42
 scaler:
   statistic: dataset
   normtype: mvn

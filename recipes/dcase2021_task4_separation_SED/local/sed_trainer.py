@@ -122,7 +122,7 @@ class SEDTask4_2021(pl.LightningModule):
         # Use the true average until the exponential average is more correct
         alpha = min(1 - 1 / (global_step + 1), alpha)
         for ema_params, params in zip(ema_model.parameters(), model.parameters()):
-            ema_params.data.mul_(alpha).add_(params.data, alpha=1 - alpha)
+            ema_params.data.mul_(alpha).add_(1 - alpha, params.data)
 
     def _init_scaler(self):
         if self.hparams["scaler"]["statistic"] == "instance":
@@ -170,7 +170,6 @@ class SEDTask4_2021(pl.LightningModule):
         return amp_to_db(mels).clamp(min=-50, max=80)  # clamp to reproduce old code
 
     def training_step(self, batch, batch_indx):
-
         audio, labels, padded_indxs = batch
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
         features = self.mel_spec(audio)
@@ -188,7 +187,8 @@ class SEDTask4_2021(pl.LightningModule):
         strong_preds_student, weak_preds_student = self.sed_student(
             self.scaler(
                 self.take_log(
-                    add_noise(features, self.hparams["training"]["noise_snr"])
+                    features
+                    # add_noise(features, self.hparams["training"]["noise_snr"])
                 )
             )
         )
@@ -205,11 +205,12 @@ class SEDTask4_2021(pl.LightningModule):
         with torch.no_grad():
             ema_features = self.scaler(
                 self.take_log(
-                    add_noise(features, self.hparams["training"]["noise_snr"])
+                    features
+                    # add_noise(features, self.hparams["training"]["noise_snr"])
                 )
             )
             strong_preds_teacher, weak_preds_teacher = self.sed_teacher(
-                self.scaler(ema_features)
+                ema_features
             )
             loss_strong_teacher = self.supervised_loss(
                 strong_preds_teacher[strong_mask], labels[strong_mask]
@@ -499,7 +500,6 @@ class SEDTask4_2021(pl.LightningModule):
         return checkpoint
 
     def test_step(self, batch, batch_indx):
-
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
@@ -569,7 +569,11 @@ class SEDTask4_2021(pl.LightningModule):
     def on_test_epoch_end(self):
 
         # pub eval dataset
-        save_dir = os.path.join(self.hparams["log_dir"], "metrics_test")
+        try:
+            log_dir = self.logger.log_dir
+        except Exception as e:
+            log_dir = self.hparams["log_dir"]
+        save_dir = os.path.join(log_dir, "metrics_test")
 
         (
             psds_score,
