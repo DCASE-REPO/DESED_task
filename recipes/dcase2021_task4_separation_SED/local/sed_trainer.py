@@ -1,4 +1,5 @@
 import os
+import random
 from pathlib import Path
 
 import pandas as pd
@@ -6,7 +7,7 @@ import pytorch_lightning as pl
 import torch
 from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 
-from desed_task.data_augm import add_noise
+from desed_task.data_augm import add_noise, mixup
 from desed_task.utils.scaler import TorchScaler
 import numpy as np
 
@@ -180,8 +181,15 @@ class SEDTask4_2021(pl.LightningModule):
         weak_mask = torch.zeros(batch_num).to(features).bool()
         strong_mask[:indx_synth] = 1
         weak_mask[indx_synth : indx_weak + indx_synth] = 1
+
         # deriving weak labels
         labels_weak = (torch.sum(labels[weak_mask], -1) > 0).float()
+
+        mixup_type = self.hparams["training"]["mixup"]
+        if mixup_type is not None and 0.5 > random.random():
+            features[weak_mask], labels_weak = mixup(features[weak_mask], labels_weak, mixup_type=mixup_type)
+            features[strong_mask], labels[strong_mask] = mixup(features[strong_mask], labels[strong_mask], mixup_type=mixup_type)
+
 
         # sed student forward
         strong_preds_student, weak_preds_student = self.sed_student(

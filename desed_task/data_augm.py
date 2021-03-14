@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import random
 
@@ -14,27 +15,53 @@ def frame_shift(mels, labels, net_pooling=4):
     return torch.stack(shifted), torch.stack(new_labels)
 
 
-def mixup(audio_tensors, labels, alpha=2, beta=8, mixup_type="soft"):
+# def mixup(audio_tensors, labels, alpha=2, beta=8, mixup_type="soft"):
+#
+#     assert mixup_type in ["soft", "hard"]
+#
+#     audio1, audio2 = torch.chunk(audio_tensors, 2, dim=0)
+#     lab1, lab2 = torch.chunk(labels, 2, dim=0)
+#
+#     gains = (
+#         torch.tensor([random.betavariate(alpha, beta) for x in range(audio2.shape[0])])
+#         .to(audio1)
+#         .reshape(-1, 1, 1)
+#     )
+#     mixed = audio1 * gains + audio2 * (1 - gains)
+#     if mixup_type == "soft":
+#         new_labels = torch.clamp(lab1 * gains + lab2 * (1 - gains), min=0, max=1)
+#     elif mixup_type == "hard":
+#         new_labels = torch.clamp(lab1 + lab2, min=0, max=1)
+#     else:
+#         raise NotImplementedError
+#
+#     return mixed, new_labels
 
-    assert mixup_type in ["soft", "hard"]
 
-    audio1, audio2 = torch.chunk(audio_tensors, 2, dim=0)
-    lab1, lab2 = torch.chunk(labels, 2, dim=0)
+def mixup(data, target=None, alpha=0.2, mixup_type="soft"):
+    """Mixup data augmentation
+    https://arxiv.org/abs/1710.09412
+    Apply the same parameter for data and data_ema since to obtain the same target
+    Args:
+        data: input tensor for the student model
+        target: tensor of the target to be mixed, if None, do not return targets.
+    """
+    with torch.no_grad():
+        batch_size = data.size(0)
+        c = np.random.beta(alpha, alpha)
 
-    gains = (
-        torch.tensor([random.betavariate(alpha, beta) for x in range(audio2.shape[0])])
-        .to(audio1)
-        .reshape(-1, 1, 1)
-    )
-    mixed = audio1 * gains + audio2 * (1 - gains)
-    if mixup_type == "soft":
-        new_labels = torch.clamp(lab1 * gains + lab2 * (1 - gains), min=0, max=1)
-    elif mixup_type == "hard":
-        new_labels = torch.clamp(lab1 + lab2, min=0, max=1)
-    else:
-        raise NotImplementedError
+        perm = torch.randperm(batch_size)
 
-    return mixed, new_labels
+        mixed_data = c * data + (1 - c) * data[perm, :]
+        if target is not None:
+            if mixup_type == "soft":
+                mixed_target = torch.clamp(c * target + (1 - c) * target[perm, :], min=0, max=1)
+            elif mixup_type == "hard":
+                mixed_target = torch.clamp(target + target[perm, :], min=0, max=1)
+
+            return mixed_data, mixed_target
+        else:
+            return mixed_data
 
 
 def add_noise(mels, snrs=(6, 30)):
