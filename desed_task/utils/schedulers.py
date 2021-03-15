@@ -10,6 +10,7 @@ class ExponentialWarmup(BaseScheduler):
         rampup_length: int, the length of the rampup (number of steps).
         exponent: float, the exponent to be used.
     """
+
     def __init__(self, optimizer, max_lr, rampup_length, exponent=-5.0):
         super().__init__(optimizer)
         self.rampup_len = rampup_length

@@ -24,16 +24,33 @@ from local.utils import generate_tsv_wav_durations
 
 
 def resample_data_generate_durations(config_data):
-    dsets = ["synth_folder", "synth_val_folder", "weak_folder", "unlabeled_folder", "test_folder"]
+    dsets = [
+        "synth_folder",
+        "synth_val_folder",
+        "weak_folder",
+        "unlabeled_folder",
+        "test_folder",
+    ]
     for dset in dsets:
-        computed = resample_folder(config_data[dset + "_44k"], config_data[dset], target_fs=config_data["fs"])
+        computed = resample_folder(
+            config_data[dset + "_44k"], config_data[dset], target_fs=config_data["fs"]
+        )
 
     for base_set in ["synth_val", "test"]:
         if not os.path.exists(config_data[base_set + "_dur"]) or computed:
-            generate_tsv_wav_durations(config_data[base_set + "_folder"], config_data[base_set + "_dur"])
+            generate_tsv_wav_durations(
+                config_data[base_set + "_folder"], config_data[base_set + "_dur"]
+            )
 
 
-def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoint=None, fast_dev_run=False):
+def single_run(
+    config,
+    log_dir,
+    gpus,
+    checkpoint_resume=None,
+    test_from_checkpoint=None,
+    fast_dev_run=False,
+):
     """
     Running sound event detection baselin
 
@@ -67,7 +84,9 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
     )
 
     weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
-    train_weak_df = weak_df.sample(frac=config["training"]["weak_split"], random_state=config["training"]["seed"])
+    train_weak_df = weak_df.sample(
+        frac=config["training"]["weak_split"], random_state=config["training"]["seed"]
+    )
     valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
     train_weak_df = train_weak_df.reset_index(drop=True)
     weak_set = WeakSet(
@@ -169,11 +188,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
                 patience=config["training"]["early_stop_patience"],
                 verbose=True,
             ),
-            ModelCheckpoint(
-                logger.log_dir,
-                monitor="val/obj_metric",
-                save_top_k=1
-            )
+            ModelCheckpoint(logger.log_dir, monitor="val/obj_metric", save_top_k=1),
         ],
         gpus=gpus,
         distributed_backend=config["training"].get("backend"),
@@ -183,7 +198,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
         gradient_clip_val=config["training"]["gradient_clip"],
         check_val_every_n_epoch=config["training"]["validation_interval"],
         num_sanity_val_steps=0,
-        fast_dev_run=fast_dev_run
+        fast_dev_run=fast_dev_run,
     )
     if test_from_checkpoint is None:
         trainer.fit(desed_training)
@@ -214,5 +229,11 @@ if __name__ == "__main__":
         pl.seed_everything(seed)
 
     resample_data_generate_durations(configs["data"])
-    single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint, args.test_from_checkpoint,
-               args.fast_dev_run)
+    single_run(
+        configs,
+        args.log_dir,
+        args.gpus,
+        args.resume_from_checkpoint,
+        args.test_from_checkpoint,
+        args.fast_dev_run,
+    )

@@ -149,8 +149,14 @@ def compute_sed_eval_metrics(predictions, groundtruth):
     return metric_event, metric_segment
 
 
-def compute_per_intersection_macro_f1(prediction_dfs, ground_truth_file, durations_file,
-                                      dtc_threshold=0.5, gtc_threshold=0.5, cttc_threshold=0.3):
+def compute_per_intersection_macro_f1(
+    prediction_dfs,
+    ground_truth_file,
+    durations_file,
+    dtc_threshold=0.5,
+    gtc_threshold=0.5,
+    cttc_threshold=0.3,
+):
     """ Compute F1-score per intersection, using the defautl
     Args:
         prediction_dfs: dict, a dictionary with thresholds keys and predictions dataframe
@@ -168,8 +174,13 @@ def compute_per_intersection_macro_f1(prediction_dfs, ground_truth_file, duratio
     gt = pd.read_csv(ground_truth_file, sep="\t")
     durations = pd.read_csv(durations_file, sep="\t")
 
-    psds = PSDSEval(ground_truth=gt, metadata=durations, dtc_threshold=dtc_threshold, gtc_threshold=gtc_threshold,
-                    cttc_threshold=cttc_threshold)
+    psds = PSDSEval(
+        ground_truth=gt,
+        metadata=durations,
+        dtc_threshold=dtc_threshold,
+        gtc_threshold=gtc_threshold,
+        cttc_threshold=cttc_threshold,
+    )
     psds_macro_f1 = []
     for threshold in prediction_dfs.keys():
         if not prediction_dfs[threshold].empty:
@@ -184,14 +195,27 @@ def compute_per_intersection_macro_f1(prediction_dfs, ground_truth_file, duratio
 
 
 def compute_psds_from_operating_points(
-    prediction_dfs, ground_truth_file, durations_file, dtc_threshold=0.5, gtc_threshold=0.5,
-        cttc_threshold=0.3, alpha_ct=0, alpha_st=0, max_efpr=100, save_dir=None
+    prediction_dfs,
+    ground_truth_file,
+    durations_file,
+    dtc_threshold=0.5,
+    gtc_threshold=0.5,
+    cttc_threshold=0.3,
+    alpha_ct=0,
+    alpha_st=0,
+    max_efpr=100,
+    save_dir=None,
 ):
 
     gt = pd.read_csv(ground_truth_file, sep="\t")
     durations = pd.read_csv(durations_file, sep="\t")
-    psds_eval = PSDSEval(ground_truth=gt, metadata=durations, dtc_threshold=dtc_threshold,
-                         gtc_threshold=gtc_threshold, cttc_threshold=cttc_threshold)
+    psds_eval = PSDSEval(
+        ground_truth=gt,
+        metadata=durations,
+        dtc_threshold=dtc_threshold,
+        gtc_threshold=gtc_threshold,
+        cttc_threshold=cttc_threshold,
+    )
 
     for i, k in enumerate(prediction_dfs.keys()):
         det = prediction_dfs[k]
@@ -207,13 +231,21 @@ def compute_psds_from_operating_points(
     if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
 
-        pred_dir = os.path.join(save_dir, f"predictions_dtc{dtc_threshold}_gtc{gtc_threshold}_cttc{cttc_threshold}")
+        pred_dir = os.path.join(
+            save_dir,
+            f"predictions_dtc{dtc_threshold}_gtc{gtc_threshold}_cttc{cttc_threshold}",
+        )
         os.makedirs(pred_dir, exist_ok=True)
         for k in prediction_dfs.keys():
             prediction_dfs[k].to_csv(
-                os.path.join(pred_dir, f"predictions_th_{k:.2f}.tsv"), sep="\t", index=False
+                os.path.join(pred_dir, f"predictions_th_{k:.2f}.tsv"),
+                sep="\t",
+                index=False,
             )
 
-        plot_psd_roc(psds_score, filename=os.path.join(save_dir, f"PSDS_ct{alpha_ct}_st{alpha_st}_100.png"))
+        plot_psd_roc(
+            psds_score,
+            filename=os.path.join(save_dir, f"PSDS_ct{alpha_ct}_st{alpha_st}_100.png"),
+        )
 
     return psds_score.value

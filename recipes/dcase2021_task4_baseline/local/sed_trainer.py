@@ -16,7 +16,10 @@ from .utils import (
     batched_decode_preds,
     log_sedeval_metrics,
 )
-from desed_task.evaluation.evaluation_measures import compute_per_intersection_macro_f1, compute_psds_from_operating_points
+from desed_task.evaluation.evaluation_measures import (
+    compute_per_intersection_macro_f1,
+    compute_psds_from_operating_points,
+)
 
 
 class SEDTask4_2021(pl.LightningModule):
@@ -35,6 +38,7 @@ class SEDTask4_2021(pl.LightningModule):
         fast_dev_run: bool, whether to launch a run with only one batch for each set, this is for development purpose,
             to test the code runs.
     """
+
     def __init__(
         self,
         hparams,
@@ -184,7 +188,8 @@ class SEDTask4_2021(pl.LightningModule):
 
         self.train_loader = self.train_dataloader()
         scaler.fit(
-            self.train_loader, transform_func=lambda x: self.take_log(self.mel_spec(x[0]))
+            self.train_loader,
+            transform_func=lambda x: self.take_log(self.mel_spec(x[0])),
         )
 
         if self.hparams["scaler"]["savepath"] is not None:
@@ -205,8 +210,8 @@ class SEDTask4_2021(pl.LightningModule):
             Tensor: logarithmic mel spectrogram of the mel spectrogram given as input
         """
 
-        amp_to_db = AmplitudeToDB(stype='amplitude')
-        amp_to_db.amin = 1e-5 # amin= 1e-5 as in librosa
+        amp_to_db = AmplitudeToDB(stype="amplitude")
+        amp_to_db.amin = 1e-5  # amin= 1e-5 as in librosa
         return amp_to_db(mels).clamp(min=-50, max=80)  # clamp to reproduce old code
 
     def training_step(self, batch, batch_indx):
@@ -236,19 +241,16 @@ class SEDTask4_2021(pl.LightningModule):
 
         mixup_type = self.hparams["training"].get("mixup")
         if mixup_type is not None and 0.5 > random.random():
-            features[weak_mask], labels_weak = mixup(features[weak_mask], labels_weak,
-                                                     mixup_label_type=mixup_type)
-            features[strong_mask], labels[strong_mask] = mixup(features[strong_mask], labels[strong_mask],
-                                                               mixup_label_type=mixup_type)
-
+            features[weak_mask], labels_weak = mixup(
+                features[weak_mask], labels_weak, mixup_label_type=mixup_type
+            )
+            features[strong_mask], labels[strong_mask] = mixup(
+                features[strong_mask], labels[strong_mask], mixup_label_type=mixup_type
+            )
 
         # sed student forward
         strong_preds_student, weak_preds_student = self.sed_student(
-            self.scaler(
-                self.take_log(
-                    features
-                )
-            )
+            self.scaler(self.take_log(features))
         )
 
         # supervised loss on strong labels
@@ -261,14 +263,8 @@ class SEDTask4_2021(pl.LightningModule):
         tot_loss_supervised = loss_strong + loss_weak
 
         with torch.no_grad():
-            ema_features = self.scaler(
-                self.take_log(
-                    features
-                )
-            )
-            strong_preds_teacher, weak_preds_teacher = self.sed_teacher(
-                ema_features
-            )
+            ema_features = self.scaler(self.take_log(features))
+            strong_preds_teacher, weak_preds_teacher = self.sed_teacher(ema_features)
             loss_strong_teacher = self.supervised_loss(
                 strong_preds_teacher[strong_mask], labels[strong_mask]
             )
@@ -516,7 +512,9 @@ class SEDTask4_2021(pl.LightningModule):
         elif obj_metric_synth_type == "intersection":
             synth_metric = intersection_f1_macro_teacher
         else:
-            raise NotImplementedError(f"obj_metric_synth_type: {obj_metric_synth_type} not implemented.")
+            raise NotImplementedError(
+                f"obj_metric_synth_type: {obj_metric_synth_type} not implemented."
+            )
 
         obj_metric = torch.tensor(
             # Todo try the max between the two models
@@ -530,8 +528,12 @@ class SEDTask4_2021(pl.LightningModule):
         self.log("val/obj_metric", obj_metric, prog_bar=True)
         self.log("val/weak/student/macro_F1", weak_student_f1_macro)
         self.log("val/weak/teacher/macro_F1", weak_teacher_f1_macro)
-        self.log("val/synth/student/intersection_f1_macro", intersection_f1_macro_student)
-        self.log("val/synth/teacher/intersection_f1_macro", intersection_f1_macro_teacher)
+        self.log(
+            "val/synth/student/intersection_f1_macro", intersection_f1_macro_student
+        )
+        self.log(
+            "val/synth/teacher/intersection_f1_macro", intersection_f1_macro_teacher
+        )
         self.log("val/synth/student/event_f1_macro", synth_student_event_macro)
         self.log("val/synth/teacher/event_f1_macro", synth_teacher_event_macro)
 
@@ -701,7 +703,9 @@ class SEDTask4_2021(pl.LightningModule):
             os.path.join(save_dir, "teacher"),
         )[0]
 
-        best_test_result = torch.tensor(-max(psds_score_scenario1, psds_score_scenario2))
+        best_test_result = torch.tensor(
+            -max(psds_score_scenario1, psds_score_scenario2)
+        )
 
         self.log("hp_metric", best_test_result)  # log tensorboard hyperpar metric
         self.log("test/student/psds_score_scenario1", psds_score_scenario1)

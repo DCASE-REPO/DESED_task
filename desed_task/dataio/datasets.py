@@ -39,7 +39,7 @@ class StronglyAnnotatedSet(Dataset):
         pad_to=10,
         fs=16000,
         return_filename=False,
-        random_channel=False
+        random_channel=False,
     ):
 
         self.encoder = encoder
@@ -119,7 +119,7 @@ class WeakSet(Dataset):
         fs=16000,
         return_filename=False,
         max_n_sources=None,
-        random_channel=False
+        random_channel=False,
     ):
 
         self.encoder = encoder
@@ -188,7 +188,7 @@ class UnlabelledSet(Dataset):
         fs=16000,
         max_n_sources=None,
         return_filename=False,
-        random_channel=False
+        random_channel=False,
     ):
 
         self.encoder = encoder

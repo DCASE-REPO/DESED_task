@@ -83,7 +83,7 @@ def log_sedeval_metrics(predictions, ground_truth, save_dir=None):
         tuple, event-based macro-F1 and micro-F1, segment-based macro-F1 and micro-F1
     """
     if predictions.empty:
-        return 0., 0., 0., 0.
+        return 0.0, 0.0, 0.0, 0.0
 
     gt = pd.read_csv(ground_truth, sep="\t")
 

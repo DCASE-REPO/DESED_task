@@ -36,12 +36,16 @@ def mixup(data, target=None, alpha=0.2, beta=0.2, mixup_label_type="soft"):
         mixed_data = c * data + (1 - c) * data[perm, :]
         if target is not None:
             if mixup_label_type == "soft":
-                mixed_target = torch.clamp(c * target + (1 - c) * target[perm, :], min=0, max=1)
+                mixed_target = torch.clamp(
+                    c * target + (1 - c) * target[perm, :], min=0, max=1
+                )
             elif mixup_label_type == "hard":
                 mixed_target = torch.clamp(target + target[perm, :], min=0, max=1)
             else:
-                raise NotImplementedError(f"mixup_label_type: {mixup_label_type} not implemented. choice in "
-                                          f"{'soft', 'hard'}")
+                raise NotImplementedError(
+                    f"mixup_label_type: {mixup_label_type} not implemented. choice in "
+                    f"{'soft', 'hard'}"
+                )
 
             return mixed_data, mixed_target
         else:
