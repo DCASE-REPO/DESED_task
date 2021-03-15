@@ -4,11 +4,9 @@ from pathlib import Path
 import pandas as pd
 import scipy
 
-from desed_task.utils.evaluation_measures import compute_sed_eval_metrics
+from desed_task.evaluation.evaluation_measures import compute_sed_eval_metrics
 import json
 
-from psds_eval import PSDSEval, plot_psd_roc
-import numpy as np
 import soundfile
 import glob
 
@@ -16,6 +14,20 @@ import glob
 def batched_decode_preds(
     strong_preds, filenames, encoder, thresholds=[0.5], median_filter=7, pad_indx=None,
 ):
+    """ Decode a batch of predictions to dataframes. Each threshold gives a different dataframe and stored in a
+    dictionary
+
+    Args:
+        strong_preds: torch.Tensor, batch of strong predictions.
+        filenames: list, the list of filenames of the current batch.
+        encoder: ManyHotEncoder object, object used to decode predictions.
+        thresholds: list, the list of thresholds to be used for predictions.
+        median_filter: int, the number of frames for which to apply median window (smoothing).
+        pad_indx: list, the list of indexes which have been used for padding.
+
+    Returns:
+        dict of predictions, each keys is a threshold and the value is the DataFrame of predictions.
+    """
     # Init a dataframe per threshold
     prediction_dfs = {}
     for threshold in thresholds:
@@ -24,7 +36,7 @@ def batched_decode_preds(
     for j in range(strong_preds.shape[0]):  # over batches
         for c_th in thresholds:
             c_preds = strong_preds[j]
-            if not pad_indx is None:
+            if pad_indx is not None:
                 true_len = int(c_preds.shape[-1] * pad_indx[j].item())
                 c_preds = c_preds[:true_len]
             pred = c_preds.transpose(0, 1).detach().cpu().numpy()
@@ -39,6 +51,15 @@ def batched_decode_preds(
 
 
 def convert_to_event_based(weak_dataframe):
+    """ Convert a weakly labeled DataFrame ('filename', 'event_labels') to a DataFrame strongly labeled
+    ('filename', 'onset', 'offset', 'event_label').
+
+    Args:
+        weak_dataframe: pd.DataFrame, the dataframe to be converted.
+
+    Returns:
+        pd.DataFrame, the dataframe strongly labeled.
+    """
 
     new = []
     for i, r in weak_dataframe.iterrows():
@@ -52,6 +73,15 @@ def convert_to_event_based(weak_dataframe):
 
 
 def log_sedeval_metrics(predictions, ground_truth, save_dir=None):
+    """ Return the set of metrics from sed_eval
+    Args:
+        predictions: pd.DataFrame, the dataframe of predictions.
+        ground_truth: pd.DataFrame, the dataframe of groundtruth.
+        save_dir: str, path to the folder where to save the event and segment based metrics outputs.
+
+    Returns:
+        tuple, event-based macro-F1 and micro-F1, segment-based macro-F1 and micro-F1
+    """
     if predictions.empty:
         return 0., 0., 0., 0.
 
@@ -73,63 +103,6 @@ def log_sedeval_metrics(predictions, ground_truth, save_dir=None):
         segment_res.results()["class_wise_average"]["f_measure"]["f_measure"],
         segment_res.results()["overall"]["f_measure"]["f_measure"],
     )  # return also segment measures
-
-
-def compute_pdsd_macro_f1(prediction_dfs, ground_truth_file, durations_file):
-
-    gt = pd.read_csv(ground_truth_file, sep="\t")
-    durations = pd.read_csv(durations_file, sep="\t")
-
-    psds = PSDSEval(ground_truth=gt, metadata=durations)
-    psds_macro_f1 = []
-    for threshold in prediction_dfs.keys():
-        if not prediction_dfs[threshold].empty:
-            threshold_f1, _ = psds.compute_macro_f_score(prediction_dfs[threshold])
-        else:
-            threshold_f1 = 0
-        if np.isnan(threshold_f1):
-            threshold_f1 = 0.0
-        psds_macro_f1.append(threshold_f1)
-    psds_macro_f1 = np.mean(psds_macro_f1)
-    return psds_macro_f1
-
-
-def compute_psds_from_operating_points(
-    prediction_dfs, ground_truth_file, durations_file, save_dir=None
-):
-
-    gt = pd.read_csv(ground_truth_file, sep="\t")
-    durations = pd.read_csv(durations_file, sep="\t")
-    psds_eval = PSDSEval(ground_truth=gt, metadata=durations)
-
-    for i, k in enumerate(prediction_dfs.keys()):
-        det = prediction_dfs[k]
-        # see issue https://github.com/audioanalytic/psds_eval/issues/3
-        det["index"] = range(1, len(det) + 1)
-        det = det.set_index("index")
-        psds_eval.add_operating_point(
-            det, info={"name": f"Op {i + 1:02d}", "threshold": k}
-        )
-
-    psds_score = psds_eval.psds(alpha_ct=0, alpha_st=0, max_efpr=100)
-    psds_ct_score = psds_eval.psds(alpha_ct=1, alpha_st=0, max_efpr=100)
-    psds_macro_score = psds_eval.psds(alpha_ct=0, alpha_st=1, max_efpr=100)
-
-    if save_dir is not None:
-        os.makedirs(save_dir, exist_ok=True)
-        plot_psd_roc(psds_score, filename=os.path.join(save_dir, "PSDS_0_0_100.png"))
-        plot_psd_roc(psds_ct_score, filename=os.path.join(save_dir, "PSDS_1_0_100.png"))
-        plot_psd_roc(
-            psds_macro_score, filename=os.path.join(save_dir, "PSDS_0_1_100.png")
-        )
-        pred_dir = os.path.join(save_dir, "predictions")
-        os.makedirs(pred_dir, exist_ok=True)
-        for k in prediction_dfs.keys():
-            prediction_dfs[k].to_csv(
-                os.path.join(pred_dir, "predictions_th_{}.tsv".format(k)), sep="\t"
-            )
-
-    return psds_score.value, psds_ct_score.value, psds_macro_score.value
 
 
 def parse_jams(jams_list, encoder, out_json):

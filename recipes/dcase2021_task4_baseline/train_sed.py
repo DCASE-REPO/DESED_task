@@ -19,6 +19,19 @@ from desed_task.utils.schedulers import ExponentialWarmup
 
 from local.classes_dict import classes_labels
 from local.sed_trainer import SEDTask4_2021
+from local.resample_folder import resample_folder
+from local.utils import generate_tsv_wav_durations
+
+
+def resample_data_generate_durations(config_data):
+    dsets = ["synth_folder", "synth_val_folder", "weak_folder", "unlabeled_folder", "test_folder"]
+    for dset in dsets:
+        computed = resample_folder(config_data[dset + "_44k"], config_data[dset], target_fs=config_data["fs"])
+        generate_tsv_wav_durations(config_data[dset], config_data[dset])
+
+    for base_set in ["synth_val", "test"]:
+        if not os.path.exists(config_data[base_set + "_dur"]) or computed:
+            generate_tsv_wav_durations(config_data[base_set + "_folder"], config_data[base_set + "_dur"])
 
 
 def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoint=None, fast_dev_run=False):
@@ -26,10 +39,13 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
     Running sound event detection baselin
 
     Args:
-        config ([type]): [description]
+        config (dict): the dictionary of configuration params
         log_dir (str): path to log directory
         gpus (int): number of gpus to use
         checkpoint_resume (str, optional): path to checkpoint to resume from. Defaults to "".
+        test_from_checkpoint (str, optional): path to checkpoint to be tested. In this case, no training is involved.
+        fast_dev_run (bool, optional): whether to use a run with only one batch at train and validation, useful
+            for development purposes.
     """
     config.update({"log_dir": log_dir})
 
@@ -120,9 +136,6 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
     ##### models and optimizers  ############
 
     sed_student = CRNN(**config["net"])
-    sed_teacher = deepcopy(sed_student)
-    for param in sed_teacher.parameters():
-        param.detach_()
 
     opt = torch.optim.Adam(sed_student.parameters(), 1e-3, betas=(0.9, 0.999))
     exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
@@ -135,7 +148,6 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
         config,
         encoder,
         sed_student,
-        sed_teacher,
         opt,
         train_dataset,
         valid_dataset,
@@ -165,7 +177,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
             )
         ],
         gpus=gpus,
-        distributed_backend=config["training"]["backend"],
+        distributed_backend=config["training"].get("backend"),
         accumulate_grad_batches=config["training"]["accumulate_batches"],
         logger=logger,
         resume_from_checkpoint=checkpoint_resume,
@@ -185,7 +197,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
     parser.add_argument("--conf_file", default="./confs/sed.yaml")
-    parser.add_argument("--log_dir", default="./exp/sed_new")
+    parser.add_argument("--log_dir", default="./exp/2021_baseline")
     parser.add_argument("--resume_from_checkpoint", default=None)
     parser.add_argument("--test_from_checkpoint", default=None)
     parser.add_argument("--gpus", default="0")
@@ -202,5 +214,6 @@ if __name__ == "__main__":
         random.seed(seed)
         pl.seed_everything(seed)
 
+    resample_data(configs["data"])
     single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint, args.test_from_checkpoint,
                args.fast_dev_run)

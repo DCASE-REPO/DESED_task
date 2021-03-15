@@ -20,21 +20,27 @@ training:
   weak_split: 0.9
   seed: 42
   mixup: soft
+  obj_metric_synth_type: intersection
 scaler:
   statistic: instance
   normtype: minmax
   dims: [0, 2]
-  savepath: ./scaler_pad50.ckpt
+  savepath: ./scaler.ckpt
 data:
   synth_folder: "../../data/dcase2021/dataset/audio/train/synthetic21_train/soundscapes_16k/"
+  synth_folder_44k: "../../data/dcase2021/dataset/audio/train/synthetic21_train/soundscapes/"
   synth_tsv:  "../../data/dcase2021/dataset/metadata/train/synthetic21_train/soundscapes.tsv"
   weak_folder: "../../data/dcase2021/dataset/audio/train/weak_16k/"
+  weak_folder_44k: "../../data/dcase2021/dataset/audio/train/weak/"
   weak_tsv: "../../data/dcase2021/dataset/metadata/train/weak.tsv"
   unlabeled_folder: "../../data/dcase2021/dataset/audio/train/unlabel_in_domain_16k/"
+  unlabeled_folder_44k: "../../data/dcase2021/dataset/audio/train/unlabel_in_domain/"
   synth_val_folder: "../../data/dcase2021/dataset/audio/validation/synthetic21_validation/soundscapes_16k/"
+  synth_val_folder_44k: "../../data/dcase2021/dataset/audio/validation/synthetic21_validation/soundscapes/"
   synth_val_tsv:  "../../data/dcase2021/dataset/metadata/validation/synthetic21_validation/soundscapes.tsv"
   synth_val_dur: "../../data/dcase2021/dataset/metadata/validation/synthetic21_validation/durations.tsv"
   test_folder: "../../data/dcase2021/dataset/audio/validation/validation_16k/"
+  test_folder_44k: "../../data/dcase2021/dataset/audio/validation/validation/"
   test_tsv: "../../data/dcase2021/dataset/metadata/validation/validation.tsv"
   test_dur: "../../data/dcase2021/dataset/metadata/validation/validation_durations.tsv"
   audio_max_len: 10

@@ -15,56 +15,49 @@ def frame_shift(mels, labels, net_pooling=4):
     return torch.stack(shifted), torch.stack(new_labels)
 
 
-# def mixup(audio_tensors, labels, alpha=2, beta=8, mixup_type="soft"):
-#
-#     assert mixup_type in ["soft", "hard"]
-#
-#     audio1, audio2 = torch.chunk(audio_tensors, 2, dim=0)
-#     lab1, lab2 = torch.chunk(labels, 2, dim=0)
-#
-#     gains = (
-#         torch.tensor([random.betavariate(alpha, beta) for x in range(audio2.shape[0])])
-#         .to(audio1)
-#         .reshape(-1, 1, 1)
-#     )
-#     mixed = audio1 * gains + audio2 * (1 - gains)
-#     if mixup_type == "soft":
-#         new_labels = torch.clamp(lab1 * gains + lab2 * (1 - gains), min=0, max=1)
-#     elif mixup_type == "hard":
-#         new_labels = torch.clamp(lab1 + lab2, min=0, max=1)
-#     else:
-#         raise NotImplementedError
-#
-#     return mixed, new_labels
+def mixup(data, target=None, alpha=0.2, beta=0.2, mixup_label_type="soft"):
+    """Mixup data augmentation by permuting the data
 
-
-def mixup(data, target=None, alpha=0.2, mixup_type="soft"):
-    """Mixup data augmentation
-    https://arxiv.org/abs/1710.09412
-    Apply the same parameter for data and data_ema since to obtain the same target
     Args:
-        data: input tensor for the student model
+        data: input tensor, must be a batch so data can be permuted and mixed.
         target: tensor of the target to be mixed, if None, do not return targets.
+        alpha: float, the parameter to the np.random.beta distribution
+        beta: float, the parameter to the np.random.beta distribution
+        mixup_label_type: str, the type of mixup to be used choice between {'soft', 'hard'}.
+    Returns:
+        torch.Tensor of mixed data and labels if given
     """
     with torch.no_grad():
         batch_size = data.size(0)
-        c = np.random.beta(alpha, alpha)
+        c = np.random.beta(alpha, beta)
 
         perm = torch.randperm(batch_size)
 
         mixed_data = c * data + (1 - c) * data[perm, :]
         if target is not None:
-            if mixup_type == "soft":
+            if mixup_label_type == "soft":
                 mixed_target = torch.clamp(c * target + (1 - c) * target[perm, :], min=0, max=1)
-            elif mixup_type == "hard":
+            elif mixup_label_type == "hard":
                 mixed_target = torch.clamp(target + target[perm, :], min=0, max=1)
+            else:
+                raise NotImplementedError(f"mixup_label_type: {mixup_label_type} not implemented. choice in "
+                                          f"{'soft', 'hard'}")
 
             return mixed_data, mixed_target
         else:
             return mixed_data
 
 
-def add_noise(mels, snrs=(6, 30)):
+def add_noise(mels, snrs=(6, 30), dims=(1, 2)):
+    """ Add white noise to mels spectrograms
+    Args:
+        mels: torch.tensor, mels spectrograms to apply the white noise to.
+        snrs: int or tuple, the range of snrs to choose from if tuple (uniform)
+        dims: tuple, the dimensions for which to compute the standard deviation (default to (1,2) because assume
+            an input of a batch of mel spectrograms.
+    Returns:
+        torch.Tensor of mels with noise applied
+    """
     if isinstance(snrs, (list, tuple)):
         snr = (snrs[0] - snrs[1]) * torch.rand(
             (mels.shape[0],), device=mels.device
@@ -73,7 +66,7 @@ def add_noise(mels, snrs=(6, 30)):
         snr = snrs
 
     snr = 10 ** (snr / 20)  # linear domain
-    sigma = torch.std(mels, dim=(1, 2), keepdim=True) / snr
+    sigma = torch.std(mels, dim=dims, keepdim=True) / snr
     mels = mels + torch.randn(mels.shape, device=mels.device) * sigma
 
     return mels

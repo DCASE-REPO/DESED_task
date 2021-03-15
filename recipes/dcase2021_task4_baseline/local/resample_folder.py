@@ -52,19 +52,26 @@ def resample_folder(in_dir, out_dir, target_fs=16000, regex="*.wav"):
         target_fs (int, optional): target sample rate. Defaults to 16000.
         regex (str, optional): regular expression for extension of file. Defaults to "*.wav".
     """
+    compute = True
     files = glob.glob(os.path.join(in_dir, regex))
+    if os.path.exists(out_dir):
+        out_files = glob.glob(os.path.join(out_dir, regex))
+        if len(files) == len(out_files):
+            compute = False
 
-    for f in tqdm.tqdm(files):
-        audio, orig_fs = torchaudio.load(f)
-        audio = resample(audio, orig_fs, target_fs)
+    if compute:
+        for f in tqdm.tqdm(files):
+            audio, orig_fs = torchaudio.load(f)
+            audio = resample(audio, orig_fs, target_fs)
 
-        os.makedirs(
-            Path(os.path.join(out_dir, Path(f).relative_to(Path(in_dir)))).parent,
-            exist_ok=True,
-        )
-        torchaudio.save(
-            os.path.join(out_dir, Path(f).relative_to(Path(in_dir))), audio, target_fs,
-        )
+            os.makedirs(
+                Path(os.path.join(out_dir, Path(f).relative_to(Path(in_dir)))).parent,
+                exist_ok=True,
+            )
+            torchaudio.save(
+                os.path.join(out_dir, Path(f).relative_to(Path(in_dir))), audio, target_fs,
+            )
+    return compute
 
 
 if __name__ == "__main__":

@@ -3,6 +3,13 @@ import numpy as np
 
 
 class ExponentialWarmup(BaseScheduler):
+    """ Scheduler to apply ramp-up during training to the learning rate.
+    Args:
+        optimizer: torch.optimizer.Optimizer, the optimizer from which to rampup the value from
+        max_lr: float, the maximum learning to use at the end of ramp-up.
+        rampup_length: int, the length of the rampup (number of steps).
+        exponent: float, the exponent to be used.
+    """
     def __init__(self, optimizer, max_lr, rampup_length, exponent=-5.0):
         super().__init__(optimizer)
         self.rampup_len = rampup_length

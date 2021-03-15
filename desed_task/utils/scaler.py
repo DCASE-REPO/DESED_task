@@ -6,12 +6,23 @@ class TorchScaler(torch.nn.Module):
     """
     This torch module implements scaling for input tensors, both instance based
     and dataset-wide statistic based.
+
+    Args:
+        statistic: str, (default='dataset'), represent how to compute the statistic for normalisation.
+            Choice in {'dataset', 'instance'}.
+             'dataset' needs to be 'fit()' with a dataloader of the dataset.
+             'instance' apply the normalisation at an instance-level, so compute the statitics on the instance
+             specified, it can be a clip or a batch.
+        normtype: str, (default='standard') the type of normalisation to use.
+            Choice in {'standard', 'mean', 'minmax'}. 'standard' applies a classic normalisation with mean and standard
+            deviation. 'mean' substract the mean to the data. 'minmax' substract the minimum of the data and divide by
+            the difference between max and min.
     """
 
-    def __init__(self, statistic="dataset", normtype="mvn", dims=(1, 2), eps=1e-8):
+    def __init__(self, statistic="dataset", normtype="standard", dims=(1, 2), eps=1e-8):
         super(TorchScaler, self).__init__()
         assert statistic in ["dataset", "instance"]
-        assert normtype in ["mvn", "mn", "minmax"]
+        assert normtype in ["standard", "mean", "minmax"]
         if statistic == "dataset" and normtype == "minmax":
             raise NotImplementedError(
                 "statistic==dataset and normtype==minmax is not currently implemented."
@@ -58,18 +69,18 @@ class TorchScaler(torch.nn.Module):
                 self, "mean_squared"
             ), "TorchScaler should be fit before used if statistics=dataset"
             assert tensor.ndim == self.mean.ndim, "Pre-computed statistics "
-            if self.normtype == "mn":
+            if self.normtype == "mean":
                 return tensor - self.mean
-            elif self.normtype == "mvn":
+            elif self.normtype == "standard":
                 std = torch.sqrt(self.mean_squared - self.mean ** 2)
                 return (tensor - self.mean) / (std + self.eps)
             else:
                 raise NotImplementedError
 
         else:
-            if self.normtype == "mn":
+            if self.normtype == "mean":
                 return tensor - torch.mean(tensor, self.dims, keepdim=True)
-            elif self.normtype == "mvn":
+            elif self.normtype == "standard":
                 return (tensor - torch.mean(tensor, self.dims, keepdim=True)) / (
                     torch.std(tensor, self.dims, keepdim=True) + self.eps
                 )

@@ -1,11 +1,16 @@
 # DESED_task
 Domestic environment sound event detection task.
 
-## This repo is in progress.
+## This repo is still in progress.
+
+
 
 ## Baseline dcase task 4 recipes
-This will be updated later, you can stay tuned on the [dcase website][dcase_website] and on the 
-[slack channel][slack_channel] ( [invite link][invite_dcase_slack] ).
+
+`dcase2021_task4_baseline` contains the SED baseline.
+It can be launched like this:
+  - `python train_sed.py"`
+These options are recommended: `--log_dir="./exp/2021_baseline --conf_file="confs/
 
 ## Dataset
 
