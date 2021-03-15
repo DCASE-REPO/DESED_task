@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 import torch
 from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 
-from desed_task.data_augm import add_noise, mixup
+from desed_task.data_augm import mixup
 from desed_task.utils.scaler import TorchScaler
 import numpy as np
 
@@ -196,7 +196,6 @@ class SEDTask4_2021(pl.LightningModule):
             self.scaler(
                 self.take_log(
                     features
-                    # add_noise(features, self.hparams["training"]["noise_snr"])
                 )
             )
         )
@@ -214,7 +213,6 @@ class SEDTask4_2021(pl.LightningModule):
             ema_features = self.scaler(
                 self.take_log(
                     features
-                    # add_noise(features, self.hparams["training"]["noise_snr"])
                 )
             )
             strong_preds_teacher, weak_preds_teacher = self.sed_teacher(
@@ -468,7 +466,7 @@ class SEDTask4_2021(pl.LightningModule):
             #     weak_student_seg_macro.item() + psds_f1_macro_student,
             #     weak_teacher_seg_macro.item() + psds_f1_macro_teacher,
             # )
-            -(weak_student_seg_macro.item() + synth_student_event_macro)
+            -(weak_student_seg_macro.item() + psds_f1_macro_teacher)
         )
         self.log("val/obj_metric", obj_metric, prog_bar=True)
         self.log("val/weak/student/segment_macro_F1", weak_student_seg_macro)

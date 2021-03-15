@@ -139,7 +139,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
     logger = TensorBoardLogger(
         os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
     )
-
+    print(f"experiment dir: {logger.log_dir}")
     n_epochs = config["training"]["n_epochs"] if not fast_dev_run else 3
     trainer = pl.Trainer(
         max_epochs=n_epochs,
@@ -150,7 +150,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
                 verbose=True,
             ),
             ModelCheckpoint(
-                logger.save_dir,
+                logger.log_dir,
                 monitor="val/obj_metric",
                 save_top_k=1
             )
@@ -170,7 +170,7 @@ def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoi
     else:
         checkpoint = torch.load(test_from_checkpoint)
         desed_training.on_load_checkpoint(checkpoint)
-    trainer.test(desed_training)
+    trainer.test(desed_training, ckpt_path="best")
 
 
 if __name__ == "__main__":
