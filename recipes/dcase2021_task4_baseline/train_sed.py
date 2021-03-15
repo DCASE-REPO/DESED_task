@@ -27,7 +27,6 @@ def resample_data_generate_durations(config_data):
     dsets = ["synth_folder", "synth_val_folder", "weak_folder", "unlabeled_folder", "test_folder"]
     for dset in dsets:
         computed = resample_folder(config_data[dset + "_44k"], config_data[dset], target_fs=config_data["fs"])
-        generate_tsv_wav_durations(config_data[dset], config_data[dset])
 
     for base_set in ["synth_val", "test"]:
         if not os.path.exists(config_data[base_set + "_dur"]) or computed:
@@ -214,6 +213,6 @@ if __name__ == "__main__":
         random.seed(seed)
         pl.seed_everything(seed)
 
-    resample_data(configs["data"])
+    resample_data_generate_durations(configs["data"])
     single_run(configs, args.log_dir, args.gpus, args.resume_from_checkpoint, args.test_from_checkpoint,
                args.fast_dev_run)
