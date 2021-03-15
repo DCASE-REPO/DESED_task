@@ -120,17 +120,35 @@ class SEDTask4_2021(pl.LightningModule):
         self.test_eventF1_buffer_teacher = pd.DataFrame()
 
     def update_ema(self, alpha, global_step, model, ema_model):
+        """
+        Update teacher model parameters
+
+        Args:
+            alpha (int): step
+            global_step (int): global step
+            model (CRNN): student model
+            ema_model (CRNN): teacher model
+        """
         # Use the true average until the exponential average is more correct
         alpha = min(1 - 1 / (global_step + 1), alpha)
         for ema_params, params in zip(ema_model.parameters(), model.parameters()):
             ema_params.data.mul_(alpha).add_(1 - alpha, params.data)
 
     def _init_scaler(self):
+        """
+        Scaler inizialization
+
+        Raises:
+            NotImplementedError: in case of not Implemented scaler
+
+        Returns:
+            TorchScaler: returns the scaler
+        """
+
         if self.hparams["scaler"]["statistic"] == "instance":
-            self.scaler = TorchScaler(
-                "instance", "minmax", self.hparams["scaler"]["dims"]
-            )
-            return self.scaler
+            scaler = TorchScaler("instance", "minmax", self.hparams["scaler"]["dims"])
+
+            return scaler
         elif self.hparams["scaler"]["statistic"] == "dataset":
             # we fit the scaler
             scaler = TorchScaler(
@@ -165,12 +183,30 @@ class SEDTask4_2021(pl.LightningModule):
             return scaler
 
     def take_log(self, mels):
+        """
+
+        Args:
+            mels (Tensor): mel spectrogram, feature of the audio
+
+        Returns:
+            Tensor: logarithmic mel spectrogram of the mel spectrogram given as input
+        """
 
         amp_to_db = AmplitudeToDB(stype='amplitude')
         amp_to_db.amin = 1e-5 # amin= 1e-5 as in librosa
         return amp_to_db(mels).clamp(min=-50, max=80)  # clamp to reproduce old code
 
     def training_step(self, batch, batch_indx):
+        """[summary]
+
+        Args:
+            batch ([type]): [description]
+            batch_indx ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
+
         audio, labels, padded_indxs = batch
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
         features = self.mel_spec(audio)
@@ -265,6 +301,13 @@ class SEDTask4_2021(pl.LightningModule):
         )
 
     def validation_step(self, batch, batch_indx):
+        """[summary]
+
+        Args:
+            batch ([type]): [description]
+            batch_indx ([type]): [description]
+        """
+
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
@@ -416,6 +459,15 @@ class SEDTask4_2021(pl.LightningModule):
         return
 
     def validation_epoch_end(self, outputs):
+        """[summary]
+
+        Args:
+            outputs ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
+
         weak_student_seg_macro = self.get_weak_student_f1_seg_macro.compute()
         weak_teacher_seg_macro = self.get_weak_teacher_f1_seg_macro.compute()
 
@@ -468,6 +520,7 @@ class SEDTask4_2021(pl.LightningModule):
             # )
             -(weak_student_seg_macro.item() + psds_f1_macro_teacher)
         )
+
         self.log("val/obj_metric", obj_metric, prog_bar=True)
         self.log("val/weak/student/segment_macro_F1", weak_student_seg_macro)
         self.log("val/weak/teacher/segment_macro_F1", weak_teacher_seg_macro)
@@ -501,11 +554,26 @@ class SEDTask4_2021(pl.LightningModule):
         return obj_metric
 
     def on_save_checkpoint(self, checkpoint):
+        """[summary]
+
+        Args:
+            checkpoint ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
         checkpoint["sed_student"] = self.sed_student.state_dict()
         checkpoint["sed_teacher"] = self.sed_teacher.state_dict()
         return checkpoint
 
     def test_step(self, batch, batch_indx):
+        """[summary]
+
+        Args:
+            batch ([type]): [description]
+            batch_indx ([type]): [description]
+        """
+
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
@@ -573,6 +641,8 @@ class SEDTask4_2021(pl.LightningModule):
         )
 
     def on_test_epoch_end(self):
+        """[summary]
+        """
 
         # pub eval dataset
         try:

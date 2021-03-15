@@ -1,13 +1,12 @@
 import argparse
-import librosa
-import os
 import glob
-import soundfile as sf
-import numpy as np
-import torch
-import tqdm
-import torchaudio
+import os
 from pathlib import Path
+
+import librosa
+import torch
+import torchaudio
+import tqdm
 
 parser = argparse.ArgumentParser("Resample a folder recursively")
 parser.add_argument(
@@ -21,6 +20,18 @@ parser.add_argument("--regex", type=str, default="*.wav")
 
 
 def resample(audio, orig_fs, target_fs):
+    """
+    Resamples the audio given as input at the target_fs sample rate, if the target sample rate and the
+    original sample rate are different.
+
+    Args:
+        audio (Tensor): audio to resample
+        orig_fs (int): original sample rate
+        target_fs (int): target sample rate
+
+    Returns:
+        Tensor: audio resampled
+    """
     out = []
     for c in range(audio.shape[0]):
         tmp = audio[c].detach().cpu().numpy()
@@ -28,28 +39,24 @@ def resample(audio, orig_fs, target_fs):
             tmp = librosa.resample(tmp, orig_fs, target_fs)
         out.append(torch.from_numpy(tmp))
     out = torch.stack(out)
-    # tmp = audio
-    # if target_fs != orig_fs:
-    #     if len(audio.shape) > 1:
-    #         tmp = librosa.resample(audio[0], orig_fs, target_fs)
-    #         for c in audio[1:]:
-    #             tmp = np.stack([tmp, librosa.resample(c, orig_fs, target_fs)], axis=0)
-    #     else:
-    #         tmp = librosa.resample(audio, orig_fs, target_fs)
-    # out = torch.from_numpy(tmp).float()
-    # if out.ndim == 1:
-    #     out = out.unsqueeze(0)
     return out
 
 
-def resample_folder(in_dir, out_dir, target_fs, regex):
+def resample_folder(in_dir, out_dir, target_fs=16000, regex="*.wav"):
+    """
+    Resamples the audio files contained in the in_dir folder and saves them in out_dir folder
 
+    Args:
+        in_dir (str): path to audio directory (audio to be resampled)
+        out_dir (str): path to audio resampled directory
+        target_fs (int, optional): target sample rate. Defaults to 16000.
+        regex (str, optional): regular expression for extension of file. Defaults to "*.wav".
+    """
     files = glob.glob(os.path.join(in_dir, regex))
+
     for f in tqdm.tqdm(files):
         audio, orig_fs = torchaudio.load(f)
         audio = resample(audio, orig_fs, target_fs)
-        # audio, orig_fs = sf.read(f)
-        # audio = resample(audio.T, orig_fs, target_fs)
 
         os.makedirs(
             Path(os.path.join(out_dir, Path(f).relative_to(Path(in_dir)))).parent,
@@ -62,4 +69,4 @@ def resample_folder(in_dir, out_dir, target_fs, regex):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    resample_folder(args.in_dir, args.out_dir, args.target_fs, args.regex)
+    resample_folder(args.in_dir, args.out_dir, int(args.target_fs), args.regex)

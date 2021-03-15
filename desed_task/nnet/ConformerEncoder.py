@@ -1,9 +1,6 @@
-import math
-
-import torch
 import torch.nn as nn
-
-from utils.utils import to_cuda_if_available
+import torch
+import math
 
 
 class PositionalEncoding(nn.Module):
@@ -18,12 +15,12 @@ class PositionalEncoding(nn.Module):
         )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        # pe = pe.unsqueeze(0).transpose(0, 1)
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
     def forward(self, x):
 
+        
         x = x + self.pe
         return self.dropout(x)
 
@@ -176,6 +173,7 @@ class ConformerBlock(nn.Module):
 
     def forward(self, x):
 
+        
         x1 = self.ff_conf(x)
 
         x2 = self.multiheadattention(x1)

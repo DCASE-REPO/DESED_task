@@ -22,6 +22,15 @@ from local.sed_trainer import SEDTask4_2021
 
 
 def single_run(config, log_dir, gpus, checkpoint_resume=None, test_from_checkpoint=None, fast_dev_run=False):
+    """
+    Running sound event detection baselin
+
+    Args:
+        config ([type]): [description]
+        log_dir (str): path to log directory
+        gpus (int): number of gpus to use
+        checkpoint_resume (str, optional): path to checkpoint to resume from. Defaults to "".
+    """
     config.update({"log_dir": log_dir})
 
     ##### data prep ##########

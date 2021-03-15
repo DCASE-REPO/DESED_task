@@ -46,6 +46,7 @@ class CNN(nn.Module):
     ):
         """
             Initialization of CNN network s
+        
         Args:
             n_in_channel: int, number of input channel
             activation: str, activation function
@@ -99,7 +100,15 @@ class CNN(nn.Module):
         self.cnn = cnn
 
     def forward(self, x):
-        # input size : (batch_size, n_channels, n_frames, n_freq)
+        """
+        Forward step of the CNN module
+
+        Args:
+            x (Tensor): input batch of size (batch_size, n_channels, n_frames, n_freq)
+
+        Returns:
+            Tensor: batch embedded
+        """
         # conv features
         x = self.cnn(x)
         return x

@@ -14,7 +14,7 @@ import glob
 
 
 def batched_decode_preds(
-    strong_preds, filenames, encoder, thresholds=[0, 5], median_filter=7, pad_indx=None,
+    strong_preds, filenames, encoder, thresholds=[0.5], median_filter=7, pad_indx=None,
 ):
     # Init a dataframe per threshold
     prediction_dfs = {}
@@ -100,19 +100,34 @@ def compute_psds_from_operating_points(
 
     gt = pd.read_csv(ground_truth_file, sep="\t")
     durations = pd.read_csv(durations_file, sep="\t")
-    psds = PSDSEval(ground_truth=gt, metadata=durations)
-    for k in prediction_dfs.keys():
-        psds.add_operating_point(prediction_dfs[k])
+    psds_eval = PSDSEval(ground_truth=gt, metadata=durations)
 
-    psds_score = psds.psds(alpha_ct=0, alpha_st=0, max_efpr=100)
-    psds_ct_score = psds.psds(alpha_ct=1, alpha_st=0, max_efpr=100)
-    psds_macro_score = psds.psds(alpha_ct=0, alpha_st=1, max_efpr=100)
+    for i, k in enumerate(prediction_dfs.keys()):
+        det = prediction_dfs[k]
+        # see issue https://github.com/audioanalytic/psds_eval/issues/3
+        det["index"] = range(1, len(det) + 1)
+        det = det.set_index("index")
+        psds_eval.add_operating_point(
+            det, info={"name": f"Op {i + 1:02d}", "threshold": k}
+        )
+
+    psds_score = psds_eval.psds(alpha_ct=0, alpha_st=0, max_efpr=100)
+    psds_ct_score = psds_eval.psds(alpha_ct=1, alpha_st=0, max_efpr=100)
+    psds_macro_score = psds_eval.psds(alpha_ct=0, alpha_st=1, max_efpr=100)
 
     if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
-        plot_psd_roc(psds_score, filename=os.path.join(save_dir, "PSDS_0_0_100"))
-        plot_psd_roc(psds_ct_score, filename=os.path.join(save_dir, "PSDS_1_0_100"))
-        plot_psd_roc(psds_score, filename=os.path.join(save_dir, "PSDS_0_1_100"))
+        plot_psd_roc(psds_score, filename=os.path.join(save_dir, "PSDS_0_0_100.png"))
+        plot_psd_roc(psds_ct_score, filename=os.path.join(save_dir, "PSDS_1_0_100.png"))
+        plot_psd_roc(
+            psds_macro_score, filename=os.path.join(save_dir, "PSDS_0_1_100.png")
+        )
+        pred_dir = os.path.join(save_dir, "predictions")
+        os.makedirs(pred_dir, exist_ok=True)
+        for k in prediction_dfs.keys():
+            prediction_dfs[k].to_csv(
+                os.path.join(pred_dir, "predictions_th_{}.tsv".format(k)), sep="\t"
+            )
 
     return psds_score.value, psds_ct_score.value, psds_macro_score.value
 
@@ -177,11 +192,13 @@ def parse_jams(jams_list, encoder, out_json):
 def generate_tsv_wav_durations(audio_dir, out_tsv):
     """
         Generate a dataframe with filename and duration of the file
+    
     Args:
         audio_dir: str, the path of the folder where audio files are (used by glob.glob)
         out_tsv: str, the path of the output tsv file
+    
     Returns:
-        meta_df: pd.DataFrame, the dataframe containing filenames and durations
+        pd.DataFrame: the dataframe containing filenames and durations
     """
     meta_list = []
     for file in glob.glob(os.path.join(audio_dir, "*.wav")):
