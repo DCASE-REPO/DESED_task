@@ -510,7 +510,7 @@ class SEDTask4_2021(pl.LightningModule):
         elif obj_metric_synth_type == "event":
             synth_metric = synth_student_event_macro
         elif obj_metric_synth_type == "intersection":
-            synth_metric = intersection_f1_macro_teacher
+            synth_metric = intersection_f1_macro_student
         else:
             raise NotImplementedError(
                 f"obj_metric_synth_type: {obj_metric_synth_type} not implemented."
