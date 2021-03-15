@@ -617,7 +617,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--basedir",
         type=str,
-        default="data",
+        default="../../data",
         help="The base data folder in which we'll create the different datasets."
         "Useful when you don't have any dataset, provide this one and the output folder",
     )
