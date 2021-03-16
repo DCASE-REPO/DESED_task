@@ -1,4 +1,4 @@
-conda create -y -n dcase2021 python==3.8
+conda create -y -n dcase2021 python==3.8.5
 source activate dcase2021
 
 conda install -y numba
@@ -9,5 +9,5 @@ conda install -y pytorch torchvision torchaudio cudatoolkit=10.1 -c pytorch # fo
 # conda install pytorch-cpu torchvision-cpu -c pytorch (cpu linux)
 conda install -y youtube-dl tqdm -c conda-forge
 
-pip install -r requirements.txt
-pip install -e .
+pip install -r ../../requirements.txt
+pip install -e ../../.
