@@ -32,6 +32,31 @@ class TorchScaler(torch.nn.Module):
         self.dims = dims
         self.eps = eps
 
+    def load_state_dict(self, state_dict, strict=True):
+        if self.statistic == "dataset":
+            super(TorchScaler, self).load_state_dict(state_dict, strict)
+
+    def _load_from_state_dict(
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        if self.statistic == "dataset":
+            super(TorchScaler, self)._load_from_state_dict(
+                state_dict,
+                prefix,
+                local_metadata,
+                strict,
+                missing_keys,
+                unexpected_keys,
+                error_msgs,
+            )
+
     def fit(self, dataloader, transform_func=lambda x: x[0]):
         """
         Scaler fitting

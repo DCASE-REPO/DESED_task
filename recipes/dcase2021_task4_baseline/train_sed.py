@@ -48,7 +48,7 @@ def single_run(
     log_dir,
     gpus,
     checkpoint_resume=None,
-    test_from_checkpoint=None,
+    test_state_dict=None,
     fast_dev_run=False,
 ):
     """
@@ -59,7 +59,8 @@ def single_run(
         log_dir (str): path to log directory
         gpus (int): number of gpus to use
         checkpoint_resume (str, optional): path to checkpoint to resume from. Defaults to "".
-        test_from_checkpoint (str, optional): path to checkpoint to be tested. In this case, no training is involved.
+        test_state_dict (dict, optional): if not None, no training is involved. This dictionary is the state_dict
+            to be loaded to test the model.
         fast_dev_run (bool, optional): whether to use a run with only one batch at train and validation, useful
             for development purposes.
     """
@@ -152,7 +153,6 @@ def single_run(
     )
 
     ##### models and optimizers  ############
-
     sed_student = CRNN(**config["net"])
 
     opt = torch.optim.Adam(sed_student.parameters(), 1e-3, betas=(0.9, 0.999))
@@ -162,30 +162,18 @@ def single_run(
         "interval": "step",
     }
 
-    if test_from_checkpoint is None:
-        desed_training = SEDTask4_2021(
-            config,
-            encoder=encoder,
-            sed_student=sed_student,
-            opt=opt,
-            train_data=train_dataset,
-            valid_data=valid_dataset,
-            test_data=test_dataset,
-            train_sampler=batch_sampler,
-            scheduler=exp_scheduler,
-            fast_dev_run=fast_dev_run,
-        )
-    else:
-        desed_training = SEDTask4_2021.load_from_checkpoint(test_from_checkpoint,
-                                                            encoder=encoder,
-                                                            sed_student=sed_student,
-                                                            opt=opt,
-                                                            train_data=train_dataset,
-                                                            valid_data=valid_dataset,
-                                                            test_data=test_dataset,
-                                                            train_sampler=batch_sampler,
-                                                            scheduler=exp_scheduler,
-                                                            fast_dev_run=fast_dev_run)
+    desed_training = SEDTask4_2021(
+        config,
+        encoder=encoder,
+        sed_student=sed_student,
+        opt=opt,
+        train_data=train_dataset,
+        valid_data=valid_dataset,
+        test_data=test_dataset,
+        train_sampler=batch_sampler,
+        scheduler=exp_scheduler,
+        fast_dev_run=fast_dev_run,
+    )
 
     logger = TensorBoardLogger(
         os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
@@ -223,8 +211,10 @@ def single_run(
         fast_dev_run=fast_dev_run,
     )
 
-    if test_from_checkpoint is None:
+    if test_state_dict is None:
         trainer.fit(desed_training)
+    else:
+        desed_training.load_state_dict(test_state_dict)
 
     trainer.test(desed_training, ckpt_path="best")
 
@@ -242,6 +232,19 @@ if __name__ == "__main__":
     with open(args.conf_file, "r") as f:
         configs = yaml.safe_load(f)
 
+    test_from_checkpoint = args.test_from_checkpoint
+    test_model_state_dict = None
+    if args.test_from_checkpoint is not None:
+        checkpoint = torch.load(test_from_checkpoint)
+        configs_ckpt = checkpoint["hyper_parameters"]
+        configs_ckpt["data"] = configs["data"]
+        configs = configs_ckpt
+        print(
+            f"loaded model: {test_from_checkpoint} \n"
+            f"at epoch: {checkpoint['epoch']}"
+        )
+        test_model_state_dict = checkpoint["state_dict"]
+
     seed = configs["training"]["seed"]
     if seed:
         torch.random.manual_seed(seed)
@@ -255,6 +258,6 @@ if __name__ == "__main__":
         args.log_dir,
         args.gpus,
         args.resume_from_checkpoint,
-        args.test_from_checkpoint,
+        test_model_state_dict,
         args.fast_dev_run,
     )
