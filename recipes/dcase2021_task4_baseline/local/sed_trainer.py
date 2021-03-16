@@ -591,7 +591,7 @@ class SEDTask4_2021(pl.LightningModule):
             gtc_threshold=0.7,
             alpha_ct=0,
             alpha_st=1,
-            save_dir=os.path.join(save_dir, "student_scenario1"),
+            save_dir=os.path.join(save_dir, "student", "scenario1"),
         )
 
         psds_score_scenario2 = compute_psds_from_operating_points(
@@ -603,7 +603,7 @@ class SEDTask4_2021(pl.LightningModule):
             cttc_threshold=0.3,
             alpha_ct=0.5,
             alpha_st=1,
-            save_dir=os.path.join(save_dir, "student_scenario2"),
+            save_dir=os.path.join(save_dir, "student", "scenario2"),
         )
 
         psds_score_teacher_scenario1 = compute_psds_from_operating_points(
@@ -614,7 +614,7 @@ class SEDTask4_2021(pl.LightningModule):
             gtc_threshold=0.7,
             alpha_ct=0,
             alpha_st=1,
-            save_dir=os.path.join(save_dir, "student_scenario1"),
+            save_dir=os.path.join(save_dir, "teacher", "scenario1"),
         )
 
         psds_score_teacher_scenario2 = compute_psds_from_operating_points(
@@ -626,7 +626,7 @@ class SEDTask4_2021(pl.LightningModule):
             cttc_threshold=0.3,
             alpha_ct=0.5,
             alpha_st=1,
-            save_dir=os.path.join(save_dir, "student_scenario2"),
+            save_dir=os.path.join(save_dir, "teacher", "scenario2"),
         )
 
         event_macro_student = log_sedeval_metrics(
