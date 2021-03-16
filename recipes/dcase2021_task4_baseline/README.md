@@ -38,13 +38,51 @@ If you already have "FUSS", "FSD50K", "desed_soundbank" or "desed_real" (audiose
 
 
 ## Training
-For now, only the SED baseline is available, to run it:
-- `python train_sed.py"`
+We provide two baselines, one for each subtask: 
+- SED baseline
+- joint Separation+SED baseline. 
 
-Recommended options to modify to your own: `--log_dir="./exp/2021_baseline --conf_file="confs/sed.yaml`
-- Do not hesitate to check `confs/sed.yaml`.
+For now, only the SED baseline is available.
+
+### SED Baseline
+You can run the SED baseline from scratch using: 
+- `python train_sed.py`
+
+Alternatively we provide a pre-trained checkpoint [here]() which includes also
+Tensorboard logs. 
+
+You can test it on the validation real world data by using: 
+  - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
+
+**NOTES**:
+
+These scripts assume your data is in `../../data` folder in DESED_task directory. 
+If your data is in another path you have to change corresponding `data` keys in YAML 
+configuration file in `conf/sed.yaml` with your paths. 
+
+Hyperparameters can be changed in the YAML file (e.g. lower or higher batch size). 
+And a different configuration YAML can be used in each run using `--conf_file="confs/sed_2.yaml`  
+argument. 
+
+The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline`.
+
+Training can be resumed using `--resume_from_checkpoint`.
+
+**Architecture**
+
+The baseline is based on [2020 DCASE Task 4 baseline](https://github.com/turpaultn/dcase20_task4/tree/master/baseline)
+which itself is based on [1]. 
+
+One major change is the addition of Mixup data augmentation strategy [2]. 
+
 
 
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
+
+
+#### References
+[1] L. Delphin-Poulat & C. Plapous, technical report, dcase 2019.
+
+[2] Zhang, Hongyi, et al. "mixup: Beyond empirical risk minimization." arXiv preprint arXiv:1710.09412 (2017).
