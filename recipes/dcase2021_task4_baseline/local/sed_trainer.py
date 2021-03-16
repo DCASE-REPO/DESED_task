@@ -642,13 +642,22 @@ class SEDTask4_2021(pl.LightningModule):
         )[0]
 
         best_test_result = torch.tensor(max(psds_score_scenario1, psds_score_scenario2))
-        self.log("hp_metric", best_test_result)  # log tensorboard hyperpar metric
-        self.log("test/student/psds_score_scenario1", psds_score_scenario1)
-        self.log("test/student/psds_score_scenario2", psds_score_scenario2)
-        self.log("test/teacher/psds_score_scenario1", psds_score_teacher_scenario1)
-        self.log("test/teacher/psds_score_scenario2", psds_score_teacher_scenario2)
-        self.log("test/student/event_f1_macro", event_macro_student)
-        self.log("test/teacher/event_f1_macro", event_macro_teacher)
+
+        results = {
+            "hp_metric": best_test_result,
+            "test/student/psds_score_scenario1": psds_score_scenario1,
+            "test/student/psds_score_scenario2": psds_score_scenario2,
+            "test/teacher/psds_score_scenario1": psds_score_teacher_scenario1,
+            "test/teacher/psds_score_scenario2": psds_score_teacher_scenario2,
+            "test/student/event_f1_macro": event_macro_student,
+            "test/teacher/event_f1_macro": event_macro_teacher,
+        }
+        if self.logger is not None:
+            self.logger.log_metrics(results)
+            self.logger.log_hyperparams(self.hparams, results)
+
+        for key in results.keys():
+            self.log(key, results[key], prog_bar=True, logger=False)
 
     def configure_optimizers(self):
         return [self.opt], [self.scheduler]

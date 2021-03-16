@@ -181,12 +181,19 @@ def single_run(
     print(f"experiment dir: {logger.log_dir}")
     n_epochs = config["training"]["n_epochs"] if not fast_dev_run else 3
 
+    # Not using the fast_dev_run of Trainer because creates a DummyLogger so cannot check problems with the Logger
     if fast_dev_run:
         flush_logs_every_n_steps = 1
         log_every_n_steps = 1
+        limit_train_batches = 2
+        limit_val_batches = 2
+        limit_test_batches = 2
     else:
         flush_logs_every_n_steps = 100
-        log_every_n_steps = 50
+        log_every_n_steps = 40
+        limit_train_batches = 1.
+        limit_val_batches = 1.
+        limit_test_batches = 1.
 
     trainer = pl.Trainer(
         max_epochs=n_epochs,
@@ -208,7 +215,9 @@ def single_run(
         num_sanity_val_steps=0,
         log_every_n_steps=log_every_n_steps,
         flush_logs_every_n_steps=flush_logs_every_n_steps,
-        fast_dev_run=fast_dev_run,
+        limit_train_batches=limit_train_batches,
+        limit_val_batches=limit_val_batches,
+        limit_test_batches=limit_test_batches,
     )
 
     if test_state_dict is None:
