@@ -59,6 +59,8 @@ You can test it on the validation real world data by using:
 These scripts assume your data is in `../../data` folder in DESED_task directory. 
 If your data is in another path you have to change corresponding `data` keys in YAML 
 configuration file in `conf/sed.yaml` with your paths. 
+Also note that this script will create additional resampled folders for the data (from 44kHz to 16kHz)
+so you it must run with write permissions on the folder where your data is. 
 
 Hyperparameters can be changed in the YAML file (e.g. lower or higher batch size). 
 And a different configuration YAML can be used in each run using `--conf_file="confs/sed_2.yaml`  
