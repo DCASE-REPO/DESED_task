@@ -162,24 +162,44 @@ def single_run(
         "interval": "step",
     }
 
-    desed_training = SEDTask4_2021(
-        config,
-        encoder,
-        sed_student,
-        opt,
-        train_dataset,
-        valid_dataset,
-        test_dataset,
-        batch_sampler,
-        exp_scheduler,
-        fast_dev_run=fast_dev_run,
-    )
+    if test_from_checkpoint is None:
+        desed_training = SEDTask4_2021(
+            config,
+            encoder=encoder,
+            sed_student=sed_student,
+            opt=opt,
+            train_data=train_dataset,
+            valid_data=valid_dataset,
+            test_data=test_dataset,
+            train_sampler=batch_sampler,
+            scheduler=exp_scheduler,
+            fast_dev_run=fast_dev_run,
+        )
+    else:
+        desed_training = SEDTask4_2021.load_from_checkpoint(test_from_checkpoint,
+                                                            encoder=encoder,
+                                                            sed_student=sed_student,
+                                                            opt=opt,
+                                                            train_data=train_dataset,
+                                                            valid_data=valid_dataset,
+                                                            test_data=test_dataset,
+                                                            train_sampler=batch_sampler,
+                                                            scheduler=exp_scheduler,
+                                                            fast_dev_run=fast_dev_run)
 
     logger = TensorBoardLogger(
         os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
     )
     print(f"experiment dir: {logger.log_dir}")
     n_epochs = config["training"]["n_epochs"] if not fast_dev_run else 3
+
+    if fast_dev_run:
+        flush_logs_every_n_steps = 1
+        log_every_n_steps = 1
+    else:
+        flush_logs_every_n_steps = 100
+        log_every_n_steps = 50
+
     trainer = pl.Trainer(
         max_epochs=n_epochs,
         callbacks=[
@@ -198,13 +218,14 @@ def single_run(
         gradient_clip_val=config["training"]["gradient_clip"],
         check_val_every_n_epoch=config["training"]["validation_interval"],
         num_sanity_val_steps=0,
+        log_every_n_steps=log_every_n_steps,
+        flush_logs_every_n_steps=flush_logs_every_n_steps,
         fast_dev_run=fast_dev_run,
     )
+
     if test_from_checkpoint is None:
         trainer.fit(desed_training)
-    else:
-        checkpoint = torch.load(test_from_checkpoint)
-        desed_training.on_load_checkpoint(checkpoint)
+
     trainer.test(desed_training, ckpt_path="best")
 
 
@@ -219,7 +240,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     with open(args.conf_file, "r") as f:
-        configs = yaml.load(f)
+        configs = yaml.safe_load(f)
 
     seed = configs["training"]["seed"]
     if seed:

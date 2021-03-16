@@ -151,7 +151,7 @@ class SEDTask4_2021(pl.LightningModule):
         # Use the true average until the exponential average is more correct
         alpha = min(1 - 1 / (global_step + 1), alpha)
         for ema_params, params in zip(ema_model.parameters(), model.parameters()):
-            ema_params.data.mul_(alpha).add_(1 - alpha, params.data)
+            ema_params.data.mul_(alpha).add_(params.data, alpha=1 - alpha)
 
     def _init_scaler(self):
         """Scaler inizialization
@@ -704,7 +704,7 @@ class SEDTask4_2021(pl.LightningModule):
         )[0]
 
         best_test_result = torch.tensor(
-            -max(psds_score_scenario1, psds_score_scenario2)
+            max(psds_score_scenario1, psds_score_scenario2)
         )
 
         self.log("hp_metric", best_test_result)  # log tensorboard hyperpar metric
