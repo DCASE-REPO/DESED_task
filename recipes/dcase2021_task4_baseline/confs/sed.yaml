@@ -5,7 +5,7 @@ training:
   const_max: 2
   n_epochs_warmup: 50
   num_workers: 6
-  n_epochs: 200
+  n_epochs: 300
   early_stop_patience: 200
   accumulate_batches: 1
   gradient_clip: 0.
