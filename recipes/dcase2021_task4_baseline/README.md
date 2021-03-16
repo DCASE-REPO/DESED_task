@@ -38,7 +38,7 @@ If you already have "FUSS", "FSD50K", "desed_soundbank" or "desed_real" (audiose
 
 
 ## Training
-We provide two baselines, one for each subtask: 
+We provide two baselines, one for each sub-task: 
 - SED baseline
 - joint Separation+SED baseline. 
 
@@ -54,7 +54,7 @@ Tensorboard logs.
 You can test it on the validation real world data by using: 
   - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
-**NOTES**:
+**Note**:
 
 These scripts assume your data is in `../../data` folder in DESED_task directory. 
 If your data is in another path you have to change corresponding `data` keys in YAML 
