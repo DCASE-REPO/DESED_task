@@ -59,6 +59,7 @@ Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *C
 --------|--------------------|--------------------|-------------------------|-----------------
 Dev-test| **0.329**          | **0.515**          | 76.0%                   | 39.8%
 
+Collar-based = event-based. More information about the metrics in the [webpage][dcase21_webpage]
 
 **Note**:
 
@@ -93,6 +94,7 @@ The main differences of the baseline system compared to DCASE 2020:
 The synthetic dataset generated and mixup are the most important changes (influencing the results).
 The explanation of the different changes along other experiments will be presented in a later paper.
 
+[dcase21_webpage]: http://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments
 [dcase_20_repo]: https://github.com/turpaultn/dcase20_task4/tree/master/baseline
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
