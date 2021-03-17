@@ -1,39 +1,24 @@
 # DESED_task
 Domestic environment sound event detection task.
 
-## This repo is in progress.
+---
 
-## Baseline dcase task 4 recipes
-This will be updated later, you can stay tuned on the [dcase website][dcase_website] and on the 
-[slack channel][slack_channel] ( [invite link][invite_dcase_slack] ).
+### *This repo is still in progress. SED baseline released, SSep-SED coming soon ! Apologies for the delay.* 
 
-## Dataset
+## DCASE Task 4
+- Baseline dcase task 4 recipes: in [recipes/dcase2021_task4_baseline](./recipes/dcase2021_task4_baseline)
 
-You can download the dataset and generate synthetic soundscapes using the script: "generate_dcase_task4_2021.py"
+Updates on the [website][dcase_website] and [join us][invite_dcase_slack] in the dedicated 
+[slack channel][slack_channel].
 
-Don't hesitate to generate your own synthetic dataset.
+### Data
+You can download raw data using [desed][desed] repository.
 
-### Usage: 
-Needs 'desed >= 1.3.3' (`pip install --upgrade desed`)
+Do not hesitate to create your own synthetic data, check the `generate_dcase_task4_2021.py` example 
+in dcase2021_task4_baseline recipe.
 
-- `python generate_dcase_task4_2021.py --basedir=data` (You can change basedir to the desired data folder.)
-
-It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] or [desed_real][desed].
-
-#### FSD50K, FUSS or DESED already downloaded
-If you already have "FUSS", "FSD50K", "desed_soundbank" or "desed_real" (audioset data same as previous years),
-- Specify their path using the specified arguments (e.g `--fuss "path_to_fuss_basedir"`), 
-  see `python generate_dcase_task4_2021.py --help`.
-
-#### Real data (weak, unlabeled, validaition) from Audioset
-If you don't have the "real data" (desed_real), you need to download it and send your missing files to the task 
-organisers to get the complete dataset (in priority to Francesca Ronchini and Romain serizel).
-
-Download audioset files (don't hesitate to re-run it multiple times before sending the missing files): 
-```python
-import desed
-desed.download_audioset_data("PATH_TO_YOUR_DESED_REAL_FOLDER")
-```
+## Your own recipes ? 
+If you want to share your recipe in this repo, do not hesitate to create a pull request.
 
 
 [dcase_website]: https://dcase.community

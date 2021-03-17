@@ -1,3 +1,27 @@
+# ignore output files
+oar_job_*
+OAR*
+recipes/dcase2020_task4_baseline/logs/*
+recipes/dcase2020_task4_baseline/logs*
+
+#ignore data folders
+recipes/dcase2020_task4_baseline/data
+recipes/dcase2020_task4_baseline/exp_out/Mean*
+# to remove this line
+recipes/dcase2020_task4_baseline/data/desed2021
+
+
+#visual studio files
+.vscode/
+
+#run locals file
+run_oar.sh
+
+#ignore mean and std file
+mean.npy
+mean_of_square.npy
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -37,7 +61,7 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+# Unit dev_test / coverage reports
 htmlcov/
 .tox/
 .nox/
@@ -127,3 +151,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Pycharm
+.idea

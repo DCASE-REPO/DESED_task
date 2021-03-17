@@ -1,0 +1,20 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.5.0  # Use the ref you want to point at
+    hooks:
+      - id: trailing-whitespace
+        types: [file, text]
+      - id: end-of-file-fixer
+        types: [python]
+      - id: requirements-txt-fixer
+      - id: mixed-line-ending
+        types: [python]
+        args: [--fix=no]
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+
+  - repo: https://github.com/psf/black
+    rev: 19.10b0
+    hooks:
+      - id: black
+        types: [python]
