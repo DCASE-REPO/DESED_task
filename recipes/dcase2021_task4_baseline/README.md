@@ -81,7 +81,7 @@ One major change is the addition of Mixup data augmentation strategy [2].
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
-[zenodo_pretrained_models]: https://zenodo.org/record/4608646
+[zenodo_pretrained_models]: https://zenodo.org/record/4609995
 
 
 #### References

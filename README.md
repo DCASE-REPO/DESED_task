@@ -3,7 +3,7 @@ Domestic environment sound event detection task.
 
 ---
 
-### *This repo is still in progress*.
+### *This repo is still in progress. SED baseline released, SSep-SED coming soon ! Apologies for the delay.* 
 
 ## DCASE Task 4
 - Baseline dcase task 4 recipes: in [recipes/dcase2021_task4_baseline](./recipes/dcase2021_task4_baseline)
