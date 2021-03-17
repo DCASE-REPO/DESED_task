@@ -53,6 +53,13 @@ Alternatively we provide a pre-trained checkpoint [here][zenodo_pretrained_model
 You can test it on the validation real world data by using: 
   - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
+#####Results:
+
+Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1* 
+--------|--------------------|--------------------|-------------------------|-----------------
+Dev-test| **0.329**          | **0.515**          | 76.0%                   | 39.8%
+
+
 **Note**:
 
 These scripts assume your data is in `../../data` folder in DESED_task directory. 
