@@ -252,12 +252,19 @@ def single_run(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
-    parser.add_argument("--conf_file", default="./confs/sed.yaml")
-    parser.add_argument("--log_dir", default="./exp/2021_baseline")
-    parser.add_argument("--resume_from_checkpoint", default=None)
-    parser.add_argument("--test_from_checkpoint", default=None)
-    parser.add_argument("--gpus", default="0")
-    parser.add_argument("--fast_dev_run", action="store_true", default=False)
+    parser.add_argument("--conf_file", default="./confs/sed.yaml",
+                        help="The configuration file with all the experiment parameters.")
+    parser.add_argument("--log_dir", default="./exp/2021_baseline",
+                        help="Directory where to save tensorboard logs, saved models, etc.")
+    parser.add_argument("--resume_from_checkpoint", default=None,
+                        help="Allow the training to be resumed, take as input a previously saved model (.ckpt).")
+    parser.add_argument("--test_from_checkpoint", default=None,
+                        help="Test the model specified")
+    parser.add_argument("--gpus", default="0", help="The number of GPUs to train on, or the gpu to use, default='0', "
+                                                    "so uses one GPU indexed by 0.")
+    parser.add_argument("--fast_dev_run", action="store_true", default=False,
+                        help="Use this option to make a 'fake' run which is useful for development and debugging. "
+                             "It uses very few batches and epochs so it won't give any meaningful result.")
     args = parser.parse_args()
 
     with open(args.conf_file, "r") as f:
