@@ -179,11 +179,26 @@ def single_run(
         fast_dev_run=fast_dev_run,
     )
 
-    logger = TensorBoardLogger(
-        os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
-    )
-    print(f"experiment dir: {logger.log_dir}")
-    n_epochs = config["training"]["n_epochs"] if not fast_dev_run else 3
+    if test_state_dict is None:
+        logger = TensorBoardLogger(
+            os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
+        )
+        print(f"experiment dir: {logger.log_dir}")
+
+        callbacks = [
+            EarlyStopping(
+                monitor="val/obj_metric",
+                patience=config["training"]["early_stop_patience"],
+                verbose=True,
+                mode="max"
+            ),
+            ModelCheckpoint(logger.log_dir, monitor="val/obj_metric", save_top_k=1, mode="max",
+                            save_last=True),
+        ]
+
+    else:
+        logger = True
+        callbacks = None
 
     # Not using the fast_dev_run of Trainer because creates a DummyLogger so cannot check problems with the Logger
     if fast_dev_run:
@@ -201,15 +216,7 @@ def single_run(
 
     trainer = pl.Trainer(
         max_epochs=n_epochs,
-        callbacks=[
-            EarlyStopping(
-                monitor="val/obj_metric",
-                patience=config["training"]["early_stop_patience"],
-                verbose=True,
-                mode="max"
-            ),
-            ModelCheckpoint(logger.log_dir, monitor="val/obj_metric", save_top_k=1, mode="max"),
-        ],
+        callbacks=callbacks,
         gpus=gpus,
         distributed_backend=config["training"].get("backend"),
         accumulate_grad_batches=config["training"]["accumulate_batches"],
