@@ -29,7 +29,7 @@ import desed
 desed.download_audioset_data("PATH_TO_YOUR_DESED_REAL_FOLDER")
 ```
 
-`PATH_TO_YOUR_DESED_REAL_FOLDER` can be `DESED_task/data/raw_datasets/desed_real`.
+`PATH_TO_YOUR_DESED_REAL_FOLDER` can be `DESED_task/data/raw_datasets/desed_real` for example.
 
 #### FSD50K, FUSS or DESED already downloaded ?
 If you already have "FUSS", "FSD50K", "desed_soundbank" or "desed_real" (audioset data same as previous years),
@@ -80,8 +80,18 @@ Training can be resumed using `--resume_from_checkpoint`.
 The baseline is based on [2020 DCASE Task 4 baseline][dcase_20_repo]
 which itself is based on [1]. 
 
-One major change is the addition of Mixup data augmentation strategy [2]. 
+The main differences of the baseline system compared to DCASE 2020:
 
+* Features: hop size of 256 instead of 255.
+* Different synthetic dataset is used.
+* No early stopping used (200 epochs) but getting the best model
+* Normalisation per-instance using min-max approach
+* Mixup [2] is used for weak and synthetic data by mixing data in a batch (50% chance of applying it).
+* Batch size of 48 (still 1/4 synthetic, 1/4 weak, 1/2 unlabelled)
+* Intersection-based F1 instead of event-based F1 for the synthetic validation score
+
+The synthetic dataset generated and mixup are the most important changes (influencing the results).
+The explanation of the different changes along other experiments will be presented in a later paper.
 
 [dcase_20_repo]: https://github.com/turpaultn/dcase20_task4/tree/master/baseline
 [desed]: https://github.com/turpaultn/DESED
