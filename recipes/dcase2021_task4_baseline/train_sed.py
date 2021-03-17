@@ -207,12 +207,14 @@ def single_run(
         limit_train_batches = 2
         limit_val_batches = 2
         limit_test_batches = 2
+        n_epochs = 3
     else:
         flush_logs_every_n_steps = 100
         log_every_n_steps = 40
         limit_train_batches = 1.
         limit_val_batches = 1.
         limit_test_batches = 1.
+        n_epochs = config["training"]["n_epochs"]
 
     trainer = pl.Trainer(
         max_epochs=n_epochs,
@@ -255,7 +257,7 @@ if __name__ == "__main__":
 
     test_from_checkpoint = args.test_from_checkpoint
     test_model_state_dict = None
-    if args.test_from_checkpoint is not None:
+    if test_from_checkpoint is not None:
         checkpoint = torch.load(test_from_checkpoint)
         configs_ckpt = checkpoint["hyper_parameters"]
         configs_ckpt["data"] = configs["data"]
