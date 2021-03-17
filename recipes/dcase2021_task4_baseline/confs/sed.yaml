@@ -6,24 +6,23 @@ training:
   n_epochs_warmup: 50 # num epochs used for exponential warmup
   num_workers: 6 # change according to your cpu
   n_epochs: 300 # max num epochs
-  early_stop_patience: 200
+  # early_stop_patience: 200
   accumulate_batches: 1
   gradient_clip: 0. # 0 no gradient clipping
-  median_window: 7 # length of median filter used to smooth prediction in inference
+  median_window: 7 # length of median filter used to smooth prediction in inference (nb of output frames)
   val_thresholds: [0.5] # thresholds used to compute f1 intersection in validation.
   n_test_thresholds: 50 # number of thresholds used to compute psds in test
   ema_factor: 0.999 # ema factor for mean teacher
   self_sup_loss: mse # bce or mse for self supervised mean teacher loss
   backend: # pytorch lightning backend, ddp, dp or None
-  noise_snr: [12, 15] # range for gaussian noise SNRs used for data augmentation (uniformly sampled)
   validation_interval: 1 # perform validation every X epoch, 1 default
   weak_split: 0.9
   seed: 42
-  mixup: soft
+  mixup: soft # Soft mixup gives the ratio of the mix to the labels, hard mixup gives a 1 to every label present.
   obj_metric_synth_type: intersection
 scaler:
   statistic: instance # instance or dataset-wide statistic
-  normtype: minmax # minmax or standard or mean normalization (mn)
+  normtype: minmax # minmax or standard or mean normalization
   dims: [0, 2] # dimensions over which normalization is applied
   savepath: ./scaler.ckpt # path to scaler checkpoint
 data: # change with your paths if different.

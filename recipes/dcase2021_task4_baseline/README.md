@@ -48,7 +48,7 @@ For now, only the SED baseline is available.
 You can run the SED baseline from scratch using: 
 - `python train_sed.py`
 
-Alternatively we provide a pre-trained checkpoint [here]() which includes also
+Alternatively we provide a pre-trained checkpoint [here][zenodo_pretrained_models] which includes also
 Tensorboard logs. 
 
 You can test it on the validation real world data by using: 
@@ -71,16 +71,17 @@ Training can be resumed using `--resume_from_checkpoint`.
 
 **Architecture**
 
-The baseline is based on [2020 DCASE Task 4 baseline](https://github.com/turpaultn/dcase20_task4/tree/master/baseline)
+The baseline is based on [2020 DCASE Task 4 baseline][dcase_20_repo]
 which itself is based on [1]. 
 
 One major change is the addition of Mixup data augmentation strategy [2]. 
 
 
-
+[dcase_20_repo]: https://github.com/turpaultn/dcase20_task4/tree/master/baseline
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
+[zenodo_pretrained_models]: https://zenodo.org/record/4608646
 
 
 #### References
