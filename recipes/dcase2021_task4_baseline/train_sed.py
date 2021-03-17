@@ -23,14 +23,18 @@ from local.resample_folder import resample_folder
 from local.utils import generate_tsv_wav_durations
 
 
-def resample_data_generate_durations(config_data):
-    dsets = [
-        "synth_folder",
-        "synth_val_folder",
-        "weak_folder",
-        "unlabeled_folder",
-        "test_folder",
-    ]
+def resample_data_generate_durations(config_data, test_only=False):
+    if not test_only:
+        dsets = [
+            "synth_folder",
+            "synth_val_folder",
+            "weak_folder",
+            "unlabeled_folder",
+            "test_folder",
+        ]
+    else:
+        dsets = ["test_folder"]
+
     for dset in dsets:
         computed = resample_folder(
             config_data[dset + "_44k"], config_data[dset], target_fs=config_data["fs"]
@@ -262,7 +266,8 @@ if __name__ == "__main__":
         random.seed(seed)
         pl.seed_everything(seed)
 
-    resample_data_generate_durations(configs["data"])
+    test_only = test_from_checkpoint is not None
+    resample_data_generate_durations(configs["data"], test_only)
     single_run(
         configs,
         args.log_dir,
