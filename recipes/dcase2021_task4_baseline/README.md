@@ -48,8 +48,7 @@ For now, only the SED baseline is available.
 You can run the SED baseline from scratch using: 
 - `python train_sed.py`
 
-Alternatively we provide a pre-trained checkpoint [here][zenodo_pretrained_models] which includes also
-Tensorboard logs. 
+Alternatively we provide a pre-trained checkpoint [here][zenodo_pretrained_models]. 
 
 You can test it on the validation real world data by using: 
   - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
