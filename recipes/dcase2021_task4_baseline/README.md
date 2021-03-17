@@ -13,7 +13,7 @@ You can download the dataset and generate synthetic soundscapes using the script
 Don't hesitate to generate your own synthetic dataset (change `generate_soundscapes(...)`).
 
 ### Usage:
-- `python generate_dcase_task4_2021.py --basedir=data` (You can change basedir to the desired data folder.)
+- `python generate_dcase_task4_2021.py --basedir="../../data"` (You can change basedir to the desired data folder.)
 
 It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] or [desed_real][desed].
 
