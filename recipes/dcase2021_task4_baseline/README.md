@@ -63,8 +63,7 @@ Also note that `train_sed.py` will create at its very first run additional folde
 so you need to have write permissions on the folder where your data are saved. 
 
 Hyperparameters can be changed in the YAML file (e.g. lower or higher batch size). 
-And a different configuration YAML can be used in each run using `--conf_file="confs/sed_2.yaml`  
-argument. 
+And a different configuration YAML can be used in each run using `--conf_file="confs/sed_2.yaml` argument. 
 
 The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline`.
 
