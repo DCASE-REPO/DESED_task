@@ -236,10 +236,12 @@ def single_run(
 
     if test_state_dict is None:
         trainer.fit(desed_training)
-    else:
-        desed_training.load_state_dict(test_state_dict)
+        best_path = trainer.checkpoint_callback.best_model_path
+        print(f"best model: {best_path}")
+        test_state_dict = torch.load(best_path)["state_dict"]
 
-    trainer.test(desed_training, ckpt_path="best")
+    desed_training.load_state_dict(test_state_dict)
+    trainer.test(desed_training)
 
 
 if __name__ == "__main__":
