@@ -44,12 +44,12 @@ class SEDTask4_2021(pl.LightningModule):
         hparams,
         encoder,
         sed_student,
-        opt,
-        train_data,
-        valid_data,
-        test_data,
-        train_sampler,
-        scheduler,
+        opt=None,
+        train_data=None,
+        valid_data=None,
+        test_data=None,
+        train_sampler=None,
+        scheduler=None,
         fast_dev_run=False,
     ):
         super(SEDTask4_2021, self).__init__()
