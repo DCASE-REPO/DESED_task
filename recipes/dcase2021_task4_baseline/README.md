@@ -10,7 +10,7 @@ following code (recommended to run line by line in case of problems).
 ## Dataset
 You can download the dataset and generate synthetic soundscapes using the script: "generate_dcase_task4_2021.py"
 
-Don't hesitate t generate your own synthetic dataset (change `generate_soundscapes(...)`).
+Don't hesitate to generate your own synthetic dataset (change `generate_soundscapes(...)`).
 
 ### Usage:
 - `python generate_dcase_task4_2021.py --basedir=data` (You can change basedir to the desired data folder.)
@@ -18,7 +18,7 @@ Don't hesitate t generate your own synthetic dataset (change `generate_soundscap
 It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] or [desed_real][desed].
 
 #### Real data
-weak, unlabeled, validaition data which are coming from Audioset.
+weak, unlabeled, validation data which are coming from Audioset.
 
 If you don't have the "real data" (desed_real), you need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
