@@ -463,11 +463,11 @@ class SEDTask4_2021(pl.LightningModule):
 
         obj_metric = torch.tensor(
             # Todo try the max between the two models
-            # max(
+            # -max(
             #     weak_student_f1_macro.item() + intersection_f1_macro_student,
             #     weak_teacher_f1_macro.item() + intersection_f1_macro_teacher,
             # )
-            (weak_student_f1_macro.item() + synth_metric)
+            -(weak_student_f1_macro.item() + synth_metric)
         )
 
         self.log("val/obj_metric", obj_metric, prog_bar=True)
