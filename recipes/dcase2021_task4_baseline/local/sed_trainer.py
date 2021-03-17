@@ -136,8 +136,8 @@ class SEDTask4_2021(pl.LightningModule):
         self.test_psds_buffer_student = {k: pd.DataFrame() for k in test_thresholds}
         self.test_psds_buffer_teacher = {k: pd.DataFrame() for k in test_thresholds}
 
-        self.test_eventF1_buffer_student = pd.DataFrame()
-        self.test_eventF1_buffer_teacher = pd.DataFrame()
+        self.decoded_student_05_buffer = pd.DataFrame()
+        self.decoded_teacher_05_buffer = pd.DataFrame()
 
     def update_ema(self, alpha, global_step, model, ema_model):
         """ Update teacher model parameters
@@ -461,7 +461,14 @@ class SEDTask4_2021(pl.LightningModule):
                 f"obj_metric_synth_type: {obj_metric_synth_type} not implemented."
             )
 
-        obj_metric = torch.tensor(weak_student_f1_macro.item() + intersection_f1_macro_student)
+        obj_metric = torch.tensor(
+            # Todo try the max between the two models
+            # -max(
+            #     weak_student_f1_macro.item() + intersection_f1_macro_student,
+            #     weak_teacher_f1_macro.item() + intersection_f1_macro_teacher,
+            # )
+            -(weak_student_f1_macro.item() + synth_metric)
+        )
 
         self.log("val/obj_metric", obj_metric, prog_bar=True)
         self.log("val/weak/student/macro_F1", weak_student_f1_macro)
@@ -552,7 +559,7 @@ class SEDTask4_2021(pl.LightningModule):
             thresholds=[0.5],
         )
 
-        self.test_eventF1_buffer_student = self.test_eventF1_buffer_student.append(
+        self.decoded_student_05_buffer = self.decoded_student_05_buffer.append(
             decoded_student_strong[0.5]
         )
 
@@ -564,7 +571,7 @@ class SEDTask4_2021(pl.LightningModule):
             thresholds=[0.5],
         )
 
-        self.test_eventF1_buffer_teacher = self.test_eventF1_buffer_teacher.append(
+        self.decoded_teacher_05_buffer = self.decoded_teacher_05_buffer.append(
             decoded_teacher_strong[0.5]
         )
 
@@ -623,16 +630,30 @@ class SEDTask4_2021(pl.LightningModule):
         )
 
         event_macro_student = log_sedeval_metrics(
-            self.test_eventF1_buffer_student,
+            self.decoded_student_05_buffer,
             self.hparams["data"]["test_tsv"],
             os.path.join(save_dir, "student"),
         )[0]
 
         event_macro_teacher = log_sedeval_metrics(
-            self.test_eventF1_buffer_teacher,
+            self.decoded_teacher_05_buffer,
             self.hparams["data"]["test_tsv"],
             os.path.join(save_dir, "teacher"),
         )[0]
+
+        # synth dataset
+        intersection_f1_macro_student = compute_per_intersection_macro_f1(
+            {"0.5": self.decoded_student_05_buffer},
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+        )
+
+        # synth dataset
+        intersection_f1_macro_teacher = compute_per_intersection_macro_f1(
+            {"0.5": self.decoded_teacher_05_buffer},
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+        )
 
         best_test_result = torch.tensor(max(psds_score_scenario1, psds_score_scenario2))
 
@@ -643,7 +664,9 @@ class SEDTask4_2021(pl.LightningModule):
             "test/teacher/psds_score_scenario1": psds_score_teacher_scenario1,
             "test/teacher/psds_score_scenario2": psds_score_teacher_scenario2,
             "test/student/event_f1_macro": event_macro_student,
+            "test/student/intersection_f1_macro": intersection_f1_macro_student,
             "test/teacher/event_f1_macro": event_macro_teacher,
+            "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher
         }
         if self.logger is not None:
             self.logger.log_metrics(results)
