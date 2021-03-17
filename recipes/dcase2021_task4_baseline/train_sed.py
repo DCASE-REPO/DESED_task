@@ -198,11 +198,11 @@ def single_run(
     trainer = pl.Trainer(
         max_epochs=n_epochs,
         callbacks=[
-            # EarlyStopping(
-            #     monitor="val/obj_metric",
-            #     patience=config["training"]["early_stop_patience"],
-            #     verbose=True,
-            # ),
+            EarlyStopping(
+                monitor="val/obj_metric",
+                patience=config["training"]["early_stop_patience"],
+                verbose=True,
+            ),
             ModelCheckpoint(logger.log_dir, monitor="val/obj_metric", save_top_k=1),
         ],
         gpus=gpus,
