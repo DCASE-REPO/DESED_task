@@ -201,9 +201,9 @@ def single_run(
             EarlyStopping(
                 monitor="val/obj_metric",
                 patience=config["training"]["early_stop_patience"],
-                verbose=True,
+                verbose=True, mode="max"
             ),
-            ModelCheckpoint(logger.log_dir, monitor="val/obj_metric", save_top_k=1),
+            ModelCheckpoint(logger.log_dir, monitor="val/obj_metric", save_top_k=1, mode="max", save_last=True),
         ],
         gpus=gpus,
         distributed_backend=config["training"].get("backend"),

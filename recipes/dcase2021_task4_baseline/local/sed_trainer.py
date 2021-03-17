@@ -461,14 +461,7 @@ class SEDTask4_2021(pl.LightningModule):
                 f"obj_metric_synth_type: {obj_metric_synth_type} not implemented."
             )
 
-        obj_metric = torch.tensor(
-            # Todo try the max between the two models
-            # -max(
-            #     weak_student_f1_macro.item() + intersection_f1_macro_student,
-            #     weak_teacher_f1_macro.item() + intersection_f1_macro_teacher,
-            # )
-            -(weak_student_f1_macro.item() + synth_metric)
-        )
+        obj_metric = torch.tensor(weak_student_f1_macro.item() + intersection_f1_macro_student)
 
         self.log("val/obj_metric", obj_metric, prog_bar=True)
         self.log("val/weak/student/macro_F1", weak_student_f1_macro)
