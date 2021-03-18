@@ -53,6 +53,8 @@ Alternatively we provide a pre-trained checkpoint [here][zenodo_pretrained_model
 You can test it on the validation real world data by using: 
   - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
+Check tensorboard logs using `tensorboard --logdir="path/to/exp_folder"`
+
 #### Results:
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1* 
