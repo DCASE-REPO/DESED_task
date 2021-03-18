@@ -48,7 +48,7 @@ For now, only the SED baseline is available.
 You can run the SED baseline from scratch using: 
 - `python train_sed.py`
 
-Alternatively we provide a pre-trained checkpoint [here][zenodo_pretrained_models]. 
+Alternatively we provide a pre-trained checkpoint [here][zenodo_pretrained_models] along with tensorboard logs. 
 
 You can test it on the validation real world data by using: 
   - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
@@ -57,7 +57,7 @@ You can test it on the validation real world data by using:
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1* 
 --------|--------------------|--------------------|-------------------------|-----------------
-Dev-test| **0.329**          | **0.515**          | 76.0%                   | 39.8%
+Dev-test| **0.342**          | **0.527**          | 76.6%                   | 40.1%
 
 Collar-based = event-based. More information about the metrics in the [webpage][dcase21_webpage]
 
@@ -99,7 +99,7 @@ The explanation of the different changes along other experiments will be present
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
-[zenodo_pretrained_models]: https://zenodo.org/record/4609995
+[zenodo_pretrained_models]: https://zenodo.org/record/4614635
 
 
 #### References
