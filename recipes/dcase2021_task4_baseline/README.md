@@ -2,6 +2,15 @@
 
 ---
 
+## INFO
+
+On the 26th of March:
+- The baseline has been fixed (bug in the scaler dimensions, it was using the batch dimension 
+  instead of the frequencies).
+- Validation.tsv has been updated: there was overlapping events from the same class. 
+It appeared only in test_dcase2018.tsv for 4 files and 6 events. Difference in performance is minor.
+
+
 ## Requirements
 
 `conda_create_environment.sh` is available to create an environment which runs the
