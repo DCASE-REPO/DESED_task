@@ -23,7 +23,7 @@ training:
 scaler:
   statistic: instance # instance or dataset-wide statistic
   normtype: minmax # minmax or standard or mean normalization
-  dims: [0, 2] # dimensions over which normalization is applied
+  dims: [1, 2] # dimensions over which normalization is applied
   savepath: ./scaler.ckpt # path to scaler checkpoint
 data: # change with your paths if different.
   # NOTE: if you have data in 44kHz only then synth_folder will be the path where
