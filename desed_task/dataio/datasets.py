@@ -157,15 +157,25 @@ class WeakSet(Dataset):
         mixture = torch.from_numpy(mixture).float()
 
         # labels
-        labels = c_ex["events"]
-        # check if labels exists:
-        max_len_targets = self.encoder.n_frames
-        weak = torch.zeros(max_len_targets, len(self.encoder.labels))
-        if len(labels):
-            weak_labels = self.encoder.encode_weak(labels)
-            weak[0, :] = torch.from_numpy(weak_labels).float()
+        if self.max_n_sources is None:
+            labels = c_ex["events"]
+            # check if labels exists:
+            max_len_targets = self.encoder.n_frames
+            weak = torch.zeros(max_len_targets, len(self.encoder.labels))
+            if len(labels):
+                weak_labels = self.encoder.encode_weak(labels)
+                weak[0, :] = torch.from_numpy(weak_labels).float()
+                out_args = [mixture, weak.transpose(0, 1), padded_indx]
+        else:
+            max_len_targets = self.encoder.n_frames
+            weak = torch.zeros((self.max_n_sources, max_len_targets, len(self.encoder.labels)))
+            labels = c_ex["events"]
+            for i, l in enumerate(labels):
+                weak_labels = self.encoder.encode_weak(l)
+                weak[i, 0, :] = torch.from_numpy(weak_labels).float()
 
-        out_args = [mixture, weak.transpose(0, 1), padded_indx]
+            out_args = [mixture, weak.transpose(1, 2), padded_indx]
+
 
         if self.max_n_sources is not None:
             dummy_sources = (
@@ -212,15 +222,19 @@ class UnlabelledSet(Dataset):
             padded_indx = [None]
         mixture = torch.from_numpy(mixture).float()
         max_len_targets = self.encoder.n_frames
-        strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
+        if self.max_n_sources is None:
+            strong = torch.zeros(len(self.encoder.labels), max_len_targets).float()
+        else:
+            strong = torch.zeros((self.max_n_sources, len(self.encoder.labels), max_len_targets)).float()
 
-        out_args = [mixture, strong.transpose(0, 1), padded_indx]
+        out_args = [mixture, strong, padded_indx]
 
         if self.max_n_sources is not None:
             dummy_sources = (
                 torch.zeros_like(mixture).unsqueeze(0).repeat(self.max_n_sources, 1)
             )
             out_args.append(dummy_sources)
+
 
         if self.return_filename:
             out_args.append(c_ex["mixture"])
@@ -264,16 +278,22 @@ class SeparationSet(Dataset):
         n_sources = random.randint(1, self.max_n_sources)
         sources_meta = np.random.choice(self.sources, n_sources)
 
-        labels = self.encoder.encode_strong_df(pd.DataFrame(sources_meta))
+
+
+        # strong labels shape is max_n_sources, classes, frames
         sources = []
+        labels = []
         for i in range(n_sources):
+            c_lab = self.encoder.encode_strong_df(pd.DataFrame([sources_meta[i]]))
             tmp, fs = sf.read(sources_meta[i]["filename"])
             assert fs == self.fs
             sources.append(tmp)
+            labels.append(c_lab)
             mixture += tmp
 
         padded_indx = [1.0]
         sources = np.stack(sources)
+        labels = np.stack(labels)
 
         if len(sources) < self.max_n_sources:
             # add dummy sources
@@ -285,11 +305,21 @@ class SeparationSet(Dataset):
                 0,
             )
 
+            labels = np.concatenate(
+                (
+                    labels,
+                    np.zeros(
+                        (self.max_n_sources - len(labels), labels.shape[-2], labels.shape[-1])),
+                ),
+                0,
+            )
+
         sources = torch.from_numpy(sources).float()
+        labels = torch.from_numpy(labels).float()
 
         return (
             torch.from_numpy(mixture).float(),
-            torch.from_numpy(labels.T).float(),
+            labels.transpose(1, 2),
             padded_indx,
             sources,
         )
