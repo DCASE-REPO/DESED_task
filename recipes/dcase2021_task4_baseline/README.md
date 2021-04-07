@@ -2,6 +2,15 @@
 
 ---
 
+## INFO
+
+On the 26th of March:
+- The baseline has been fixed (bug in the scaler dimensions, it was using the batch dimension 
+  instead of the frequencies).
+- Validation.tsv has been updated: there was overlapping events from the same class. 
+It appeared only in test_dcase2018.tsv for 4 files and 6 events. Difference in performance is minor.
+
+
 ## Requirements
 
 `conda_create_environment.sh` is available to create an environment which runs the
@@ -59,9 +68,12 @@ Check tensorboard logs using `tensorboard --logdir="path/to/exp_folder"`
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1* 
 --------|--------------------|--------------------|-------------------------|-----------------
-Dev-test| **0.342**          | **0.527**          | 76.6%                   | 40.1%
+Dev-test| **0.353**          | **0.553**          | 79.5%                   | 42.1%
 
 Collar-based = event-based. More information about the metrics in the [webpage][dcase21_webpage]
+
+The results are from the "Teacher" predictions (better predictions over the Student model, 
+note that this is the only thing cherry picked on the dev-test set). 
 
 **Note**:
 
@@ -101,7 +113,7 @@ The explanation of the different changes along other experiments will be present
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
-[zenodo_pretrained_models]: https://zenodo.org/record/4614635
+[zenodo_pretrained_models]: https://zenodo.org/record/4639817
 
 
 #### References
