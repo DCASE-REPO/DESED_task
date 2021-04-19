@@ -12,17 +12,14 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from desed_task.dataio import ConcatDatasetBatchSampler
-from desed_task.dataio.datasets_sep import StronglyAnnotatedSet, UnlabelledSet, WeakSet
+from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabelledSet, WeakSet
 from desed_task.nnet.CRNN import CRNN
 from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
 
 from local.classes_dict import classes_labels
+from local.sepsed_trainer import SEPSEDTask4_2021
 from local.sed_trainer import SEDTask4_2021
-from local.resample_folder import resample_folder
-from local.utils import generate_tsv_wav_durations
-from local.apply_separation_model import SeparationModel, separate_folder
-import tensorflow.compat.v1 as tf
 
 
 class EnsembleModel(torch.nn.Module):
@@ -33,7 +30,7 @@ class EnsembleModel(torch.nn.Module):
         self.q = torch.nn.Parameter(torch.rand((1)))
 
     def forward(self, x, n_src, nosep):
-        strong, weak = self.sed_model(x)
+        strong, weak = self.multisrc_model(x)
         _, clss, frames = strong.shape
         strong = strong.reshape(-1, n_src, clss, frames)
         weak = weak.reshape(-1, n_src, clss)
@@ -42,58 +39,12 @@ class EnsembleModel(torch.nn.Module):
         weak = torch.clamp(torch.sum(weak, 1), max=1)
 
         with torch.no_grad():
-            strong_nosep, weak_nosep = self.mono_model(nosep)
+            strong_nosep, weak_nosep = self.monaural_model(nosep)
 
         strong = strong_nosep * self.q + strong * (1 - self.q)
         weak = weak_nosep * self.q + weak * (1 - self.q)
 
         return strong, weak
-
-
-def resample_data_generate_durations(config_data, test_only=False):
-    if not test_only:
-        dsets = [
-            "synth_folder",
-            "synth_val_folder",
-            "weak_folder",
-            "unlabeled_folder",
-            "test_folder",
-        ]
-    else:
-        dsets = ["test_folder"]
-
-    for dset in dsets:
-        computed = resample_folder(
-            config_data[dset + "_44k"], config_data[dset + "_16k"], target_fs=config_data["fs"]
-        )
-
-    for base_set in ["synth_val", "test"]:
-        if not os.path.exists(config_data[base_set + "_dur"]) or computed:
-            generate_tsv_wav_durations(
-                config_data[base_set + "_folder"], config_data[base_set + "_dur"]
-            )
-
-def pre_separate(config_data, test_only=False):
-        if not test_only:
-            dsets = [
-                "synth_folder",
-                "synth_val_folder",
-                "weak_folder",
-                "unlabeled_folder",
-                "test_folder",
-            ]
-        else:
-            dsets = ["test_folder"]
-
-
-        with tf.device("/gpu:0"):
-            model = SeparationModel(config_data["training"]["sep_checkpoint"], config_data["training"]["sep_graph"])
-
-            for folder in dsets:
-                indir = config_data["data"][folder + "_16k"]
-                outdir = config_data["data"][folder + "_sep"]
-                separate_folder(
-                    model, indir, outdir)
 
 
 def single_run(
@@ -131,12 +82,12 @@ def single_run(
 
     devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
     devtest_dataset = StronglyAnnotatedSet(
-        config["data"]["test_folder"],
+        config["data"]["test_folder_sep"],
         devtest_df,
         encoder,
         return_filename=True,
         pad_to=config["data"]["audio_max_len"],
-        multichannel=True
+        multisrc=True,
     )
 
     test_dataset = devtest_dataset
@@ -163,7 +114,7 @@ def single_run(
     ckpt = torch.load(config["training"]["sed_checkpoint"], map_location="cpu")
     sed_trainer.load_state_dict(ckpt["state_dict"])
 
-    sed_model = CRNN(**config["net"], freeze_bn=True) # freezing batch norm
+    sed_model = CRNN(**config["net"], freeze_bn=True)  # freezing batch norm
     if config["training"]["sed_model"] == "student":
         sed_model.load_state_dict(sed_trainer.sed_student.state_dict(), strict=False)
     elif config["training"]["sed_model"] == "teacher":
@@ -175,51 +126,52 @@ def single_run(
         ##### data prep train valid ##########
         synth_df = pd.read_csv(config["data"]["synth_tsv"], sep="\t")
         synth_set = StronglyAnnotatedSet(
-            config["data"]["synth_folder"],
+            config["data"]["synth_folder_sep"],
             synth_df,
             encoder,
             pad_to=config["data"]["audio_max_len"],
-            multichannel=True
+            multisrc=True,
         )
 
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
         train_weak_df = weak_df.sample(
-            frac=config["training"]["weak_split"], random_state=config["training"]["seed"]
+            frac=config["training"]["weak_split"],
+            random_state=config["training"]["seed"],
         )
         valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
         train_weak_df = train_weak_df.reset_index(drop=True)
         weak_set = WeakSet(
-            config["data"]["weak_folder"],
+            config["data"]["weak_folder_sep"],
             train_weak_df,
             encoder,
             pad_to=config["data"]["audio_max_len"],
-            multichannel=True
+            multisrc=True,
         )
 
         unlabeled_set = UnlabelledSet(
-            config["data"]["unlabeled_folder"],
+            config["data"]["unlabeled_folder_sep"],
             encoder,
             pad_to=config["data"]["audio_max_len"],
-            multichannel=True
+            multisrc=True,
         )
 
         synth_df_val = pd.read_csv(config["data"]["synth_val_tsv"], sep="\t")
         synth_val = StronglyAnnotatedSet(
-            config["data"]["synth_val_folder"],
+            config["data"]["synth_val_folder_sep"],
             synth_df_val,
             encoder,
             return_filename=True,
             pad_to=config["data"]["audio_max_len"],
-            multichannel=True
+            multisrc=True,
         )
 
         weak_val = WeakSet(
-            config["data"]["weak_folder"],
+            config["data"]["weak_folder_sep"],
             valid_weak_df,
             encoder,
             pad_to=config["data"]["audio_max_len"],
             return_filename=True,
-            multichannel=True
+            multisrc=True,
         )
 
         tot_train_data = [synth_set, weak_set, unlabeled_set]
@@ -229,17 +181,15 @@ def single_run(
         samplers = [torch.utils.data.RandomSampler(x) for x in tot_train_data]
         batch_sampler = ConcatDatasetBatchSampler(samplers, batch_sizes)
 
-        valid_dataset = torch.utils.data.ConcatDataset(
-            [synth_val, weak_val]
-        )
+        valid_dataset = torch.utils.data.ConcatDataset([synth_val, weak_val])
 
         ##### training params and optimizers ############
         epoch_len = min(
             [
                 len(tot_train_data[indx])
                 // (
-                        config["training"]["batch_size"][indx]
-                        * config["training"]["accumulate_batches"]
+                    config["training"]["batch_size"][indx]
+                    * config["training"]["accumulate_batches"]
                 )
                 for indx in range(len(tot_train_data))
             ]
@@ -247,7 +197,11 @@ def single_run(
 
         sed_model = EnsembleModel(sed_model)
 
-        opt = torch.optim.Adam([sed_model.p] + list(sed_model.sed_model.parameters())[-37:], 1e-3, betas=(0.9, 0.999))
+        opt = torch.optim.Adam(
+            [sed_model.q] + list(sed_model.multisrc_model.parameters()),
+            1e-3,
+            betas=(0.9, 0.999),
+        )
 
         exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
         exp_scheduler = {
@@ -264,10 +218,15 @@ def single_run(
                 monitor="val/obj_metric",
                 patience=config["training"]["early_stop_patience"],
                 verbose=True,
-                mode="max"
+                mode="max",
             ),
-            ModelCheckpoint(logger.log_dir, monitor="val/obj_metric", save_top_k=1, mode="max",
-                            save_last=True)
+            ModelCheckpoint(
+                logger.log_dir,
+                monitor="val/obj_metric",
+                save_top_k=1,
+                mode="max",
+                save_last=True,
+            ),
         ]
     else:
         train_dataset = None
@@ -278,7 +237,7 @@ def single_run(
         logger = True
         callbacks = None
 
-    desed_training = SEDTask4_2021(
+    desed_training = SEPSEDTask4_2021(
         config,
         encoder=encoder,
         sed_student=sed_model,
@@ -302,9 +261,9 @@ def single_run(
     else:
         flush_logs_every_n_steps = 100
         log_every_n_steps = 40
-        limit_train_batches = 1.
-        limit_val_batches = 1.
-        limit_test_batches = 1.
+        limit_train_batches = 1.0
+        limit_val_batches = 1.0
+        limit_test_batches = 1.0
         n_epochs = config["training"]["n_epochs"]
 
     trainer = pl.Trainer(
@@ -337,19 +296,37 @@ def single_run(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
-    parser.add_argument("--conf_file", default="./confs/sep+sed.yaml",
-                        help="The configuration file with all the experiment parameters.")
-    parser.add_argument("--log_dir", default="./exp/2021_baseline",
-                        help="Directory where to save tensorboard logs, saved models, etc.")
-    parser.add_argument("--resume_from_checkpoint", default=None,
-                        help="Allow the training to be resumed, take as input a previously saved model (.ckpt).")
-    parser.add_argument("--test_from_checkpoint", default=None,
-                        help="Test the model specified")
-    parser.add_argument("--gpus", default="0", help="The number of GPUs to train on, or the gpu to use, default='0', "
-                                                    "so uses one GPU indexed by 0.")
-    parser.add_argument("--fast_dev_run", action="store_true", default=False,
-                        help="Use this option to make a 'fake' run which is useful for development and debugging. "
-                             "It uses very few batches and epochs so it won't give any meaningful result.")
+    parser.add_argument(
+        "--conf_file",
+        default="./confs/sep+sed.yaml",
+        help="The configuration file with all the experiment parameters.",
+    )
+    parser.add_argument(
+        "--log_dir",
+        default="./exp/2021_baseline_separation",
+        help="Directory where to save tensorboard logs, saved models, etc.",
+    )
+    parser.add_argument(
+        "--resume_from_checkpoint",
+        default=None,
+        help="Allow the training to be resumed, take as input a previously saved model (.ckpt).",
+    )
+    parser.add_argument(
+        "--test_from_checkpoint", default=None, help="Test the model specified"
+    )
+    parser.add_argument(
+        "--gpus",
+        default="0",
+        help="The number of GPUs to train on, or the gpu to use, default='0', "
+        "so uses one GPU indexed by 0.",
+    )
+    parser.add_argument(
+        "--fast_dev_run",
+        action="store_true",
+        default=False,
+        help="Use this option to make a 'fake' run which is useful for development and debugging. "
+        "It uses very few batches and epochs so it won't give any meaningful result.",
+    )
     args = parser.parse_args()
 
     with open(args.conf_file, "r") as f:
@@ -376,8 +353,7 @@ if __name__ == "__main__":
         pl.seed_everything(seed)
 
     test_only = test_from_checkpoint is not None
-    #resample_data_generate_durations(configs["data"], test_only)
-    pre_separate(configs, test_only)
+
     single_run(
         configs,
         args.log_dir,
