@@ -21,8 +21,10 @@ def to_mono(mixture, random_ch=False):
 
 
 def pad_audio(audio, target_len):
-    if len(audio) < target_len:
-        audio = torch.nn.functional.pad(audio, (0, target_len - audio.shape[-1]), mode="constant")
+    if audio.shape[-1] < target_len:
+        audio = torch.nn.functional.pad(
+            audio, (0, target_len - audio.shape[-1]), mode="constant"
+        )
         padded_indx = [target_len / len(audio)]
     else:
         padded_indx = [1.0]
@@ -40,7 +42,7 @@ class StronglyAnnotatedSet(Dataset):
         fs=16000,
         return_filename=False,
         random_channel=False,
-        multisrc=False
+        multisrc=False,
     ):
 
         self.encoder = encoder
@@ -87,15 +89,13 @@ class StronglyAnnotatedSet(Dataset):
         c_ex = self.examples[self.examples_list[item]]
         mixture, fs = torchaudio.load(c_ex["mixture"])
         if not self.multisrc:
-            mixture = to_mono(mixture, self.train)
+            mixture = to_mono(mixture, self.random_channel)
 
         if self.pad_to is not None:
             mixture, padded_indx = pad_audio(mixture, self.pad_to)
 
         mixture = mixture.float()
-        if not self.multisrc:
-            # remove channel dim
-            mixture = mixture[0]
+
         # labels
         labels = c_ex["events"]
         # check if labels exists:
@@ -124,7 +124,7 @@ class WeakSet(Dataset):
         fs=16000,
         return_filename=False,
         random_channel=False,
-        multisrc=False
+        multisrc=False,
     ):
 
         self.encoder = encoder
@@ -154,14 +154,11 @@ class WeakSet(Dataset):
         c_ex = self.examples[file]
         mixture, fs = torchaudio.load(c_ex["mixture"])
         if not self.multisrc:
-            mixture = to_mono(mixture, self.train)
+            mixture = to_mono(mixture, self.random_channel)
         if self.pad_to is not None:
             mixture, padded_indx = pad_audio(mixture, self.pad_to)
 
         mixture = mixture.float()
-        if not self.multisrc:
-            # remove channel dim
-            mixture = mixture[0]
 
         # labels
         labels = c_ex["events"]
@@ -189,7 +186,7 @@ class UnlabelledSet(Dataset):
         fs=16000,
         return_filename=False,
         random_channel=False,
-        multisrc=False
+        multisrc=False,
     ):
 
         self.encoder = encoder
@@ -200,7 +197,6 @@ class UnlabelledSet(Dataset):
         self.random_channel = random_channel
         self.multisrc = multisrc
 
-
     def __len__(self):
         return len(self.examples)
 
@@ -208,14 +204,11 @@ class UnlabelledSet(Dataset):
         c_ex = self.examples[item]
         mixture, fs = torchaudio.load(c_ex)
         if not self.multisrc:
-            mixture = to_mono(mixture, self.train)
+            mixture = to_mono(mixture, self.random_channel)
         if self.pad_to is not None:
             mixture, padded_indx = pad_audio(mixture, self.pad_to)
 
         mixture = mixture.float()
-        if not self.multisrc:
-            # remove channel dim
-            mixture = mixture[0]
 
         max_len_targets = self.encoder.n_frames
         strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()

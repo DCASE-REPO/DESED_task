@@ -164,7 +164,11 @@ class SEDTask4_2021(pl.LightningModule):
         """
 
         if self.hparams["scaler"]["statistic"] == "instance":
-            scaler = TorchScaler("instance", "minmax", self.hparams["scaler"]["dims"])
+            scaler = TorchScaler(
+                "instance",
+                self.hparams["scaler"]["normtype"],
+                self.hparams["scaler"]["dims"],
+            )
 
             return scaler
         elif self.hparams["scaler"]["statistic"] == "dataset":
@@ -659,7 +663,7 @@ class SEDTask4_2021(pl.LightningModule):
             "test/student/event_f1_macro": event_macro_student,
             "test/student/intersection_f1_macro": intersection_f1_macro_student,
             "test/teacher/event_f1_macro": event_macro_teacher,
-            "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher
+            "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher,
         }
         if self.logger is not None:
             self.logger.log_metrics(results)

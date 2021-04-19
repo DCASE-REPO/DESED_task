@@ -106,7 +106,8 @@ def single_run(
 
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
         train_weak_df = weak_df.sample(
-            frac=config["training"]["weak_split"], random_state=config["training"]["seed"]
+            frac=config["training"]["weak_split"],
+            random_state=config["training"]["seed"],
         )
         valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
         train_weak_df = train_weak_df.reset_index(drop=True)
@@ -147,17 +148,15 @@ def single_run(
         samplers = [torch.utils.data.RandomSampler(x) for x in tot_train_data]
         batch_sampler = ConcatDatasetBatchSampler(samplers, batch_sizes)
 
-        valid_dataset = torch.utils.data.ConcatDataset(
-            [synth_val, weak_val]
-        )
+        valid_dataset = torch.utils.data.ConcatDataset([synth_val, weak_val])
 
         ##### training params and optimizers ############
         epoch_len = min(
             [
                 len(tot_train_data[indx])
                 // (
-                        config["training"]["batch_size"][indx]
-                        * config["training"]["accumulate_batches"]
+                    config["training"]["batch_size"][indx]
+                    * config["training"]["accumulate_batches"]
                 )
                 for indx in range(len(tot_train_data))
             ]
@@ -179,10 +178,15 @@ def single_run(
                 monitor="val/obj_metric",
                 patience=config["training"]["early_stop_patience"],
                 verbose=True,
-                mode="max"
+                mode="max",
             ),
-            ModelCheckpoint(logger.log_dir, monitor="val/obj_metric", save_top_k=1, mode="max",
-                            save_last=True),
+            ModelCheckpoint(
+                logger.log_dir,
+                monitor="val/obj_metric",
+                save_top_k=1,
+                mode="max",
+                save_last=True,
+            ),
         ]
     else:
         train_dataset = None
@@ -217,9 +221,9 @@ def single_run(
     else:
         flush_logs_every_n_steps = 100
         log_every_n_steps = 40
-        limit_train_batches = 1.
-        limit_val_batches = 1.
-        limit_test_batches = 1.
+        limit_train_batches = 1.0
+        limit_val_batches = 1.0
+        limit_test_batches = 1.0
         n_epochs = config["training"]["n_epochs"]
 
     trainer = pl.Trainer(
@@ -252,19 +256,37 @@ def single_run(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
-    parser.add_argument("--conf_file", default="./confs/sed.yaml",
-                        help="The configuration file with all the experiment parameters.")
-    parser.add_argument("--log_dir", default="./exp/2021_baseline",
-                        help="Directory where to save tensorboard logs, saved models, etc.")
-    parser.add_argument("--resume_from_checkpoint", default=None,
-                        help="Allow the training to be resumed, take as input a previously saved model (.ckpt).")
-    parser.add_argument("--test_from_checkpoint", default=None,
-                        help="Test the model specified")
-    parser.add_argument("--gpus", default="0", help="The number of GPUs to train on, or the gpu to use, default='0', "
-                                                    "so uses one GPU indexed by 0.")
-    parser.add_argument("--fast_dev_run", action="store_true", default=False,
-                        help="Use this option to make a 'fake' run which is useful for development and debugging. "
-                             "It uses very few batches and epochs so it won't give any meaningful result.")
+    parser.add_argument(
+        "--conf_file",
+        default="./confs/sed.yaml",
+        help="The configuration file with all the experiment parameters.",
+    )
+    parser.add_argument(
+        "--log_dir",
+        default="./exp/2021_baseline",
+        help="Directory where to save tensorboard logs, saved models, etc.",
+    )
+    parser.add_argument(
+        "--resume_from_checkpoint",
+        default=None,
+        help="Allow the training to be resumed, take as input a previously saved model (.ckpt).",
+    )
+    parser.add_argument(
+        "--test_from_checkpoint", default=None, help="Test the model specified"
+    )
+    parser.add_argument(
+        "--gpus",
+        default="0",
+        help="The number of GPUs to train on, or the gpu to use, default='0', "
+        "so uses one GPU indexed by 0.",
+    )
+    parser.add_argument(
+        "--fast_dev_run",
+        action="store_true",
+        default=False,
+        help="Use this option to make a 'fake' run which is useful for development and debugging. "
+        "It uses very few batches and epochs so it won't give any meaningful result.",
+    )
     args = parser.parse_args()
 
     with open(args.conf_file, "r") as f:
