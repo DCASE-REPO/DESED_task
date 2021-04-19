@@ -164,7 +164,11 @@ class SEPSEDTask4_2021(pl.LightningModule):
         """
 
         if self.hparams["scaler"]["statistic"] == "instance":
-            scaler = TorchScaler("instance", "minmax", self.hparams["scaler"]["dims"])
+            scaler = TorchScaler(
+                "instance",
+                self.hparams["scaler"]["normtype"],
+                self.hparams["scaler"]["dims"],
+            )
 
             return scaler
         elif self.hparams["scaler"]["statistic"] == "dataset":
