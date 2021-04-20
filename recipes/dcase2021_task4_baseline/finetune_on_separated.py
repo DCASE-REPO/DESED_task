@@ -122,6 +122,8 @@ def single_run(
     else:
         raise EnvironmentError
 
+    sed_model = EnsembleModel(sed_model)
+
     if test_state_dict is None:
         ##### data prep train valid ##########
         synth_df = pd.read_csv(config["data"]["synth_tsv"], sep="\t")
@@ -194,8 +196,6 @@ def single_run(
                 for indx in range(len(tot_train_data))
             ]
         )
-
-        sed_model = EnsembleModel(sed_model)
 
         opt = torch.optim.Adam(
             [sed_model.q] + list(sed_model.multisrc_model.parameters()),

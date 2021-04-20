@@ -33,11 +33,9 @@ def resample_data_generate_durations(config_data, test_only=False):
         )
 
     for base_set in ["synth_val", "test"]:
-
-        if not os.path.exists(config_data[base_set + "_dur"]) or computed:
-            generate_tsv_wav_durations(
-                config_data[base_set + "_folder_16k"], config_data[base_set + "_dur"]
-            )
+        generate_tsv_wav_durations(
+            config_data[base_set + "_folder_16k"], config_data[base_set + "_dur"]
+        )
 
 
 def pre_separate(config_data, test_only=False):
