@@ -215,6 +215,6 @@ class UnlabeledSet(Dataset):
         out_args = [mixture, strong.transpose(0, 1), padded_indx]
 
         if self.return_filename:
-            out_args.append(c_ex["mixture"])
+            out_args.append(c_ex)
 
         return out_args

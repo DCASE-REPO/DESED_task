@@ -12,7 +12,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from desed_task.dataio import ConcatDatasetBatchSampler
-from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabelledSet, WeakSet
+from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabeledSet, WeakSet
 from desed_task.nnet.CRNN import CRNN
 from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
@@ -140,7 +140,8 @@ def single_run(
     elif config["training"]["sed_model"] == "teacher":
         sed_model.load_state_dict(sed_trainer.sed_teacher.state_dict(), strict=False)
     else:
-        raise EnvironmentError("Sed model should be either student or teacher model.")
+        raise EnvironmentError(f"Sed model should be either student or teacher model. \n"
+                               f"You gave: {config['training']['sed_model']}")
 
     sed_model = EnsembleModel(sed_model)
 
@@ -170,7 +171,7 @@ def single_run(
             multisrc=True,
         )
 
-        unlabeled_set = UnlabelledSet(
+        unlabeled_set = UnlabeledSet(
             config["data"]["unlabeled_folder_sep"],
             encoder,
             pad_to=config["data"]["audio_max_len"],
