@@ -229,7 +229,7 @@ class SEPSEDTask4_2021(pl.LightningModule):
         return strong, weak
 
     def training_step(self, batch, batch_indx):
-        """ Applying the training for one batch (a step). Used during trainer.fit
+        """ Apply the training for one batch (a step). Used during trainer.fit
 
         Args:
             batch: torch.Tensor, batch input tensor

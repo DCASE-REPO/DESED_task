@@ -140,7 +140,8 @@ def single_run(
     elif config["training"]["sed_model"] == "teacher":
         sed_model.load_state_dict(sed_trainer.sed_teacher.state_dict(), strict=False)
     else:
-        raise EnvironmentError("Sed model should be either student or teacher model.")
+        raise EnvironmentError(f"Sed model should be either student or teacher model. \n"
+                               f"You gave: {config['training']['sed_model']}")
 
     sed_model = EnsembleModel(sed_model)
 
