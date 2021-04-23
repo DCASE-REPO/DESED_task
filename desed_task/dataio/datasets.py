@@ -206,7 +206,7 @@ class UnlabeledSet(Dataset):
     def __getitem__(self, item):
         c_ex = self.examples[item]
         mixture, padded_indx = read_audio(
-            c_ex["mixture"], self.multisrc, self.random_channel, self.pad_to
+            c_ex, self.multisrc, self.random_channel, self.pad_to
         )
 
         max_len_targets = self.encoder.n_frames
@@ -214,6 +214,6 @@ class UnlabeledSet(Dataset):
         out_args = [mixture, strong.transpose(0, 1), padded_indx]
 
         if self.return_filename:
-            out_args.append(c_ex["mixture"])
+            out_args.append(c_ex)
 
         return out_args
