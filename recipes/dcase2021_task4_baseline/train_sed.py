@@ -12,7 +12,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from desed_task.dataio import ConcatDatasetBatchSampler
-from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabelledSet, WeakSet
+from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabeledSet, WeakSet
 from desed_task.nnet.CRNN import CRNN
 from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
@@ -118,7 +118,7 @@ def single_run(
             pad_to=config["data"]["audio_max_len"],
         )
 
-        unlabeled_set = UnlabelledSet(
+        unlabeled_set = UnlabeledSet(
             config["data"]["unlabeled_folder"],
             encoder,
             pad_to=config["data"]["audio_max_len"],
