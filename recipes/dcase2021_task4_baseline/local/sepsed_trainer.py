@@ -23,9 +23,9 @@ from desed_task.evaluation.evaluation_measures import (
 
 
 class SEPSEDTask4_2021(pl.LightningModule):
-    """ Pytorch lightning module for the SED 2021 baseline
+    """ Pytorch lightning module for the SEP-SED 2021 baseline
     Args:
-        hparams: dict, the dictionnary to be used for the current experiment/
+        hparams: dict, the dictionary to be used for the current experiment/
         encoder: ManyHotEncoder object, object to encode and decode labels.
         sed_student: torch.Module, the student model to be trained. The teacher model will be
         opt: torch.optimizer.Optimizer object, the optimizer to be used

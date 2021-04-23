@@ -218,6 +218,9 @@ class SEDTask4_2021(pl.LightningModule):
         amp_to_db.amin = 1e-5  # amin= 1e-5 as in librosa
         return amp_to_db(mels).clamp(min=-50, max=80)  # clamp to reproduce old code
 
+    def detect(self, mel_feats, model):
+        return model(self.scaler(self.take_log(mel_feats)))
+
     def training_step(self, batch, batch_indx):
         """ Applying the training for one batch (a step). Used during trainer.fit
 
@@ -253,8 +256,8 @@ class SEDTask4_2021(pl.LightningModule):
             )
 
         # sed student forward
-        strong_preds_student, weak_preds_student = self.sed_student(
-            self.scaler(self.take_log(features))
+        strong_preds_student, weak_preds_student = self.detect(
+            features, self.sed_student
         )
 
         # supervised loss on strong labels
@@ -267,8 +270,9 @@ class SEDTask4_2021(pl.LightningModule):
         tot_loss_supervised = loss_strong + loss_weak
 
         with torch.no_grad():
-            ema_features = self.scaler(self.take_log(features))
-            strong_preds_teacher, weak_preds_teacher = self.sed_teacher(ema_features)
+            strong_preds_teacher, weak_preds_teacher = self.detect(
+                features, self.sed_teacher
+            )
             loss_strong_teacher = self.supervised_loss(
                 strong_preds_teacher[strong_mask], labels[strong_mask]
             )
@@ -327,10 +331,10 @@ class SEDTask4_2021(pl.LightningModule):
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        logmels = self.scaler(self.take_log(self.mel_spec(audio)))
-        strong_preds_student, weak_preds_student = self.sed_student(logmels)
+        mels = self.mel_spec(audio)
+        strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student)
         # prediction for teacher
-        strong_preds_teacher, weak_preds_teacher = self.sed_teacher(logmels)
+        strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher)
 
         # we derive masks for each dataset based on folders of filenames
         mask_weak = (
@@ -509,10 +513,10 @@ class SEDTask4_2021(pl.LightningModule):
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        logmels = self.scaler(self.take_log(self.mel_spec(audio)))
-        strong_preds_student, weak_preds_student = self.sed_student(logmels)
+        mels = self.mel_spec(audio)
+        strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student)
         # prediction for teacher
-        strong_preds_teacher, weak_preds_teacher = self.sed_teacher(logmels)
+        strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher)
 
         loss_strong_student = self.supervised_loss(strong_preds_student, labels)
         loss_strong_teacher = self.supervised_loss(strong_preds_teacher, labels)
