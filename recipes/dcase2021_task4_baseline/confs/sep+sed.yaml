@@ -20,8 +20,8 @@ training:
   seed: 42
   mixup: # Soft mixup gives the ratio of the mix to the labels, hard mixup gives a 1 to every label present.
   obj_metric_synth_type: intersection
-  sed_yaml: "./pretrained_SED/version_0/hparams.yaml"
-  sed_checkpoint: "./pretrained_SED/version_0/epoch=178-step=21121.ckpt" # path to pre-trained SED checkpoint
+  sed_yaml: "./2021_baseline_sed/version_0/hparams.yaml"
+  sed_checkpoint: "./2021_baseline_sed/version_0/epoch=178-step=21121.ckpt" # path to pre-trained SED checkpoint
   sed_model: "teacher" # use teacher or student weight from pre-trained model
   sep_checkpoint: "./yfcc100m_mixit_model_checkpoint/model.ckpt-3547330" # path to pre-trained tensorflow model separation checkpoint
   sep_graph: "./yfcc100m_mixit_model_checkpoint/inference.meta"# path to pre-trained tensorflow model separation graph file

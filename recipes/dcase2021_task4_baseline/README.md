@@ -111,15 +111,20 @@ The explanation of the different changes along other experiments will be present
 ### SSEP + SED Baseline
 
 You can run the SSEP + SED baseline from scratch by first downloading the pre-trained
-universal sound separation model trained on YFCC100m [3] following the instructions [here][] using
+universal sound separation model trained on YFCC100m [3] following the instructions [here][google_sourcesep_repo] using
 the Google Cloud SDK ([installation instructions][sdk_installation_instructions]):
 
-- `gsutil -m cp -r gs://gresearch/sound_separation/yfcc100m_clip_lists .`
+- `gsutil -m cp -r gs://gresearch/sound_separation/yfcc100m_mixit_model_checkpoint .`
 
 You also need the pre-trained SED system as obtained from the SED Baseline,
-you can train your own or use the pretrained checkpoint from [here][zenodo_pretrained_models].
+you can train your own or use the pretrained system from [here][zenodo_pretrained_models].
+The pretrained SED system can be obtained using:
+
+- `wget -O 2021_baseline_sed.tar.gz "https://zenodo.org/record/4639817/files/2021_baseline_sed.tar.gz?download=1"`
+- `tar -xzf 2021_baseline_sed.tar.gz`
+
 Be sure to check that in the configuration YAML file `./confs/sep+sed.yaml` the
-paths to the SED checkpoint and to the pre-trained sound separation model are set
+paths to the SED checkpoint and YAML file and to the pre-trained sound separation model are set
 correctly.
 
 First sound separation is applied using this script to the data
@@ -140,7 +145,7 @@ Check tensorboard logs using `tensorboard --logdir="path/to/exp_folder"`
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1*
 --------|--------------------|--------------------|-------------------------|-----------------
-Dev-test| **0.373**          | **0.549**          | 79.5%                   | 44.3%
+Dev-test| **0.373**          | **0.549**          | 77.2%                   | 44.3%
 
 Collar-based = event-based. More information about the metrics in the [webpage][dcase21_webpage]
 
@@ -159,7 +164,7 @@ with MixIT [5] on YFCC100m dataset [3]. The recipe for training such model is av
 [here][google_sourcesep_repo].
 
 Predictions are obtained by ensembling the fine-tuned SED model with the original
-SED model. Ensembling is performed by weighted average of the predictions of the
+SED model following [6]. Ensembling is performed by weighted average of the predictions of the
 two models, the weight is learned during training.
 
 [dcase21_webpage]: http://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments
@@ -181,3 +186,5 @@ two models, the weight is learned during training.
 [4] Kavalerov, Ilya, et al. "Universal sound separation." 2019 IEEE Workshop on Applications of Signal Processing to Audio and Acoustics (WASPAA). IEEE, 2019.
 
 [5] Wisdom, Scott, et al. "Unsupervised sound separation using mixtures of mixtures." arXiv preprint arXiv:2006.12701 (2020).
+
+[6] Turpault, Nicolas, et al. "Improving sound event detection in domestic environments using sound separation." arXiv preprint arXiv:2007.03932 (2020).

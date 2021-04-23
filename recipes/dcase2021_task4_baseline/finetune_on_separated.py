@@ -23,6 +23,13 @@ from local.sed_trainer import SEDTask4_2021
 
 
 class EnsembleModel(torch.nn.Module):
+    """
+    Helper model class used to ensemble predictions between the model fine-tuned on
+    the separated sources and the original one which instead is fed the whole mixture.
+    The weight used for averaging the predictions of the two models is learned
+    during fine-tuning.
+    """
+
     def __init__(self, sed_model):
         super(EnsembleModel, self).__init__()
         self.multisrc_model = sed_model
@@ -30,6 +37,17 @@ class EnsembleModel(torch.nn.Module):
         self.q = torch.nn.Parameter(torch.rand((1)))
 
     def forward(self, x, n_src, nosep):
+        """
+        Args:
+            x (torch.Tensor): features for separated audio of shape batch*n_sources, n_mels, frames.
+            n_src (int): number of sources
+            nosep (torch.Tensor): features for non separated audio of shape batch, n_mels, frames.
+
+        Returns:
+            strong (torch.Tensor): frame-wise predictions of shape batch, classes, frames.
+            weak (torch.Tensor): clip-level weak predictions of shape batch, classes.
+        """
+
         strong, weak = self.multisrc_model(x)
         _, clss, frames = strong.shape
         strong = strong.reshape(-1, n_src, clss, frames)
@@ -39,8 +57,10 @@ class EnsembleModel(torch.nn.Module):
         weak = torch.clamp(torch.sum(weak, 1), max=1)
 
         with torch.no_grad():
+            # the model which is fed the mixture is not updated.
             strong_nosep, weak_nosep = self.monaural_model(nosep)
 
+        # ensembling predictions after sigmoid
         strong = strong_nosep * self.q + strong * (1 - self.q)
         weak = weak_nosep * self.q + weak * (1 - self.q)
 
@@ -120,7 +140,7 @@ def single_run(
     elif config["training"]["sed_model"] == "teacher":
         sed_model.load_state_dict(sed_trainer.sed_teacher.state_dict(), strict=False)
     else:
-        raise EnvironmentError
+        raise EnvironmentError("Sed model should be either student or teacher model.")
 
     sed_model = EnsembleModel(sed_model)
 
