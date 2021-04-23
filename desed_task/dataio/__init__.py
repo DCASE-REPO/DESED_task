@@ -1,2 +1,2 @@
-from .datasets import WeakSet, UnlabelledSet, StronglyAnnotatedSet
+from .datasets import WeakSet, UnlabeledSet, StronglyAnnotatedSet
 from .sampler import ConcatDatasetBatchSampler
