@@ -180,7 +180,7 @@ class WeakSet(Dataset):
         return out_args
 
 
-class Unlabeled(Dataset):
+class UnlabeledSet(Dataset):
     def __init__(
         self,
         unlabeled_folder,
