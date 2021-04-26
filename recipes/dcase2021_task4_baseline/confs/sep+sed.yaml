@@ -1,0 +1,86 @@
+training:
+  #batch size: [synth, weak, unlabel]
+  batch_size: [1, 2, 2]
+  batch_size_val: 1
+  const_max: 2 # max weight used for self supervised loss
+  n_epochs_warmup: 30 # num epochs used for exponential warmup
+  num_workers: 6 # change according to your cpu
+  n_epochs: 200 # max num epochs
+  early_stop_patience: 5 # Same as number of epochs by default, so no early stopping used
+  accumulate_batches: 64
+  gradient_clip: 5. # 0 no gradient clipping
+  median_window: 7 # length of median filter used to smooth prediction in inference (nb of output frames)
+  val_thresholds: [0.5] # thresholds used to compute f1 intersection in validation.
+  n_test_thresholds: 50 # number of thresholds used to compute psds in test
+  ema_factor: 0.999 # ema factor for mean teacher
+  self_sup_loss: mse # bce or mse for self supervised mean teacher loss
+  backend: # pytorch lightning backend, ddp, dp or None
+  validation_interval: 5 # perform validation every X epoch, 1 default
+  weak_split: 0.9
+  seed: 42
+  mixup: # Soft mixup gives the ratio of the mix to the labels, hard mixup gives a 1 to every label present.
+  obj_metric_synth_type: intersection
+  sed_yaml: "./2021_baseline_sed/version_0/hparams.yaml"
+  sed_checkpoint: "./2021_baseline_sed/version_0/epoch=178-step=21121.ckpt" # path to pre-trained SED checkpoint
+  sed_model: "teacher" # use teacher or student weight from pre-trained model
+  sep_checkpoint: "./yfcc100m_mixit_model_checkpoint/model.ckpt-3547330" # path to pre-trained tensorflow model separation checkpoint
+  sep_graph: "./yfcc100m_mixit_model_checkpoint/inference.meta"# path to pre-trained tensorflow model separation graph file
+scaler:
+  statistic: instance # instance or dataset-wide statistic
+  normtype: minmax # minmax or standard or mean normalization
+  dims: [1, 2] # dimensions over which normalization is applied
+  savepath: ./scaler.ckpt # path to scaler checkpoint
+data: # change with your paths if different.
+  # NOTE: if you have data in 44kHz only then synth_folder will be the path where
+  # resampled data will be placed.
+
+
+  synth_folder_sep: "../../data/dcase2021/dataset/audio/train/synthetic21_train/soundscapes_sep/"
+  synth_folder_16k: "../../data/dcase2021/dataset/audio/train/synthetic21_train/soundscapes_16k/"
+  synth_folder_44k: "../../data/dcase2021/dataset/audio/train/synthetic21_train/soundscapes/"
+  synth_tsv:  "../../data/dcase2021/dataset/metadata/train/synthetic21_train/soundscapes.tsv"
+  weak_folder_sep: "../../data/dcase2021/dataset/audio/train/weak_sep/"
+  weak_folder_16k: "../../data/dcase2021/dataset/audio/train/weak_16k/"
+  weak_folder_44k: "../../data/dcase2021/dataset/audio/train/weak/"
+  weak_tsv: "../../data/dcase2021/dataset/metadata/train/weak.tsv"
+  unlabeled_folder_sep: "../../data/dcase2021/dataset/audio/train/unlabel_in_domain_sep/"
+  unlabeled_folder_16k: "../../data/dcase2021/dataset/audio/train/unlabel_in_domain_16k/"
+  unlabeled_folder_44k: "../../data/dcase2021/dataset/audio/train/unlabel_in_domain/"
+  synth_val_folder_sep: "../../data/dcase2021/dataset/audio/validation/synthetic21_validation/soundscapes_sep/"
+  synth_val_folder_16k: "../../data/dcase2021/dataset/audio/validation/synthetic21_validation/soundscapes_16k/"
+  synth_val_folder_44k: "../../data/dcase2021/dataset/audio/validation/synthetic21_validation/soundscapes/"
+  synth_val_tsv:  "../../data/dcase2021/dataset/metadata/validation/synthetic21_validation/soundscapes.tsv"
+  synth_val_dur: "../../data/dcase2021/dataset/metadata/validation/synthetic21_validation/durations.tsv"
+  test_folder_sep: "../../data/dcase2021/dataset/audio/validation/validation_sep/"
+  test_folder_16k: "../../data/dcase2021/dataset/audio/validation/validation_16k/"
+  test_folder_44k: "../../data/dcase2021/dataset/audio/validation/validation/"
+  test_tsv: "../../data/dcase2021/dataset/metadata/validation/validation.tsv"
+  test_dur: "../../data/dcase2021/dataset/metadata/validation/validation_durations.tsv"
+  audio_max_len: 10
+  fs: 16000
+  net_subsample: 4
+opt:
+  lr: 0.001
+feats:
+  n_mels: 128
+  n_filters: 2048
+  hop_length: 256
+  n_window: 2048
+  sample_rate: 16000
+  f_min: 0
+  f_max: 8000
+net:
+  dropout: 0.5
+  rnn_layers: 2
+  n_in_channel: 1
+  nclass: 10
+  attention: True
+  n_RNN_cell: 128
+  activation: glu
+  rnn_type: BGRU
+  kernel_size: [3, 3, 3, 3, 3, 3, 3]
+  padding: [1, 1, 1, 1, 1, 1, 1]
+  stride: [1, 1, 1, 1, 1, 1, 1]
+  nb_filters: [ 16, 32, 64, 128, 128, 128, 128 ]
+  pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
+  dropout_recurrent: 0

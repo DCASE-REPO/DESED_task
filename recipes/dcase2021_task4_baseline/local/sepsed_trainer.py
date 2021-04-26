@@ -22,8 +22,8 @@ from desed_task.evaluation.evaluation_measures import (
 )
 
 
-class SEDTask4_2021(pl.LightningModule):
-    """ Pytorch lightning module for the SED 2021 baseline
+class SEPSEDTask4_2021(pl.LightningModule):
+    """ Pytorch lightning module for the SEP-SED 2021 baseline
     Args:
         hparams: dict, the dictionary to be used for the current experiment/
         encoder: ManyHotEncoder object, object to encode and decode labels.
@@ -52,7 +52,7 @@ class SEDTask4_2021(pl.LightningModule):
         scheduler=None,
         fast_dev_run=False,
     ):
-        super(SEDTask4_2021, self).__init__()
+        super(SEPSEDTask4_2021, self).__init__()
         self.hparams = hparams
 
         self.encoder = encoder
@@ -154,7 +154,7 @@ class SEDTask4_2021(pl.LightningModule):
             ema_params.data.mul_(alpha).add_(params.data, alpha=1 - alpha)
 
     def _init_scaler(self):
-        """ Scaler inizialization
+        """Scaler inizialization
 
         Raises:
             NotImplementedError: in case of not Implemented scaler
@@ -218,8 +218,15 @@ class SEDTask4_2021(pl.LightningModule):
         amp_to_db.amin = 1e-5  # amin= 1e-5 as in librosa
         return amp_to_db(mels).clamp(min=-50, max=80)  # clamp to reproduce old code
 
-    def detect(self, mel_feats, model):
-        return model(self.scaler(self.take_log(mel_feats)))
+    def detect(self, features, sed_model):
+        batch, src, chans, frames = features.shape
+        mix_feats = torch.sum(features, 1)
+        features = features.reshape(batch * src, chans, frames)
+        # features = torch.sum(features, 1)
+
+        features = self.scaler(self.take_log(features))
+        strong, weak = sed_model(features, src, self.scaler(self.take_log(mix_feats)))
+        return strong, weak
 
     def training_step(self, batch, batch_indx):
         """ Apply the training for one batch (a step). Used during trainer.fit
@@ -331,17 +338,21 @@ class SEDTask4_2021(pl.LightningModule):
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        mels = self.mel_spec(audio)
-        strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student)
+        features = self.mel_spec(audio)
+        strong_preds_student, weak_preds_student = self.detect(
+            features, self.sed_student
+        )
         # prediction for teacher
-        strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher)
+        strong_preds_teacher, weak_preds_teacher = self.detect(
+            features, self.sed_teacher
+        )
 
         # we derive masks for each dataset based on folders of filenames
         mask_weak = (
             torch.tensor(
                 [
                     str(Path(x).parent)
-                    == str(Path(self.hparams["data"]["weak_folder"]))
+                    == str(Path(self.hparams["data"]["weak_folder_sep"]))
                     for x in filenames
                 ]
             )
@@ -352,7 +363,7 @@ class SEDTask4_2021(pl.LightningModule):
             torch.tensor(
                 [
                     str(Path(x).parent)
-                    == str(Path(self.hparams["data"]["synth_val_folder"]))
+                    == str(Path(self.hparams["data"]["synth_val_folder_sep"]))
                     for x in filenames
                 ]
             )
@@ -393,7 +404,7 @@ class SEDTask4_2021(pl.LightningModule):
             filenames_synth = [
                 x
                 for x in filenames
-                if Path(x).parent == Path(self.hparams["data"]["synth_val_folder"])
+                if Path(x).parent == Path(self.hparams["data"]["synth_val_folder_sep"])
             ]
 
             decoded_student_strong = batched_decode_preds(
@@ -513,10 +524,14 @@ class SEDTask4_2021(pl.LightningModule):
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        mels = self.mel_spec(audio)
-        strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student)
+        features = self.mel_spec(audio)
+        strong_preds_student, weak_preds_student = self.detect(
+            features, self.sed_student
+        )
         # prediction for teacher
-        strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher)
+        strong_preds_teacher, weak_preds_teacher = self.detect(
+            features, self.sed_teacher
+        )
 
         loss_strong_student = self.supervised_loss(strong_preds_student, labels)
         loss_strong_teacher = self.supervised_loss(strong_preds_teacher, labels)

@@ -2,32 +2,46 @@ from torch.utils.data import Dataset
 import pandas as pd
 import os
 import numpy as np
-import soundfile as sf
+import torchaudio
 import torch
 import glob
-import json
-import random
 
 
 def to_mono(mixture, random_ch=False):
 
     if mixture.ndim > 1:  # multi channel
         if not random_ch:
-            mixture = np.mean(mixture, axis=-1)
+            mixture = torch.mean(mixture, 0)
         else:  # randomly select one channel
-            indx = np.random.randint(0, mixture.shape[-1] - 1)
-            mixture = mixture[:, indx]
+            indx = np.random.randint(0, mixture.shape[0] - 1)
+            mixture = mixture[indx]
     return mixture
 
 
 def pad_audio(audio, target_len):
-    if len(audio) < target_len:
-        audio = np.pad(audio, (0, target_len - len(audio)), mode="constant")
+    if audio.shape[-1] < target_len:
+        audio = torch.nn.functional.pad(
+            audio, (0, target_len - audio.shape[-1]), mode="constant"
+        )
         padded_indx = [target_len / len(audio)]
     else:
         padded_indx = [1.0]
 
     return audio, padded_indx
+
+
+def read_audio(file, multisrc, random_channel, pad_to):
+    mixture, fs = torchaudio.load(file)
+    if not multisrc:
+        mixture = to_mono(mixture, random_channel)
+
+    if pad_to is not None:
+        mixture, padded_indx = pad_audio(mixture, pad_to)
+    else:
+        padded_indx = [1.0]
+
+    mixture = mixture.float()
+    return mixture, padded_indx
 
 
 class StronglyAnnotatedSet(Dataset):
@@ -40,6 +54,7 @@ class StronglyAnnotatedSet(Dataset):
         fs=16000,
         return_filename=False,
         random_channel=False,
+        multisrc=False,
     ):
 
         self.encoder = encoder
@@ -47,6 +62,7 @@ class StronglyAnnotatedSet(Dataset):
         self.pad_to = pad_to * fs
         self.return_filename = return_filename
         self.random_channel = random_channel
+        self.multisrc = multisrc
 
         # annotation = pd.read_csv(tsv_file, sep="\t")
         examples = {}
@@ -83,13 +99,10 @@ class StronglyAnnotatedSet(Dataset):
 
     def __getitem__(self, item):
         c_ex = self.examples[self.examples_list[item]]
-        mixture, fs = sf.read(c_ex["mixture"])
-        mixture = to_mono(mixture, self.random_channel)
-        if self.pad_to is not None:
-            mixture, padded_indx = pad_audio(mixture, self.pad_to)
-        else:
-            padded_indx = [None]
-        mixture = torch.from_numpy(mixture).float()
+
+        mixture, padded_indx = read_audio(
+            c_ex["mixture"], self.multisrc, self.random_channel, self.pad_to
+        )
 
         # labels
         labels = c_ex["events"]
@@ -118,16 +131,16 @@ class WeakSet(Dataset):
         pad_to=10,
         fs=16000,
         return_filename=False,
-        max_n_sources=None,
         random_channel=False,
+        multisrc=False,
     ):
 
         self.encoder = encoder
         self.fs = fs
         self.pad_to = pad_to * fs
         self.return_filename = return_filename
-        self.max_n_sources = max_n_sources
         self.random_channel = random_channel
+        self.multisrc = multisrc
 
         examples = {}
         for i, r in tsv_entries.iterrows():
@@ -147,14 +160,9 @@ class WeakSet(Dataset):
     def __getitem__(self, item):
         file = self.examples_list[item]
         c_ex = self.examples[file]
-        mixture, fs = sf.read(c_ex["mixture"])
-        mixture = to_mono(mixture, self.random_channel)
-        if self.pad_to is not None:
-            mixture, padded_indx = pad_audio(mixture, self.pad_to)
-        else:
-            padded_indx = [None]
-
-        mixture = torch.from_numpy(mixture).float()
+        mixture, padded_indx = read_audio(
+            c_ex["mixture"], self.multisrc, self.random_channel, self.pad_to
+        )
 
         # labels
         labels = c_ex["events"]
@@ -167,28 +175,22 @@ class WeakSet(Dataset):
 
         out_args = [mixture, weak.transpose(0, 1), padded_indx]
 
-        if self.max_n_sources is not None:
-            dummy_sources = (
-                torch.zeros_like(mixture).unsqueeze(0).repeat(self.max_n_sources, 1)
-            )
-            out_args.append(dummy_sources)
-
         if self.return_filename:
             out_args.append(c_ex["mixture"])
 
         return out_args
 
 
-class UnlabelledSet(Dataset):
+class UnlabeledSet(Dataset):
     def __init__(
         self,
         unlabeled_folder,
         encoder,
         pad_to=10,
         fs=16000,
-        max_n_sources=None,
         return_filename=False,
         random_channel=False,
+        multisrc=False,
     ):
 
         self.encoder = encoder
@@ -196,100 +198,23 @@ class UnlabelledSet(Dataset):
         self.pad_to = pad_to * fs
         self.examples = glob.glob(os.path.join(unlabeled_folder, "*.wav"))
         self.return_filename = return_filename
-        self.max_n_sources = max_n_sources
         self.random_channel = random_channel
+        self.multisrc = multisrc
 
     def __len__(self):
         return len(self.examples)
 
     def __getitem__(self, item):
         c_ex = self.examples[item]
-        mixture, fs = sf.read(c_ex)
-        mixture = to_mono(mixture, self.random_channel)
-        if self.pad_to is not None:
-            mixture, padded_indx = pad_audio(mixture, self.pad_to)
-        else:
-            padded_indx = [None]
-        mixture = torch.from_numpy(mixture).float()
+        mixture, padded_indx = read_audio(
+            c_ex, self.multisrc, self.random_channel, self.pad_to
+        )
+
         max_len_targets = self.encoder.n_frames
         strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
-
         out_args = [mixture, strong.transpose(0, 1), padded_indx]
 
-        if self.max_n_sources is not None:
-            dummy_sources = (
-                torch.zeros_like(mixture).unsqueeze(0).repeat(self.max_n_sources, 1)
-            )
-            out_args.append(dummy_sources)
-
         if self.return_filename:
-            out_args.append(c_ex["mixture"])
+            out_args.append(c_ex)
 
         return out_args
-
-
-class SeparationSet(Dataset):
-    def __init__(
-        self,
-        soundscapes_json,
-        encoder,
-        pad_to=10,
-        fs=16000,
-        train=True,
-        max_n_sources=None,
-    ):
-
-        self.encoder = encoder
-        self.pad_to = pad_to
-        self.fs = fs
-        self.train = train
-        self.max_n_sources = max_n_sources
-        # we parse from the jam the source files
-        with open(soundscapes_json, "r") as f:
-            soundscapes = json.load(f)
-
-        self.backgrounds = soundscapes["backgrounds"]
-        self.sources = soundscapes["sources"]
-
-    def __len__(self):
-        return len(self.backgrounds)
-
-    def __getitem__(self, item):
-
-        background_file = self.backgrounds[item]
-
-        mixture, fs = sf.read(background_file)
-        assert fs == self.fs
-
-        n_sources = random.randint(1, self.max_n_sources)
-        sources_meta = np.random.choice(self.sources, n_sources)
-
-        labels = self.encoder.encode_strong_df(pd.DataFrame(sources_meta))
-        sources = []
-        for i in range(n_sources):
-            tmp, fs = sf.read(sources_meta[i]["filename"])
-            assert fs == self.fs
-            sources.append(tmp)
-            mixture += tmp
-
-        padded_indx = [1.0]
-        sources = np.stack(sources)
-
-        if len(sources) < self.max_n_sources:
-            # add dummy sources
-            sources = np.concatenate(
-                (
-                    sources,
-                    np.zeros((self.max_n_sources - len(sources), sources.shape[-1])),
-                ),
-                0,
-            )
-
-        sources = torch.from_numpy(sources).float()
-
-        return (
-            torch.from_numpy(mixture).float(),
-            torch.from_numpy(labels.T).float(),
-            padded_indx,
-            sources,
-        )

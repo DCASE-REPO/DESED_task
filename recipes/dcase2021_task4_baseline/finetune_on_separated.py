@@ -18,33 +18,53 @@ from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
 
 from local.classes_dict import classes_labels
+from local.sepsed_trainer import SEPSEDTask4_2021
 from local.sed_trainer import SEDTask4_2021
-from local.resample_folder import resample_folder
-from local.utils import generate_tsv_wav_durations
 
 
-def resample_data_generate_durations(config_data, test_only=False):
-    if not test_only:
-        dsets = [
-            "synth_folder",
-            "synth_val_folder",
-            "weak_folder",
-            "unlabeled_folder",
-            "test_folder",
-        ]
-    else:
-        dsets = ["test_folder"]
+class EnsembleModel(torch.nn.Module):
+    """
+    Helper model class used to ensemble predictions between the model fine-tuned on
+    the separated sources and the original one which instead is fed the whole mixture.
+    The weight used for averaging the predictions of the two models is learned
+    during fine-tuning.
+    """
 
-    for dset in dsets:
-        computed = resample_folder(
-            config_data[dset + "_44k"], config_data[dset], target_fs=config_data["fs"]
-        )
+    def __init__(self, sed_model):
+        super(EnsembleModel, self).__init__()
+        self.multisrc_model = sed_model
+        self.monaural_model = deepcopy(sed_model)
+        self.q = torch.nn.Parameter(torch.rand((1)))
 
-    for base_set in ["synth_val", "test"]:
-        if not os.path.exists(config_data[base_set + "_dur"]) or computed:
-            generate_tsv_wav_durations(
-                config_data[base_set + "_folder"], config_data[base_set + "_dur"]
-            )
+    def forward(self, x, n_src, nosep):
+        """
+        Args:
+            x (torch.Tensor): features for separated audio of shape batch*n_sources, n_mels, frames.
+            n_src (int): number of sources
+            nosep (torch.Tensor): features for non separated audio of shape batch, n_mels, frames.
+
+        Returns:
+            strong (torch.Tensor): frame-wise predictions of shape batch, classes, frames.
+            weak (torch.Tensor): clip-level weak predictions of shape batch, classes.
+        """
+
+        strong, weak = self.multisrc_model(x)
+        _, clss, frames = strong.shape
+        strong = strong.reshape(-1, n_src, clss, frames)
+        weak = weak.reshape(-1, n_src, clss)
+
+        strong = torch.clamp(torch.sum(strong, 1), max=1)
+        weak = torch.clamp(torch.sum(weak, 1), max=1)
+
+        with torch.no_grad():
+            # the model which is fed the mixture is not updated.
+            strong_nosep, weak_nosep = self.monaural_model(nosep)
+
+        # ensembling predictions after sigmoid
+        strong = strong_nosep * self.q + strong * (1 - self.q)
+        weak = weak_nosep * self.q + weak * (1 - self.q)
+
+        return strong, weak
 
 
 def single_run(
@@ -82,26 +102,58 @@ def single_run(
 
     devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
     devtest_dataset = StronglyAnnotatedSet(
-        config["data"]["test_folder"],
+        config["data"]["test_folder_sep"],
         devtest_df,
         encoder,
         return_filename=True,
         pad_to=config["data"]["audio_max_len"],
+        multisrc=True,
     )
 
     test_dataset = devtest_dataset
 
     ##### model definition  ############
-    sed_student = CRNN(**config["net"])
+
+    ### loading pre-trained SED model ###########
+    with open(config["training"]["sed_yaml"], "r") as f:
+        sed_yaml = yaml.load(f)
+
+    pretrained = CRNN(**sed_yaml["net"])
+    sed_trainer = SEDTask4_2021(
+        sed_yaml,
+        encoder=encoder,
+        sed_student=pretrained,
+        opt=None,
+        train_data=None,
+        valid_data=None,
+        test_data=None,
+        train_sampler=None,
+        scheduler=None,
+    )
+
+    ckpt = torch.load(config["training"]["sed_checkpoint"], map_location="cpu")
+    sed_trainer.load_state_dict(ckpt["state_dict"])
+
+    sed_model = CRNN(**config["net"], freeze_bn=True)  # freezing batch norm
+    if config["training"]["sed_model"] == "student":
+        sed_model.load_state_dict(sed_trainer.sed_student.state_dict(), strict=False)
+    elif config["training"]["sed_model"] == "teacher":
+        sed_model.load_state_dict(sed_trainer.sed_teacher.state_dict(), strict=False)
+    else:
+        raise EnvironmentError(f"Sed model should be either student or teacher model. \n"
+                               f"You gave: {config['training']['sed_model']}")
+
+    sed_model = EnsembleModel(sed_model)
 
     if test_state_dict is None:
         ##### data prep train valid ##########
         synth_df = pd.read_csv(config["data"]["synth_tsv"], sep="\t")
         synth_set = StronglyAnnotatedSet(
-            config["data"]["synth_folder"],
+            config["data"]["synth_folder_sep"],
             synth_df,
             encoder,
             pad_to=config["data"]["audio_max_len"],
+            multisrc=True,
         )
 
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
@@ -112,33 +164,37 @@ def single_run(
         valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
         train_weak_df = train_weak_df.reset_index(drop=True)
         weak_set = WeakSet(
-            config["data"]["weak_folder"],
+            config["data"]["weak_folder_sep"],
             train_weak_df,
             encoder,
             pad_to=config["data"]["audio_max_len"],
+            multisrc=True,
         )
 
         unlabeled_set = UnlabeledSet(
-            config["data"]["unlabeled_folder"],
+            config["data"]["unlabeled_folder_sep"],
             encoder,
             pad_to=config["data"]["audio_max_len"],
+            multisrc=True,
         )
 
         synth_df_val = pd.read_csv(config["data"]["synth_val_tsv"], sep="\t")
         synth_val = StronglyAnnotatedSet(
-            config["data"]["synth_val_folder"],
+            config["data"]["synth_val_folder_sep"],
             synth_df_val,
             encoder,
             return_filename=True,
             pad_to=config["data"]["audio_max_len"],
+            multisrc=True,
         )
 
         weak_val = WeakSet(
-            config["data"]["weak_folder"],
+            config["data"]["weak_folder_sep"],
             valid_weak_df,
             encoder,
             pad_to=config["data"]["audio_max_len"],
             return_filename=True,
+            multisrc=True,
         )
 
         tot_train_data = [synth_set, weak_set, unlabeled_set]
@@ -162,7 +218,12 @@ def single_run(
             ]
         )
 
-        opt = torch.optim.Adam(sed_student.parameters(), 1e-3, betas=(0.9, 0.999))
+        opt = torch.optim.Adam(
+            [sed_model.q] + list(sed_model.multisrc_model.parameters()),
+            1e-3,
+            betas=(0.9, 0.999),
+        )
+
         exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
         exp_scheduler = {
             "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps),
@@ -197,10 +258,10 @@ def single_run(
         logger = True
         callbacks = None
 
-    desed_training = SEDTask4_2021(
+    desed_training = SEPSEDTask4_2021(
         config,
         encoder=encoder,
-        sed_student=sed_student,
+        sed_student=sed_model,
         opt=opt,
         train_data=train_dataset,
         valid_data=valid_dataset,
@@ -258,12 +319,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
     parser.add_argument(
         "--conf_file",
-        default="./confs/sed.yaml",
+        default="./confs/sep+sed.yaml",
         help="The configuration file with all the experiment parameters.",
     )
     parser.add_argument(
         "--log_dir",
-        default="./exp/2021_baseline",
+        default="./exp/2021_baseline_separation",
         help="Directory where to save tensorboard logs, saved models, etc.",
     )
     parser.add_argument(
@@ -313,7 +374,7 @@ if __name__ == "__main__":
         pl.seed_everything(seed)
 
     test_only = test_from_checkpoint is not None
-    resample_data_generate_durations(configs["data"], test_only)
+
     single_run(
         configs,
         args.log_dir,
