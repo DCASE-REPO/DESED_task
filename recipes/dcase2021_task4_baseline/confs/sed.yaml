@@ -1,7 +1,7 @@
 training:
   #batch size: [synth, weak, unlabel]
   batch_size: [12, 12, 24]
-  batch_size_val: 24
+  batch_size_val: 1
   const_max: 2 # max weight used for self supervised loss
   n_epochs_warmup: 50 # num epochs used for exponential warmup
   num_workers: 6 # change according to your cpu
@@ -44,6 +44,8 @@ data: # change with your paths if different.
   test_folder_44k: "../../data/dcase2021/dataset/audio/validation/validation/"
   test_tsv: "../../data/dcase2021/dataset/metadata/validation/validation.tsv"
   test_dur: "../../data/dcase2021/dataset/metadata/validation/validation_durations.tsv"
+  eval_folder: "../../data/dcase2021/dataset/audio/eval/synthetic20_eval_long/soundscapes_16k/"
+  eval_folder_44k: "../../data/dcase2021/dataset/audio/eval/synthetic20_eval_long/soundscapes/"
   audio_max_len: 10
   fs: 16000
   net_subsample: 4

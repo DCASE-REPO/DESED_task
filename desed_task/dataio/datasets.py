@@ -5,6 +5,7 @@ import numpy as np
 import torchaudio
 import torch
 import glob
+#import ipdb
 
 
 def to_mono(mixture, random_ch=False):
@@ -55,6 +56,7 @@ class StronglyAnnotatedSet(Dataset):
         return_filename=False,
         random_channel=False,
         multisrc=False,
+        evaluation=False
     ):
 
         self.encoder = encoder

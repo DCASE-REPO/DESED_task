@@ -6,6 +6,7 @@ import pandas as pd
 import random
 import torch
 import yaml
+#import ipdb
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
@@ -23,7 +24,7 @@ from local.resample_folder import resample_folder
 from local.utils import generate_tsv_wav_durations
 
 
-def resample_data_generate_durations(config_data, test_only=False):
+def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
     if not test_only:
         dsets = [
             "synth_folder",
@@ -32,20 +33,22 @@ def resample_data_generate_durations(config_data, test_only=False):
             "unlabeled_folder",
             "test_folder",
         ]
-    else:
+    elif test_only:
         dsets = ["test_folder"]
+    else:
+        dsets = ["eval_folder"]
 
     for dset in dsets:
         computed = resample_folder(
             config_data[dset + "_44k"], config_data[dset], target_fs=config_data["fs"]
         )
 
-    for base_set in ["synth_val", "test"]:
-        if not os.path.exists(config_data[base_set + "_dur"]) or computed:
-            generate_tsv_wav_durations(
-                config_data[base_set + "_folder"], config_data[base_set + "_dur"]
-            )
-
+    if not evaluation:
+        for base_set in ["synth_val", "test"]:
+            if not os.path.exists(config_data[base_set + "_dur"]) or computed:
+                generate_tsv_wav_durations(
+                    config_data[base_set + "_folder"], config_data[base_set + "_dur"]
+                )
 
 def single_run(
     config,
@@ -54,6 +57,7 @@ def single_run(
     checkpoint_resume=None,
     test_state_dict=None,
     fast_dev_run=False,
+    evaluation=False
 ):
     """
     Running sound event detection baselin
@@ -80,14 +84,23 @@ def single_run(
         fs=config["data"]["fs"],
     )
 
-    devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
-    devtest_dataset = StronglyAnnotatedSet(
-        config["data"]["test_folder"],
-        devtest_df,
-        encoder,
-        return_filename=True,
-        pad_to=config["data"]["audio_max_len"],
-    )
+    #ipdb.set_trace()
+    if not evaluation:
+        devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
+        devtest_dataset = StronglyAnnotatedSet(
+            config["data"]["test_folder"],
+            devtest_df,
+            encoder,
+            return_filename=True,
+            pad_to=config["data"]["audio_max_len"]
+        )
+    else:
+        devtest_dataset = UnlabeledSet(
+            config["data"]["eval_folder"],
+            encoder,
+            pad_to=config["data"]["audio_max_len"],
+            return_filename=True
+        )
 
     test_dataset = devtest_dataset
 
@@ -208,6 +221,7 @@ def single_run(
         train_sampler=batch_sampler,
         scheduler=exp_scheduler,
         fast_dev_run=fast_dev_run,
+        evaluation=evaluation
     )
 
     # Not using the fast_dev_run of Trainer because creates a DummyLogger so cannot check problems with the Logger
@@ -287,12 +301,26 @@ if __name__ == "__main__":
         help="Use this option to make a 'fake' run which is useful for development and debugging. "
         "It uses very few batches and epochs so it won't give any meaningful result.",
     )
+
+    parser.add_argument(
+        "--eval",
+        action="store_true",
+        default=False,
+        help="Use this option to evaluate the system from a model specified with the --test_from_checkpoint option. "
+    )
+
     args = parser.parse_args()
+
+    # if the flag evaluation is added, the checkpoint should be givene with the test_from_checkpoint
+    print(args.eval)
+    print(args.test_from_checkpoint)
+    assert (args.eval and args.test_from_checkpoint is not None), "A checkpoint should be defined to evaluate the system."
 
     with open(args.conf_file, "r") as f:
         configs = yaml.safe_load(f)
 
     test_from_checkpoint = args.test_from_checkpoint
+    
     test_model_state_dict = None
     if test_from_checkpoint is not None:
         checkpoint = torch.load(test_from_checkpoint)
@@ -313,7 +341,7 @@ if __name__ == "__main__":
         pl.seed_everything(seed)
 
     test_only = test_from_checkpoint is not None
-    resample_data_generate_durations(configs["data"], test_only)
+    resample_data_generate_durations(configs["data"], test_only, args.eval)
     single_run(
         configs,
         args.log_dir,
@@ -321,4 +349,5 @@ if __name__ == "__main__":
         args.resume_from_checkpoint,
         test_model_state_dict,
         args.fast_dev_run,
+        args.eval
     )
