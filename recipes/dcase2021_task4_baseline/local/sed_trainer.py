@@ -590,13 +590,14 @@ class SEDTask4_2021(pl.LightningModule):
             log_dir = self.logger.log_dir
         except Exception as e:
             log_dir = self.hparams["log_dir"]
-        save_dir = os.path.join(log_dir, "metrics_test")
+        save_dir_parent = os.path.join(log_dir, "metrics_test")
         
-        print(f"Predictions saved in: {save_dir}")
+        
 
         if self.evaluation:
-            save_dir = os.path.join(save_dir, "student")
+            save_dir = os.path.join(save_dir_parent, "student")
             os.makedirs(save_dir, exist_ok=True)
+            print(f"\nPredictions for student saved in: {save_dir}")
             for k in self.test_psds_buffer_student.keys():
                 self.test_psds_buffer_student[k].to_csv(
                     os.path.join(save_dir, f"predictions_th_{k:.2f}.tsv"),
@@ -604,8 +605,9 @@ class SEDTask4_2021(pl.LightningModule):
                     index=False,
                 )
             
-            save_dir = os.path.join(save_dir, "teacher")
+            save_dir = os.path.join(save_dir_parent, "teacher")
             os.makedirs(save_dir, exist_ok=True)
+            print(f"\nPredictions for teacher saved in: {save_dir}")
             for k in self.test_psds_buffer_student.keys():
                 self.test_psds_buffer_student[k].to_csv(
                     os.path.join(save_dir, f"predictions_th_{k:.2f}.tsv"),
@@ -733,11 +735,9 @@ class SEDTask4_2021(pl.LightningModule):
         return self.val_loader
 
     def test_dataloader(self):
-        batch_size_val = 1
-        print(batch_size_val)
         self.test_loader = torch.utils.data.DataLoader(
             self.test_data,
-            batch_size=batch_size_val,
+            batch_size=self.hparams["training"]["batch_size_val"],
             num_workers=self.num_workers,
             shuffle=False,
             drop_last=False,

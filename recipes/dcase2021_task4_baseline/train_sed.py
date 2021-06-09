@@ -326,13 +326,15 @@ if __name__ == "__main__":
         checkpoint = torch.load(test_from_checkpoint)
         configs_ckpt = checkpoint["hyper_parameters"]
         configs_ckpt["data"] = configs["data"]
-        configs = configs_ckpt
         print(
             f"loaded model: {test_from_checkpoint} \n"
             f"at epoch: {checkpoint['epoch']}"
         )
         test_model_state_dict = checkpoint["state_dict"]
 
+    if args.eval:
+        configs["training"]["batch_size_val"] = 1
+        
     seed = configs["training"]["seed"]
     if seed:
         torch.random.manual_seed(seed)
