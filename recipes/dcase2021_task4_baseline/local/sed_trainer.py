@@ -513,10 +513,7 @@ class SEDTask4_2021(pl.LightningModule):
         Returns:
         """
         
-        #ipdb.set_trace()
-        audio, labels, padded_indxs, filenames = batch
-        #ipdb.set_trace()
-        
+        audio, labels, padded_indxs, filenames = batch        
         
         # prediction for student
         mels = self.mel_spec(audio)
@@ -590,33 +587,32 @@ class SEDTask4_2021(pl.LightningModule):
             log_dir = self.logger.log_dir
         except Exception as e:
             log_dir = self.hparams["log_dir"]
-        save_dir_parent = os.path.join(log_dir, "metrics_test")
+        save_dir = os.path.join(log_dir, "metrics_test")
         
-        
-
         if self.evaluation:
-            save_dir = os.path.join(save_dir_parent, "student")
-            os.makedirs(save_dir, exist_ok=True)
-            print(f"\nPredictions for student saved in: {save_dir}")
+            # only save the predictions
+            save_dir_student = os.path.join(save_dir, "student")
+            os.makedirs(save_dir_student, exist_ok=True)
+            print(f"\nPredictions for student saved in: {save_dir_student}")
             for k in self.test_psds_buffer_student.keys():
                 self.test_psds_buffer_student[k].to_csv(
-                    os.path.join(save_dir, f"predictions_th_{k:.2f}.tsv"),
+                    os.path.join(save_dir_student, f"predictions_th_{k:.2f}.tsv"),
                     sep="\t",
                     index=False,
                 )
             
-            save_dir = os.path.join(save_dir_parent, "teacher")
-            os.makedirs(save_dir, exist_ok=True)
-            print(f"\nPredictions for teacher saved in: {save_dir}")
+            save_dir_teacher = os.path.join(save_dir, "teacher")
+            os.makedirs(save_dir_teacher, exist_ok=True)
+            print(f"\nPredictions for teacher saved in: {save_dir_teacher}")
             for k in self.test_psds_buffer_student.keys():
                 self.test_psds_buffer_student[k].to_csv(
-                    os.path.join(save_dir, f"predictions_th_{k:.2f}.tsv"),
+                    os.path.join(save_dir_teacher, f"predictions_th_{k:.2f}.tsv"),
                     sep="\t",
                     index=False,
                 )
 
         else:
-
+            # calculate the metrics
             psds_score_scenario1 = compute_psds_from_operating_points(
                 self.test_psds_buffer_student,
                 self.hparams["data"]["test_tsv"],

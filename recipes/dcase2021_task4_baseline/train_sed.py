@@ -6,7 +6,6 @@ import pandas as pd
 import random
 import torch
 import yaml
-#import ipdb
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
@@ -84,7 +83,6 @@ def single_run(
         fs=config["data"]["fs"],
     )
 
-    #ipdb.set_trace()
     if not evaluation:
         devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
         devtest_dataset = StronglyAnnotatedSet(
@@ -98,7 +96,7 @@ def single_run(
         devtest_dataset = UnlabeledSet(
             config["data"]["eval_folder"],
             encoder,
-            pad_to=config["data"]["audio_max_len"],
+            pad_to=None,
             return_filename=True
         )
 
@@ -303,23 +301,22 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--eval",
-        action="store_true",
-        default=False,
-        help="Use this option to evaluate the system from a model specified with the --test_from_checkpoint option. "
+        "--eval_from_checkpoint",
+        default=None,
+        help="Evaluate the model specified"
     )
 
     args = parser.parse_args()
 
-    # if the flag evaluation is added, the checkpoint should be givene with the test_from_checkpoint
-    print(args.eval)
-    print(args.test_from_checkpoint)
-    assert (args.eval and args.test_from_checkpoint is not None), "A checkpoint should be defined to evaluate the system."
-
     with open(args.conf_file, "r") as f:
         configs = yaml.safe_load(f)
 
+    evaluation = False 
     test_from_checkpoint = args.test_from_checkpoint
+
+    if args.eval_from_checkpoint is not None:
+        test_from_checkpoint = args.eval_from_checkpoint
+        evaluation = True
     
     test_model_state_dict = None
     if test_from_checkpoint is not None:
@@ -332,7 +329,7 @@ if __name__ == "__main__":
         )
         test_model_state_dict = checkpoint["state_dict"]
 
-    if args.eval:
+    if evaluation:
         configs["training"]["batch_size_val"] = 1
         
     seed = configs["training"]["seed"]
@@ -343,7 +340,7 @@ if __name__ == "__main__":
         pl.seed_everything(seed)
 
     test_only = test_from_checkpoint is not None
-    resample_data_generate_durations(configs["data"], test_only, args.eval)
+    resample_data_generate_durations(configs["data"], test_only, evaluation)
     single_run(
         configs,
         args.log_dir,
@@ -351,5 +348,5 @@ if __name__ == "__main__":
         args.resume_from_checkpoint,
         test_model_state_dict,
         args.fast_dev_run,
-        args.eval
+        evaluation
     )
