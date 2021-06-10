@@ -554,31 +554,31 @@ class SEDTask4_2021(pl.LightningModule):
                 th
             ].append(decoded_teacher_strong[th], ignore_index=True)
 
-        if not self.evaluation:
-            # compute f1 score
-            decoded_student_strong = batched_decode_preds(
-                strong_preds_student,
-                filenames,
-                self.encoder,
-                median_filter=self.hparams["training"]["median_window"],
-                thresholds=[0.5],
-            )
+        
+        # compute f1 score
+        decoded_student_strong = batched_decode_preds(
+            strong_preds_student,
+            filenames,
+            self.encoder,
+            median_filter=self.hparams["training"]["median_window"],
+            thresholds=[0.5],
+        )
 
-            self.decoded_student_05_buffer = self.decoded_student_05_buffer.append(
-                decoded_student_strong[0.5]
-            )
+        self.decoded_student_05_buffer = self.decoded_student_05_buffer.append(
+            decoded_student_strong[0.5]
+        )
 
-            decoded_teacher_strong = batched_decode_preds(
-                strong_preds_teacher,
-                filenames,
-                self.encoder,
-                median_filter=self.hparams["training"]["median_window"],
-                thresholds=[0.5],
-            )
+        decoded_teacher_strong = batched_decode_preds(
+            strong_preds_teacher,
+            filenames,
+            self.encoder,
+            median_filter=self.hparams["training"]["median_window"],
+            thresholds=[0.5],
+        )
 
-            self.decoded_teacher_05_buffer = self.decoded_teacher_05_buffer.append(
-                decoded_teacher_strong[0.5]
-            )
+        self.decoded_teacher_05_buffer = self.decoded_teacher_05_buffer.append(
+            decoded_teacher_strong[0.5]
+        )
 
     def on_test_epoch_end(self):
         # pub eval dataset
@@ -592,23 +592,36 @@ class SEDTask4_2021(pl.LightningModule):
             # only save the predictions
             save_dir_student = os.path.join(save_dir, "student")
             os.makedirs(save_dir_student, exist_ok=True)
-            print(f"\nPredictions for student saved in: {save_dir_student}")
+            self.decoded_student_05_buffer.to_csv(
+                os.path.join(save_dir_student, f"predictions_05_student.tsv"),
+                sep="\t",
+                index=False
+            )
+
             for k in self.test_psds_buffer_student.keys():
                 self.test_psds_buffer_student[k].to_csv(
                     os.path.join(save_dir_student, f"predictions_th_{k:.2f}.tsv"),
                     sep="\t",
                     index=False,
                 )
+            print(f"\nPredictions for student saved in: {save_dir_student}")
             
             save_dir_teacher = os.path.join(save_dir, "teacher")
             os.makedirs(save_dir_teacher, exist_ok=True)
-            print(f"\nPredictions for teacher saved in: {save_dir_teacher}")
+           
+            self.decoded_teacher_05_buffer.to_csv(
+                os.path.join(save_dir_teacher, f"predictions_05_teacher.tsv"),
+                sep="\t",
+                index=False
+            )
+
             for k in self.test_psds_buffer_student.keys():
                 self.test_psds_buffer_student[k].to_csv(
                     os.path.join(save_dir_teacher, f"predictions_th_{k:.2f}.tsv"),
                     sep="\t",
                     index=False,
                 )
+            print(f"\nPredictions for teacher saved in: {save_dir_teacher}")
 
         else:
             # calculate the metrics
