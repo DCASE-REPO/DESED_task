@@ -17,7 +17,8 @@ It appeared only in test_dcase2018.tsv for 4 files and 6 events. Difference in p
 following code (recommended to run line by line in case of problems).
 
 ## Dataset
-You can download the dataset and generate synthetic soundscapes using the script: "generate_dcase_task4_2021.py"
+You can download the dataset and generate synthetic soundscapes using the script: "generate_dcase_task4_2021.py". 
+
 You can download the evaluation dataset from [zenodo_evaluation_dataset][zenodo]. 
 
 Don't hesitate to generate your own synthetic dataset (change `generate_soundscapes(...)`).
