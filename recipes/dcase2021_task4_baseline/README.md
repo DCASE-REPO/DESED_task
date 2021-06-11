@@ -18,6 +18,7 @@ following code (recommended to run line by line in case of problems).
 
 ## Dataset
 You can download the dataset and generate synthetic soundscapes using the script: "generate_dcase_task4_2021.py"
+You can download the evaluation dataset from [zenodo_evaluation_dataset][zenodo]. 
 
 Don't hesitate to generate your own synthetic dataset (change `generate_soundscapes(...)`).
 
@@ -175,6 +176,7 @@ two models, the weight is learned during training.
 [zenodo_pretrained_models]: https://zenodo.org/record/4639817
 [google_sourcesep_repo]: https://github.com/google-research/sound-separation/tree/master/datasets/yfcc100m
 [sdk_installation_instructions]: https://cloud.google.com/sdk/docs/install
+[zenodo_evaluation_dataset]: https://zenodo.org/record/4892545#.YMHH_DYzadY
 
 #### References
 [1] L. Delphin-Poulat & C. Plapous, technical report, dcase 2019.

@@ -44,6 +44,8 @@ data: # change with your paths if different.
   test_folder_44k: "../../data/dcase2021/dataset/audio/validation/validation/"
   test_tsv: "../../data/dcase2021/dataset/metadata/validation/validation.tsv"
   test_dur: "../../data/dcase2021/dataset/metadata/validation/validation_durations.tsv"
+  eval_folder: "../../data/dcase2021/dataset/audio/eval21_16k"
+  eval_folder_44k: "../../data/dcase2021/dataset/audio/eval21"
   audio_max_len: 10
   fs: 16000
   net_subsample: 4

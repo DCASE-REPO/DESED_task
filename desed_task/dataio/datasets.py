@@ -55,6 +55,7 @@ class StronglyAnnotatedSet(Dataset):
         return_filename=False,
         random_channel=False,
         multisrc=False,
+        evaluation=False
     ):
 
         self.encoder = encoder
@@ -195,7 +196,7 @@ class UnlabeledSet(Dataset):
 
         self.encoder = encoder
         self.fs = fs
-        self.pad_to = pad_to * fs
+        self.pad_to = pad_to * fs if pad_to is not None else None 
         self.examples = glob.glob(os.path.join(unlabeled_folder, "*.wav"))
         self.return_filename = return_filename
         self.random_channel = random_channel
