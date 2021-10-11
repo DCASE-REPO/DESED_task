@@ -1,0 +1,29 @@
+data: # change with your paths if different
+  synth_train: "../../data/dcase2021/dataset/audio/train/synthetic21_train/soundscapes_test"
+  metadata_train: "../../data/dcase2021/dataset/metadata/train/synthetic21_train"
+  synth_val: "../../data/dcase2021/dataset/audio/validation/synthetic21_validation/soundscapes_test"
+  metadata_val: "../../data/dcase2021/dataset/metadata/validation/synthetic21_validation/soundscapes"
+  synth_eval: "../../data/dcase2021/dataset/audio/eval/synth_tg_ntg_eval/soundscapes_test"
+  metadata_eval: "../../data/dcase2021/dataset/metadata/eval"
+  background_train: "../../data/dcase2021/soundbank/audio/train/soundbank/background"
+  foreground_train: "../../data/dcase2021/soundbank/audio/train/soundbank/fg_tgt_ntgt"
+  background_val: "../../data/dcase2021/soundbank/audio/validation/soundbank/background"
+  foreground_val: "../../data/dcase2021/soundbank/audio/validation/soundbank/fg_tgt_ntgt"
+  background_eval: "../../data/dcase2021/soundbank/audio/eval/soundbank/background"
+  foreground_eval: "../../data/dcase2021/soundbank/audio/eval/soundbank/fg_tgt_ntgt"
+params:
+  target_set: ['train', 'val', 'eval']
+  nontarget_set: ['train', 'val', 'eval']
+  snr_set: ['train', 'val', 'eval']
+  snr: [5, 10, 15]
+  target_labels: ["Alarm_bell_ringing", 
+                  "Blender", 
+                  "Cat", 
+                  "Dog", 
+                  "Dishes", 
+                  "Electric_shaver_toothbrush", 
+                  "Frying", 
+                  "Running_water", 
+                  "Speech", 
+                  "Vacuum_cleaner"]
+
