@@ -9,6 +9,7 @@ import json
 import random
 
 
+
 def to_mono(mixture, random_ch=False):
 
     if mixture.ndim > 1:  # multi channel
@@ -20,14 +21,43 @@ def to_mono(mixture, random_ch=False):
     return mixture
 
 
-def pad_audio(audio, target_len):
+def pad_audio(audio, target_len, fs):
+
+    # if the audio is shorter or the same length of the target_len, the onset_0 is zero
+    # if the audio is longer than the target_len, the onset need to be calculated 
+   
     if len(audio) < target_len:
         audio = np.pad(audio, (0, target_len - len(audio)), mode="constant")
         padded_indx = [target_len / len(audio)]
+        onset_s = 0.000
+    
+    elif len(audio) > target_len:
+        
+        rand_onset = random.randint(0, len(audio) - target_len)
+        audio = audio[rand_onset:rand_onset + target_len]
+        onset_s = round(rand_onset / fs, 3)
+
+        padded_indx = [target_len / len(audio)] 
     else:
+
+        onset_s = 0.000
         padded_indx = [1.0]
 
-    return audio, padded_indx
+    offset_s = round(onset_s + (target_len / fs), 3)
+    return audio, onset_s, offset_s, padded_indx
+
+def process_labels(filename, df, onset, offset):
+    
+
+    df["onset"] = df["onset"] - onset 
+    df["offset"] = df["offset"] - onset
+        
+    df["onset"] = df.apply(lambda x: max(0, x["onset"]), axis=1)
+    df["offset"] = df.apply(lambda x: min(10, x["offset"]), axis=1)
+
+    df_new = df[(df.onset < df.offset)]
+    
+    return df_new.drop_duplicates()
 
 
 class StronglyAnnotatedSet(Dataset):
@@ -82,27 +112,33 @@ class StronglyAnnotatedSet(Dataset):
         return len(self.examples_list)
 
     def __getitem__(self, item):
+
         c_ex = self.examples[self.examples_list[item]]
         mixture, fs = sf.read(c_ex["mixture"])
         mixture = to_mono(mixture, self.random_channel)
+
+        filename = c_ex["mixture"]
+
         if self.pad_to is not None:
-            mixture, padded_indx = pad_audio(mixture, self.pad_to)
+            mixture, onset_s, offset_s, padded_indx = pad_audio(mixture, self.pad_to, self.fs)
         else:
             padded_indx = [None]
         mixture = torch.from_numpy(mixture).float()
 
         # labels
         labels = c_ex["events"]
+        
+        # to steps
+        labels_df = pd.DataFrame(labels)
+        labels_df= process_labels(filename, labels_df, onset_s, offset_s)
+        
         # check if labels exists:
-        if not len(labels):
+        if not len(labels_df):
             max_len_targets = self.encoder.n_frames
             strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
-
         else:
-            # to steps
-            strong = self.encoder.encode_strong_df(pd.DataFrame(labels))
+            strong = self.encoder.encode_strong_df(labels_df)
             strong = torch.from_numpy(strong).float()
-
         if self.return_filename:
             return mixture, strong.transpose(0, 1), padded_indx, c_ex["mixture"]
         else:
@@ -150,7 +186,7 @@ class WeakSet(Dataset):
         mixture, fs = sf.read(c_ex["mixture"])
         mixture = to_mono(mixture, self.random_channel)
         if self.pad_to is not None:
-            mixture, padded_indx = pad_audio(mixture, self.pad_to)
+            mixture, onset_s, offset_s, padded_indx = pad_audio(mixture, self.pad_to, self.fs)
         else:
             padded_indx = [None]
 
@@ -207,7 +243,7 @@ class UnlabelledSet(Dataset):
         mixture, fs = sf.read(c_ex)
         mixture = to_mono(mixture, self.random_channel)
         if self.pad_to is not None:
-            mixture, padded_indx = pad_audio(mixture, self.pad_to)
+            mixture, onset_s, offset_s, padded_indx = pad_audio(mixture, self.pad_to, self.fs)
         else:
             padded_indx = [None]
         mixture = torch.from_numpy(mixture).float()
@@ -223,7 +259,7 @@ class UnlabelledSet(Dataset):
             out_args.append(dummy_sources)
 
         if self.return_filename:
-            out_args.append(c_ex["mixture"])
+            out_args.append(c_ex)
 
         return out_args
 
