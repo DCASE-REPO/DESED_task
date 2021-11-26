@@ -22,8 +22,8 @@ from desed_task.evaluation.evaluation_measures import (
 )
 
 
-class SEDTask4_2021(pl.LightningModule):
-    """ Pytorch lightning module for the SED 2021 baseline
+class SEPSEDTask4_2021(pl.LightningModule):
+    """ Pytorch lightning module for the SEP-SED 2021 baseline
     Args:
         hparams: dict, the dictionary to be used for the current experiment/
         encoder: ManyHotEncoder object, object to encode and decode labels.
@@ -51,9 +51,8 @@ class SEDTask4_2021(pl.LightningModule):
         train_sampler=None,
         scheduler=None,
         fast_dev_run=False,
-        evaluation=False
     ):
-        super(SEDTask4_2021, self).__init__()
+        super(SEPSEDTask4_2021, self).__init__()
         self.hparams = hparams
 
         self.encoder = encoder
@@ -66,7 +65,6 @@ class SEDTask4_2021(pl.LightningModule):
         self.train_sampler = train_sampler
         self.scheduler = scheduler
         self.fast_dev_run = fast_dev_run
-        self.evaluation=evaluation
         if self.fast_dev_run:
             self.num_workers = 1
         else:
@@ -156,7 +154,7 @@ class SEDTask4_2021(pl.LightningModule):
             ema_params.data.mul_(alpha).add_(params.data, alpha=1 - alpha)
 
     def _init_scaler(self):
-        """ Scaler inizialization
+        """Scaler inizialization
 
         Raises:
             NotImplementedError: in case of not Implemented scaler
@@ -220,8 +218,15 @@ class SEDTask4_2021(pl.LightningModule):
         amp_to_db.amin = 1e-5  # amin= 1e-5 as in librosa
         return amp_to_db(mels).clamp(min=-50, max=80)  # clamp to reproduce old code
 
-    def detect(self, mel_feats, model):
-        return model(self.scaler(self.take_log(mel_feats)))
+    def detect(self, features, sed_model):
+        batch, src, chans, frames = features.shape
+        mix_feats = torch.sum(features, 1)
+        features = features.reshape(batch * src, chans, frames)
+        # features = torch.sum(features, 1)
+
+        features = self.scaler(self.take_log(features))
+        strong, weak = sed_model(features, src, self.scaler(self.take_log(mix_feats)))
+        return strong, weak
 
     def training_step(self, batch, batch_indx):
         """ Apply the training for one batch (a step). Used during trainer.fit
@@ -333,17 +338,21 @@ class SEDTask4_2021(pl.LightningModule):
         audio, labels, padded_indxs, filenames = batch
 
         # prediction for student
-        mels = self.mel_spec(audio)
-        strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student)
+        features = self.mel_spec(audio)
+        strong_preds_student, weak_preds_student = self.detect(
+            features, self.sed_student
+        )
         # prediction for teacher
-        strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher)
+        strong_preds_teacher, weak_preds_teacher = self.detect(
+            features, self.sed_teacher
+        )
 
         # we derive masks for each dataset based on folders of filenames
         mask_weak = (
             torch.tensor(
                 [
                     str(Path(x).parent)
-                    == str(Path(self.hparams["data"]["weak_folder"]))
+                    == str(Path(self.hparams["data"]["weak_folder_sep"]))
                     for x in filenames
                 ]
             )
@@ -354,7 +363,7 @@ class SEDTask4_2021(pl.LightningModule):
             torch.tensor(
                 [
                     str(Path(x).parent)
-                    == str(Path(self.hparams["data"]["synth_val_folder"]))
+                    == str(Path(self.hparams["data"]["synth_val_folder_sep"]))
                     for x in filenames
                 ]
             )
@@ -395,7 +404,7 @@ class SEDTask4_2021(pl.LightningModule):
             filenames_synth = [
                 x
                 for x in filenames
-                if Path(x).parent == Path(self.hparams["data"]["synth_val_folder"])
+                if Path(x).parent == Path(self.hparams["data"]["synth_val_folder_sep"])
             ]
 
             decoded_student_strong = batched_decode_preds(
@@ -511,21 +520,24 @@ class SEDTask4_2021(pl.LightningModule):
             batch_indx: torch.Tensor, 1D tensor of indexes to know which data are present in each batch.
         Returns:
         """
-        
-        audio, labels, padded_indxs, filenames = batch        
-        
-        # prediction for student
-        mels = self.mel_spec(audio)
-        strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student)
-        # prediction for teacher
-        strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher)
-        
-        if not self.evaluation:
-            loss_strong_student = self.supervised_loss(strong_preds_student, labels)
-            loss_strong_teacher = self.supervised_loss(strong_preds_teacher, labels)
 
-            self.log("test/student/loss_strong", loss_strong_student)
-            self.log("test/teacher/loss_strong", loss_strong_teacher)
+        audio, labels, padded_indxs, filenames = batch
+
+        # prediction for student
+        features = self.mel_spec(audio)
+        strong_preds_student, weak_preds_student = self.detect(
+            features, self.sed_student
+        )
+        # prediction for teacher
+        strong_preds_teacher, weak_preds_teacher = self.detect(
+            features, self.sed_teacher
+        )
+
+        loss_strong_student = self.supervised_loss(strong_preds_student, labels)
+        loss_strong_teacher = self.supervised_loss(strong_preds_teacher, labels)
+
+        self.log("test/student/loss_strong", loss_strong_student)
+        self.log("test/teacher/loss_strong", loss_strong_teacher)
 
         # compute psds
         decoded_student_strong = batched_decode_preds(
@@ -554,7 +566,6 @@ class SEDTask4_2021(pl.LightningModule):
                 th
             ].append(decoded_teacher_strong[th], ignore_index=True)
 
-        
         # compute f1 score
         decoded_student_strong = batched_decode_preds(
             strong_preds_student,
@@ -587,137 +598,98 @@ class SEDTask4_2021(pl.LightningModule):
         except Exception as e:
             log_dir = self.hparams["log_dir"]
         save_dir = os.path.join(log_dir, "metrics_test")
-        
-        if self.evaluation:
-            # only save the predictions
-            save_dir_student = os.path.join(save_dir, "student")
-            os.makedirs(save_dir_student, exist_ok=True)
-            self.decoded_student_05_buffer.to_csv(
-                os.path.join(save_dir_student, f"predictions_05_student.tsv"),
-                sep="\t",
-                index=False
-            )
 
-            for k in self.test_psds_buffer_student.keys():
-                self.test_psds_buffer_student[k].to_csv(
-                    os.path.join(save_dir_student, f"predictions_th_{k:.2f}.tsv"),
-                    sep="\t",
-                    index=False,
-                )
-            print(f"\nPredictions for student saved in: {save_dir_student}")
-            
-            save_dir_teacher = os.path.join(save_dir, "teacher")
-            os.makedirs(save_dir_teacher, exist_ok=True)
-           
-            self.decoded_teacher_05_buffer.to_csv(
-                os.path.join(save_dir_teacher, f"predictions_05_teacher.tsv"),
-                sep="\t",
-                index=False
-            )
+        psds_score_scenario1 = compute_psds_from_operating_points(
+            self.test_psds_buffer_student,
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+            dtc_threshold=0.7,
+            gtc_threshold=0.7,
+            alpha_ct=0,
+            alpha_st=1,
+            save_dir=os.path.join(save_dir, "student", "scenario1"),
+        )
 
-            for k in self.test_psds_buffer_student.keys():
-                self.test_psds_buffer_student[k].to_csv(
-                    os.path.join(save_dir_teacher, f"predictions_th_{k:.2f}.tsv"),
-                    sep="\t",
-                    index=False,
-                )
-            print(f"\nPredictions for teacher saved in: {save_dir_teacher}")
+        psds_score_scenario2 = compute_psds_from_operating_points(
+            self.test_psds_buffer_student,
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+            dtc_threshold=0.1,
+            gtc_threshold=0.1,
+            cttc_threshold=0.3,
+            alpha_ct=0.5,
+            alpha_st=1,
+            save_dir=os.path.join(save_dir, "student", "scenario2"),
+        )
 
-        else:
-            # calculate the metrics
-            psds_score_scenario1 = compute_psds_from_operating_points(
-                self.test_psds_buffer_student,
-                self.hparams["data"]["test_tsv"],
-                self.hparams["data"]["test_dur"],
-                dtc_threshold=0.7,
-                gtc_threshold=0.7,
-                alpha_ct=0,
-                alpha_st=1,
-                save_dir=os.path.join(save_dir, "student", "scenario1"),
-            )
+        psds_score_teacher_scenario1 = compute_psds_from_operating_points(
+            self.test_psds_buffer_teacher,
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+            dtc_threshold=0.7,
+            gtc_threshold=0.7,
+            alpha_ct=0,
+            alpha_st=1,
+            save_dir=os.path.join(save_dir, "teacher", "scenario1"),
+        )
 
-            psds_score_scenario2 = compute_psds_from_operating_points(
-                self.test_psds_buffer_student,
-                self.hparams["data"]["test_tsv"],
-                self.hparams["data"]["test_dur"],
-                dtc_threshold=0.1,
-                gtc_threshold=0.1,
-                cttc_threshold=0.3,
-                alpha_ct=0.5,
-                alpha_st=1,
-                save_dir=os.path.join(save_dir, "student", "scenario2"),
-            )
+        psds_score_teacher_scenario2 = compute_psds_from_operating_points(
+            self.test_psds_buffer_teacher,
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+            dtc_threshold=0.1,
+            gtc_threshold=0.1,
+            cttc_threshold=0.3,
+            alpha_ct=0.5,
+            alpha_st=1,
+            save_dir=os.path.join(save_dir, "teacher", "scenario2"),
+        )
 
-            psds_score_teacher_scenario1 = compute_psds_from_operating_points(
-                self.test_psds_buffer_teacher,
-                self.hparams["data"]["test_tsv"],
-                self.hparams["data"]["test_dur"],
-                dtc_threshold=0.7,
-                gtc_threshold=0.7,
-                alpha_ct=0,
-                alpha_st=1,
-                save_dir=os.path.join(save_dir, "teacher", "scenario1"),
-            )
+        event_macro_student = log_sedeval_metrics(
+            self.decoded_student_05_buffer,
+            self.hparams["data"]["test_tsv"],
+            os.path.join(save_dir, "student"),
+        )[0]
 
-            psds_score_teacher_scenario2 = compute_psds_from_operating_points(
-                self.test_psds_buffer_teacher,
-                self.hparams["data"]["test_tsv"],
-                self.hparams["data"]["test_dur"],
-                dtc_threshold=0.1,
-                gtc_threshold=0.1,
-                cttc_threshold=0.3,
-                alpha_ct=0.5,
-                alpha_st=1,
-                save_dir=os.path.join(save_dir, "teacher", "scenario2"),
-            )
+        event_macro_teacher = log_sedeval_metrics(
+            self.decoded_teacher_05_buffer,
+            self.hparams["data"]["test_tsv"],
+            os.path.join(save_dir, "teacher"),
+        )[0]
 
-            event_macro_student = log_sedeval_metrics(
-                self.decoded_student_05_buffer,
-                self.hparams["data"]["test_tsv"],
-                os.path.join(save_dir, "student"),
-            )[0]
+        # synth dataset
+        intersection_f1_macro_student = compute_per_intersection_macro_f1(
+            {"0.5": self.decoded_student_05_buffer},
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+        )
 
-            event_macro_teacher = log_sedeval_metrics(
-                self.decoded_teacher_05_buffer,
-                self.hparams["data"]["test_tsv"],
-                os.path.join(save_dir, "teacher"),
-            )[0]
+        # synth dataset
+        intersection_f1_macro_teacher = compute_per_intersection_macro_f1(
+            {"0.5": self.decoded_teacher_05_buffer},
+            self.hparams["data"]["test_tsv"],
+            self.hparams["data"]["test_dur"],
+        )
 
-            # synth dataset
-            intersection_f1_macro_student = compute_per_intersection_macro_f1(
-                {"0.5": self.decoded_student_05_buffer},
-                self.hparams["data"]["test_tsv"],
-                self.hparams["data"]["test_dur"],
-            )
+        best_test_result = torch.tensor(max(psds_score_scenario1, psds_score_scenario2))
 
-            # synth dataset
-            intersection_f1_macro_teacher = compute_per_intersection_macro_f1(
-                {"0.5": self.decoded_teacher_05_buffer},
-                self.hparams["data"]["test_tsv"],
-                self.hparams["data"]["test_dur"],
-            )
+        results = {
+            "hp_metric": best_test_result,
+            "test/student/psds_score_scenario1": psds_score_scenario1,
+            "test/student/psds_score_scenario2": psds_score_scenario2,
+            "test/teacher/psds_score_scenario1": psds_score_teacher_scenario1,
+            "test/teacher/psds_score_scenario2": psds_score_teacher_scenario2,
+            "test/student/event_f1_macro": event_macro_student,
+            "test/student/intersection_f1_macro": intersection_f1_macro_student,
+            "test/teacher/event_f1_macro": event_macro_teacher,
+            "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher,
+        }
+        if self.logger is not None:
+            self.logger.log_metrics(results)
+            self.logger.log_hyperparams(self.hparams, results)
 
-            best_test_result = torch.tensor(max(psds_score_scenario1, psds_score_scenario2))
-
-            results = {
-                "hp_metric": best_test_result,
-                "test/student/psds_score_scenario1": psds_score_scenario1,
-                "test/student/psds_score_scenario2": psds_score_scenario2,
-                "test/teacher/psds_score_scenario1": psds_score_teacher_scenario1,
-                "test/teacher/psds_score_scenario2": psds_score_teacher_scenario2,
-                "test/student/event_f1_macro": event_macro_student,
-                "test/student/intersection_f1_macro": intersection_f1_macro_student,
-                "test/teacher/event_f1_macro": event_macro_teacher,
-                "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher,
-            }
-            if self.logger is not None:
-                self.logger.log_metrics(results)
-                self.logger.log_hyperparams(self.hparams, results)
-
-            for key in results.keys():
-                self.log(key, results[key], prog_bar=True, logger=False)
-
-
+        for key in results.keys():
+            self.log(key, results[key], prog_bar=True, logger=False)
 
     def configure_optimizers(self):
         return [self.opt], [self.scheduler]
