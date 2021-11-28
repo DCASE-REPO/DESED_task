@@ -3,8 +3,11 @@ import pandas as pd
 import os
 import numpy as np
 import torchaudio
+import random
 import torch
 import glob
+
+
 
 
 
@@ -19,7 +22,8 @@ def to_mono(mixture, random_ch=False):
     return mixture
 
 
-def pad_audio(audio, target_len):
+def pad_audio(audio, target_len, fs):
+    
     if audio.shape[-1] < target_len:
         audio = torch.nn.functional.pad(
             audio, (0, target_len - audio.shape[-1]), mode="constant"
@@ -43,9 +47,9 @@ def pad_audio(audio, target_len):
     offset_s = round(onset_s + (target_len / fs), 3)
     return audio, onset_s, offset_s, padded_indx
 
-def process_labels(filename, df, onset, offset):
+def process_labels(df, onset, offset):
     
-
+    
     df["onset"] = df["onset"] - onset 
     df["offset"] = df["offset"] - onset
         
@@ -58,17 +62,21 @@ def process_labels(filename, df, onset, offset):
 
 
 def read_audio(file, multisrc, random_channel, pad_to):
+    
     mixture, fs = torchaudio.load(file)
+    
     if not multisrc:
         mixture = to_mono(mixture, random_channel)
 
     if pad_to is not None:
-        mixture, padded_indx = pad_audio(mixture, pad_to)
+        mixture, onset_s, offset_s, padded_indx = pad_audio(mixture, pad_to, fs)
     else:
         padded_indx = [1.0]
+        onset_s = None
+        offset_s = None
 
     mixture = mixture.float()
-    return mixture, padded_indx
+    return mixture, onset_s, offset_s, padded_indx
 
 
 class StronglyAnnotatedSet(Dataset):
@@ -83,6 +91,7 @@ class StronglyAnnotatedSet(Dataset):
         random_channel=False,
         multisrc=False,
         evaluation=False
+        
     ):
 
         self.encoder = encoder
@@ -122,6 +131,7 @@ class StronglyAnnotatedSet(Dataset):
         self.examples = examples
         self.examples_list = list(examples.keys())
 
+
     def __len__(self):
         return len(self.examples_list)
 
@@ -129,8 +139,7 @@ class StronglyAnnotatedSet(Dataset):
 
         c_ex = self.examples[self.examples_list[item]]
 
-
-        mixture, padded_indx = read_audio(
+        mixture, onset_s, offset_s, padded_indx = read_audio(
             c_ex["mixture"], self.multisrc, self.random_channel, self.pad_to
         )
 
@@ -139,7 +148,7 @@ class StronglyAnnotatedSet(Dataset):
         
         # to steps
         labels_df = pd.DataFrame(labels)
-        labels_df= process_labels(filename, labels_df, onset_s, offset_s)
+        labels_df = process_labels(labels_df, onset_s, offset_s)
         
         # check if labels exists:
         if not len(labels_df):
@@ -193,7 +202,7 @@ class WeakSet(Dataset):
         file = self.examples_list[item]
         c_ex = self.examples[file]
 
-        mixture, padded_indx = read_audio(
+        mixture, _, _, padded_indx = read_audio(
             c_ex["mixture"], self.multisrc, self.random_channel, self.pad_to
         )
         
@@ -240,7 +249,7 @@ class UnlabeledSet(Dataset):
     def __getitem__(self, item):
         c_ex = self.examples[item]
 
-        mixture, padded_indx = read_audio(
+        mixture, _, _, padded_indx = read_audio(
             c_ex, self.multisrc, self.random_channel, self.pad_to
         )
 
