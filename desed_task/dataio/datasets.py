@@ -8,9 +8,6 @@ import torch
 import glob
 
 
-
-
-
 def to_mono(mixture, random_ch=False):
 
     if mixture.ndim > 1:  # multi channel
@@ -78,7 +75,6 @@ def read_audio(file, multisrc, random_channel, pad_to):
     mixture = mixture.float()
     return mixture, onset_s, offset_s, padded_indx
 
-
 class StronglyAnnotatedSet(Dataset):
     def __init__(
         self,
@@ -89,8 +85,7 @@ class StronglyAnnotatedSet(Dataset):
         fs=16000,
         return_filename=False,
         random_channel=False,
-        multisrc=False,
-        evaluation=False
+        multisrc=False
         
     ):
 
@@ -100,8 +95,7 @@ class StronglyAnnotatedSet(Dataset):
         self.return_filename = return_filename
         self.random_channel = random_channel
         self.multisrc = multisrc
-
-        # annotation = pd.read_csv(tsv_file, sep="\t")
+        
         examples = {}
         for i, r in tsv_entries.iterrows():
             if r["filename"] not in examples.keys():
@@ -130,6 +124,7 @@ class StronglyAnnotatedSet(Dataset):
         # we construct a dictionary for each example
         self.examples = examples
         self.examples_list = list(examples.keys())
+
 
 
     def __len__(self):
