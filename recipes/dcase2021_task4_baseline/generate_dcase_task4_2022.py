@@ -139,7 +139,7 @@ if __name__ == "__main__":
             "https://zenodo.org/record/6026841/files/dcase_synth.zip?download=1"
         )
         synth_folder = str(os.path.basename(url_synth)).split('.')[0]
-        # desed.download.download_and_unpack_archive(url_synth, dcase22_dataset_folder, archive_format="zip")
+        desed.download.download_and_unpack_archive(url_synth, dcase22_dataset_folder, archive_format="zip")
         synth_folder = os.path.join(bdir, "dcase2022", "dataset", synth_folder)
         create_synth_dcase2022(synth_folder, dcase22_dataset_folder)
 
