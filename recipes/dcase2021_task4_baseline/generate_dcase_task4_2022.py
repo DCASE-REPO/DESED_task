@@ -1,22 +1,13 @@
 import argparse
-from curses import meta
 import glob
 import time
 import warnings
 from pprint import pformat
 
-import pandas as pd
-import numpy as np
 import os
-import soundfile as sf
-import random
 import shutil
 
 import desed
-
-seed = 2021
-random.seed(seed)
-np.random.seed(seed)
 
 def create_folder(folder, exist_ok=True, delete_if_exists=False):
     """ Create folder (and parent folders) if not exists.
