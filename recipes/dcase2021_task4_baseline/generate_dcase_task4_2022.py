@@ -36,8 +36,14 @@ def _create_symlink(src, dest, **kwargs):
         os.symlink(os.path.abspath(src), dest, **kwargs)
 
 
-def create_synth_dcase2022(synth_path, destination_folder):
-    print("Creating symlinks for real data")
+def create_synth_dcase(synth_path, destination_folder):
+    """Create symbolic links for synethtic part of the dataset
+
+    Args:
+        synth_path (str): synthetic folder path
+        destination_folder (str): destination folder path
+    """
+    print("Creating symlinks for synthetic data")
     split_sets = ["train", "validation"]
     if os.path.exists(os.path.join(synth_path, "audio", "eval")):
         split_sets.append("eval")
@@ -111,26 +117,27 @@ if __name__ == "__main__":
     # Paths
     # #########
     bdir = args.basedir
-    dcase22_dataset_folder = args.out_dir
+    dcase_dataset_folder = args.out_dir
     only_real = args.only_real
     only_synth = args.only_synth
     missing_files = None
 
     download_all = (only_real and only_synth) or (not only_real and not only_synth)
     print(f"Download all: {download_all}")
+    
 
     # Default paths if not defined (using basedir)
-    if dcase22_dataset_folder is None:
-        dcase22_dataset_folder = os.path.join(bdir, "dcase2022", "dataset")
+    if dcase_dataset_folder is None:
+        dcase_dataset_folder = os.path.join(bdir, "dcase", "dataset")
         
     # #########
-    # Download if not exists the different datasets
+    # Download the different datasets if they do not exist
     # #########
 
     # download real dataset 
     if only_real or download_all:
-        print('Downloading audioset dataset...')
-        missing_files = desed.download_audioset_data(dcase22_dataset_folder, n_jobs=3, chunk_size=10)
+        print('Downloading audioset dataset')
+        missing_files = desed.download_audioset_data(dcase_dataset_folder, n_jobs=3, chunk_size=10)
 
     # download synthetic dataset
     if only_synth or download_all:
@@ -139,17 +146,18 @@ if __name__ == "__main__":
             "https://zenodo.org/record/6026841/files/dcase_synth.zip?download=1"
         )
         synth_folder = str(os.path.basename(url_synth)).split('.')[0]
-        desed.download.download_and_unpack_archive(url_synth, dcase22_dataset_folder, archive_format="zip")
-        synth_folder = os.path.join(bdir, "dcase2022", "dataset", synth_folder)
-        create_synth_dcase2022(synth_folder, dcase22_dataset_folder)
+        desed.download.download_and_unpack_archive(url_synth, dcase_dataset_folder, archive_format="zip")
+        synth_folder = os.path.join(bdir, "dcase", "dataset", synth_folder)
+        create_synth_dcase(synth_folder, dcase_dataset_folder)
 
     print(f"Time of the program: {time.time() - t} s")
+    print(f"The dcase dataset has been saved in the following path: {dcase_dataset_folder}")
     if missing_files is not None:
         warnings.warn(
             f"You have missing files.\n\n"
             f"Please try to redownload desed_real again: \n"
             f"import desed\n"
-            f"desed.download_audioset_data('{dcase22_dataset_folder}', n_jobs=3, chunk_size=10)\n\n"
+            f"desed.download_audioset_data('{dcase_dataset_folder}', n_jobs=3, chunk_size=10)\n\n"
             f"Please, send your missing_files_xx.tsv to the task organisers to get your missing files.\n"
         )
         
