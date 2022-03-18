@@ -19,17 +19,17 @@ The dataset is composed of two parts:
 It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
 
 #### Real data
-The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from Audioset.
+The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
 
 Once you have downloaded the dataset, you will find a folder called "missing_fils", containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
 
 #### Synthetic data 
-The synthetic part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]
+The synthetic part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
 
 
 
-For more information regarding the dataset, please refer to [last year DCASE Challenge website][dcase_20_dataset]
+For more information regarding the dataset, please refer to [last year DCASE Challenge website][dcase_20_dataset]. 
 
 
 ## Training
@@ -82,7 +82,9 @@ Training can be resumed using `--resume_from_checkpoint`.
 The baseline is based on [2021 DCASE Task 4 baseline][dcase_21_repo]
 which itself is based on [1].
 
-[dcase21_webpage]: http://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments
+[audioset]: https://research.google.com/audioset/
+[dcase21_webpage]: http://dcase.community/challenge2021/
+task-sound-event-detection-and-separation-in-domestic-environments
 [dcase_21_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2021_task4_baseline
 [dcase_20_dataset]: https://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments#audio-dataset
 [desed]: https://github.com/turpaultn/DESED
