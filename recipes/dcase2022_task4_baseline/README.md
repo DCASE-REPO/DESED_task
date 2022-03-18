@@ -13,8 +13,6 @@ The dataset is composed of two parts:
 - real-world data (DESED dataset)
 - synthetically generated data
 
-For more informatiing regarding the dataset, please refer to [last year DCASE Challenge website][dcase_20_repo]
-
 ### Usage:
 - `python generate_dcase_task4_2022.py --basedir="../../data"` (You can change basedir to the desired data folder.)
 
@@ -23,12 +21,19 @@ It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_
 #### Real data
 The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from Audioset.
 
-ONce you have downloaded the dataset, you will find a folder called "missing_fils", containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
+Once you have downloaded the dataset, you will find a folder called "missing_fils", containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
+
+#### Synthetic data 
+The synthetic part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]
+
+
+
+For more information regarding the dataset, please refer to [last year DCASE Challenge website][dcase_20_dataset]
 
 
 ## Training
-We will provide three baselines:
+We provide three baselines:
 - SED baseline
 - baseline using pre-embeddings 
 - baseline using Audioset data (real-world strong-label data)
@@ -39,7 +44,7 @@ For now, only the SED baseline is available (the missing baseline will be publis
 You can run the SED baseline from scratch using:
 - `python train_sed.py`
 
-Alternatively we provide a pre-trained checkpoint [here][zenodo_pretrained_models] along with tensorboard logs.
+Alternatively we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs.
 
 You can test it on the validation real-world data by using:
   - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
@@ -87,6 +92,7 @@ which itself is based on [1].
 [google_sourcesep_repo]: https://github.com/google-research/sound-separation/tree/master/datasets/yfcc100m
 [sdk_installation_instructions]: https://cloud.google.com/sdk/docs/install
 [zenodo_evaluation_dataset]: https://zenodo.org/record/4892545#.YMHH_DYzadY
+[scaper]: https://github.com/justinsalamon/scaper
 
 #### References
 [1] L. Delphin-Poulat & C. Plapous, technical report, dcase 2019.
