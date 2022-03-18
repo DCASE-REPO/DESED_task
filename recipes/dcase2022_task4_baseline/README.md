@@ -10,8 +10,10 @@ following code (recommended to run line by line in case of problems).
 ## Dataset
 You can download the dataset using the script: "generate_dcase_task4_2022.py".
 The dataset is composed of two parts:
-- real data (DESED dataset)
+- real-world data (DESED dataset)
 - synthetically generated data
+
+For more informatiing regarding the dataset, please refer to [last year DCASE Challenge website][dcase_20_repo]
 
 ### Usage:
 - `python generate_dcase_task4_2022.py --basedir="../../data"` (You can change basedir to the desired data folder.)
@@ -19,27 +21,19 @@ The dataset is composed of two parts:
 It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
 
 #### Real data
-The real part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from Audioset.
+The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from Audioset.
 
-If you don't have the "real data" (desed_real), you need to download it and **send your missing files to the task
+ONce you have downloaded the dataset, you will find a folder called "missing_fils", containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
-
-Download audioset files (don't hesitate to re-run it multiple times before sending the missing files):
-```python
-import desed
-desed.download_audioset_data("PATH_TO_YOUR_DESED_REAL_FOLDER")
-```
-
-`PATH_TO_YOUR_DESED_REAL_FOLDER` can be `DESED_task/data/raw_datasets/desed_real` for example.
 
 
 ## Training
 We will provide three baselines:
 - SED baseline
-- baseline with pre-embeddings 
-- baseline using Audioset data (real strong-label data)
+- baseline using pre-embeddings 
+- baseline using Audioset data (real-world strong-label data)
 
-For now, only the SED baseline is available.
+For now, only the SED baseline is available (the missing baseline will be published soon).
 
 ### SED Baseline
 You can run the SED baseline from scratch using:
@@ -47,7 +41,7 @@ You can run the SED baseline from scratch using:
 
 Alternatively we provide a pre-trained checkpoint [here][zenodo_pretrained_models] along with tensorboard logs.
 
-You can test it on the validation real world data by using:
+You can test it on the validation real-world data by using:
   - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 Check tensorboard logs using `tensorboard --logdir="path/to/exp_folder"`
@@ -85,6 +79,7 @@ which itself is based on [1].
 
 [dcase21_webpage]: http://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments
 [dcase_21_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2021_task4_baseline
+[dcase_20_dataset]: https://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments#audio-dataset
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
