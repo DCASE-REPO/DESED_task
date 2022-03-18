@@ -21,7 +21,7 @@ It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_
 #### Real data
 The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
 
-Once you have downloaded the dataset, you will find a folder called "missing_fils", containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
+Once you have downloaded the dataset, you will find a folder called "missing_files", containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
 
 #### Synthetic data 
