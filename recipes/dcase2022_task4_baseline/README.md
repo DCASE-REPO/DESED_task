@@ -8,9 +8,10 @@
 following code (recommended to run line by line in case of problems).
 
 ## Dataset
-You can download the dataset and generate synthetic soundscapes using the script: "generate_dcase_task4_2022.py".  
-
-Don't hesitate to generate your own synthetic dataset (change `generate_soundscapes(...)`).
+You can download the dataset using the script: "generate_dcase_task4_2022.py".
+The dataset is composed of two parts:
+- real data (DESED dataset)
+- synthetically generated data
 
 ### Usage:
 - `python generate_dcase_task4_2022.py --basedir="../../data"` (You can change basedir to the desired data folder.)
@@ -18,7 +19,7 @@ Don't hesitate to generate your own synthetic dataset (change `generate_soundsca
 It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
 
 #### Real data
-The dataset is composed of weak labels, unlabeled, and validation data which are coming from Audioset.
+The real part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from Audioset.
 
 If you don't have the "real data" (desed_real), you need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
@@ -36,7 +37,7 @@ desed.download_audioset_data("PATH_TO_YOUR_DESED_REAL_FOLDER")
 We will provide three baselines:
 - SED baseline
 - baseline with pre-embeddings 
-- baseline using Audioset data 
+- baseline using Audioset data (real strong-label data)
 
 For now, only the SED baseline is available.
 
@@ -57,7 +58,7 @@ Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *C
 --------|--------------------|--------------------|-------------------------|-----------------
 Dev-test| **0.351**          | **0.531**          | 64.1%                   | 41.4%
 
-Collar-based = event-based. More information about the metrics in the [webpage][dcase21_webpage]
+Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase21_webpage].
 
 The results are from the **student** predictions. 
 
@@ -70,7 +71,8 @@ Also note that `train_sed.py` will create at its very first run additional folde
 so you need to have write permissions on the folder where your data are saved.
 
 Hyperparameters can be changed in the YAML file (e.g. lower or higher batch size).
-And a different configuration YAML (for example sed_2.yaml) can be used in each run using `--conf_file="confs/sed_2.yaml` argument.
+
+A different configuration YAML (for example sed_2.yaml) can be used in each run using `--conf_file="confs/sed_2.yaml` argument.
 
 The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline`.
 
