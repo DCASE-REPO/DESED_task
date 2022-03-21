@@ -8,21 +8,21 @@ The script `conda_create_environment.sh` is available to create an environment w
 following code (recommended to run line by line in case of problems).
 
 ## Dataset
-You can download the dataset using the script: "generate_dcase_task4_2022.py".
+You can download the dataset using the script: `generate_dcase_task4_2022.py`.
 The dataset is composed of two parts:
 - real-world data ([DESED dataset][desed])
 - synthetically generated data 
 
 
 ### Usage:
-In order to download the dataset, run the command `python generate_dcase_task4_2022.py --basedir="../../data"` (The user can change basedir to the desired data folder.)
+Run the command `python generate_dcase_task4_2022.py --basedir="../../data"` to download the dataset (the user can change basedir to the desired data folder.)
 
 The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
 
 #### Real data
 The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
 
-Once the dataset is downloaded, the user should find a folder called "missing_files", containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
+Once the dataset is downloaded, the user should find the folder **missing_files**, containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
 
 #### Synthetic data 
@@ -42,12 +42,12 @@ For now, only the SED baseline is available (the missing baseline will be publis
 
 ### SED Baseline
 The SED baseline can be run from scratch using the following command:
-- `python train_sed.py`
+`python train_sed.py`
 
 Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs.
 
 The baseline can be tested on the development set of the dataset using the following command:
-  - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
+`python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 The tensorboard logs can be tested using the command `tensorboard --logdir="path/to/exp_folder"`. 
 
