@@ -44,7 +44,7 @@ For now, only the SED baseline is available (the missing baseline will be publis
 You can run the SED baseline from scratch using:
 - `python train_sed.py`
 
-Alternatively we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs.
+Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs.
 
 You can test it on the validation real-world data by using:
   - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
@@ -57,7 +57,7 @@ Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *C
 --------|--------------------|--------------------|-------------------------|-----------------
 Dev-test| **0.351**          | **0.531**          | 64.1%                   | 41.4%
 
-Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase21_webpage].
+Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
 The results are from the **student** predictions. 
 
@@ -83,7 +83,7 @@ The baseline is based on [2021 DCASE Task 4 baseline][dcase_21_repo]
 which itself is based on [1].
 
 [audioset]: https://research.google.com/audioset/
-[dcase21_webpage]: http://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments
+[dcase22_webpage]: http://dcase.community/challenge2022/task-sound-event-detection-and-separation-in-domestic-environments
 [dcase_21_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2021_task4_baseline
 [dcase_20_dataset]: https://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments#audio-dataset
 [desed]: https://github.com/turpaultn/DESED
