@@ -3,19 +3,13 @@ Domestic environment sound event detection task.
 
 ---
 
-### SSep-SED released ! Apologies for the delay.
-
 ## DCASE Task 4
-- Baseline dcase task 4 recipes: in [recipes/dcase2021_task4_baseline](./recipes/dcase2021_task4_baseline)
+Baseline dcase task 4 recipes: 
+- [DCASE 2021 Task 4](./recipes/dcase2021_task4_baseline)
+- [DCASE 2022 Task 4](./recipes/dcase2022_task4_baseline)
 
 Updates on the [website][dcase_website] and [join us][invite_dcase_slack] in the dedicated
 [slack channel][slack_channel].
-
-### Data
-You can download raw data using [desed][desed] repository.
-
-Do not hesitate to create your own synthetic data, check the `generate_dcase_task4_2021.py` example
-in dcase2021_task4_baseline recipe.
 
 ## Your own recipes ?
 If you want to share your recipe in this repo, do not hesitate to create a pull request.
