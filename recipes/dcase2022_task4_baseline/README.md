@@ -4,36 +4,36 @@
 
 ## Requirements
 
-`conda_create_environment.sh` is available to create an environment which runs the
+The script `conda_create_environment.sh` is available to create an environment which runs the
 following code (recommended to run line by line in case of problems).
 
 ## Dataset
-You can download the dataset using the script: "generate_dcase_task4_2022.py".
+You can download the dataset using the script: `generate_dcase_task4_2022.py`.
 The dataset is composed of two parts:
-- real-world data (DESED dataset)
-- synthetically generated data
+- real-world data ([DESED dataset][desed])
+- synthetically generated data 
+
 
 ### Usage:
-- `python generate_dcase_task4_2022.py --basedir="../../data"` (You can change basedir to the desired data folder.)
+Run the command `python generate_dcase_task4_2022.py --basedir="../../data"` to download the dataset (the user can change basedir to the desired data folder.)
 
-It uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
+The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
 
 #### Real data
 The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
 
-Once you have downloaded the dataset, you will find a folder called "missing_files", containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
+Once the dataset is downloaded, the user should find the folder **missing_files**, containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
 
 #### Synthetic data 
 The synthetic part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
 
 
-
-For more information regarding the dataset, please refer to [last year DCASE Challenge website][dcase_20_dataset]. 
+For more information regarding the dataset, please refer to the [previous year DCASE Challenge website][dcase_20_dataset]. 
 
 
 ## Training
-We provide three baselines:
+We provide three baselines for the task:
 - SED baseline
 - baseline using pre-embeddings 
 - baseline using Audioset data (real-world strong-label data)
@@ -41,15 +41,15 @@ We provide three baselines:
 For now, only the SED baseline is available (the missing baseline will be published soon).
 
 ### SED Baseline
-You can run the SED baseline from scratch using:
-- `python train_sed.py`
+The SED baseline can be run from scratch using the following command:
 
-Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs.
+`python train_sed.py`
 
-You can test it on the validation real-world data by using:
-  - `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
+Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs. The baseline can be tested on the development set of the dataset using the following command:
 
-Check tensorboard logs using `tensorboard --logdir="path/to/exp_folder"`
+`python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
+
+The tensorboard logs can be tested using the command `tensorboard --logdir="path/to/exp_folder"`. 
 
 #### Results:
 
@@ -63,11 +63,10 @@ The results are from the **student** predictions.
 
 **Note**:
 
-These scripts assume your data is in `../../data` folder in DESED_task directory.
-If your data is in another path you have to change the corresponding `data` keys in YAML
-configuration file in `conf/sed.yaml` with your paths.
-Also note that `train_sed.py` will create at its very first run additional folders with resampled data (from 44kHz to 16kHz)
-so you need to have write permissions on the folder where your data are saved.
+These scripts assume that your data is in `../../data` folder in DESED_task directory.
+If your data is in another folder, you will have to change the paths of your data in the corresponding `data` keys in YAML configuration file in `conf/sed.yaml`.
+Note that `train_sed.py` will create (at its very first run) additional folders with resampled data (from 44kHz to 16kHz)
+so the user need to have write permissions on the folder where your data are saved.
 
 Hyperparameters can be changed in the YAML file (e.g. lower or higher batch size).
 
