@@ -83,7 +83,7 @@ The baseline is based on [2021 DCASE Task 4 baseline][dcase_21_repo]
 which itself is based on [1].
 
 [audioset]: https://research.google.com/audioset/
-[dcase22_webpage]: http://dcase.community/challenge2022/task-sound-event-detection-and-separation-in-domestic-environments
+[dcase22_webpage]: https://dcase.community/challenge2022/task-sound-event-detection-in-domestic-environments
 [dcase_21_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2021_task4_baseline
 [dcase_20_dataset]: https://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments#audio-dataset
 [desed]: https://github.com/turpaultn/DESED
