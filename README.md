@@ -4,7 +4,7 @@ Domestic environment sound event detection task.
 ---
 
 ## DCASE Task 4
-Baseline dcase task 4 recipes: 
+Baseline DCASE Task 4 recipes: 
 - [DCASE 2021 Task 4](./recipes/dcase2021_task4_baseline)
 - [DCASE 2022 Task 4](./recipes/dcase2022_task4_baseline)
 
