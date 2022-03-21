@@ -8,8 +8,8 @@ The script `conda_create_environment.sh` is available to create an environment w
 following code (recommended to run line by line in case of problems).
 
 ## Dataset
-You can download the dataset using the script: `generate_dcase_task4_2022.py`.
-The dataset is composed of two parts:
+You can download the development dataset using the script: `generate_dcase_task4_2022.py`.
+The development dataset is composed of two parts:
 - real-world data ([DESED dataset][desed])
 - synthetically generated data 
 
@@ -31,6 +31,37 @@ The synthetic part of the dataset is composed of synthetically soundscapes, gene
 
 For more information regarding the dataset, please refer to the [previous year DCASE Challenge website][dcase_20_dataset]. 
 
+### Development dataset
+
+The dataset is composed by 3 different splits of training data: 
+- Synthetic set with strong annotations
+- Weak labeled training set 
+- Unlabeled in domain training set
+
+#### Strong annotations
+
+This set is composed of **10000** clips generated with the [Scaper][scaper] soundscape synthesis and augmentation library. The clips are generated such that the distribution per event is close to that of the validation set.
+
+The strong annotations are provided in a tab separated csv file under the following format:
+
+`[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
+
+For example: YOTsn73eqbfc_10.000_20.000.wav 0.163 0.665 Alarm_bell_ringing
+  
+
+#### Weak annotations 
+
+This set contains **1578** clips (2244 class occurrences) for which weak annotations have been manually verified for a small subset of the training set. 
+The weak annotations are provided in a tab separated csv file under the following format:
+
+`[filename (string)][tab][event_labels (strings)]`
+
+For example: Y-BJNMHMZDcU_50.000_60.000.wav Alarm_bell_ringing,Dog
+
+
+#### Unlabeled in domain training set
+
+This set contains **14412** clips. The clips are selected such that the distribution per class (based on Audioset annotations) is close to the distribution in the labeled set. However, given the uncertainty on Audioset labels, this distribution might not be exactly similar.
 
 ## Training
 We provide three baselines for the task:
