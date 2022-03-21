@@ -45,9 +45,7 @@ The SED baseline can be run from scratch using the following command:
 
 `python train_sed.py`
 
-Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs.
-
-The baseline can be tested on the development set of the dataset using the following command:
+Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs. The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
