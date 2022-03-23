@@ -25,7 +25,7 @@ The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] an
 ### Development dataset
 
 The dataset is composed by 3 different splits of training data: 
-- Synthetic set with strong annotations
+- Synthetic training set with strong annotations
 - Weak labeled training set 
 - Unlabeled in domain training set
 
@@ -43,6 +43,7 @@ For example: YOTsn73eqbfc_10.000_20.000.wav 0.163 0.665 Alarm_bell_ringing
 #### Weak annotations 
 
 This set contains **1578** clips (2244 class occurrences) for which weak annotations have been manually verified for a small subset of the training set. 
+
 The weak annotations are provided in a tab separated csv file under the following format:
 
 `[filename (string)][tab][event_labels (strings)]`
