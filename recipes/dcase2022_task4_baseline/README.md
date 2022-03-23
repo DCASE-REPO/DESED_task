@@ -10,26 +10,17 @@ following code (recommended to run line by line in case of problems).
 ## Dataset
 You can download the development dataset using the script: `generate_dcase_task4_2022.py`.
 The development dataset is composed of two parts:
-- real-world data ([DESED dataset][desed])
-- synthetically generated data 
+- real-world data ([DESED dataset][desed]): this part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
 
+- synthetically generated data: this part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
 
 ### Usage:
 Run the command `python generate_dcase_task4_2022.py --basedir="../../data"` to download the dataset (the user can change basedir to the desired data folder.)
 
-The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
-
-#### Real data
-The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
-
 Once the dataset is downloaded, the user should find the folder **missing_files**, containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
 
-#### Synthetic data 
-The synthetic part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
-
-
-For more information regarding the dataset, please refer to the [previous year DCASE Challenge website][dcase_20_dataset]. 
+The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
 
 ### Development dataset
 
@@ -62,6 +53,10 @@ For example: Y-BJNMHMZDcU_50.000_60.000.wav Alarm_bell_ringing,Dog
 #### Unlabeled in domain training set
 
 This set contains **14412** clips. The clips are selected such that the distribution per class (based on Audioset annotations) is close to the distribution in the labeled set. However, given the uncertainty on Audioset labels, this distribution might not be exactly similar.
+
+
+For more information regarding the dataset, please refer to the [previous year DCASE Challenge website][dcase_21_dataset]. 
+
 
 ## Training
 We provide three baselines for the task:
@@ -115,7 +110,7 @@ which itself is based on [1].
 [audioset]: https://research.google.com/audioset/
 [dcase22_webpage]: https://dcase.community/challenge2022/task-sound-event-detection-in-domestic-environments
 [dcase_21_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2021_task4_baseline
-[dcase_20_dataset]: https://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments#audio-dataset
+[dcase_21_dataset]: https://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments#audio-dataset
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
