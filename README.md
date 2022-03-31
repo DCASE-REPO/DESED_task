@@ -11,9 +11,6 @@ Baseline DCASE Task 4 recipes:
 Updates on the [website][dcase_website] and [join us][invite_dcase_slack] in the dedicated
 [slack channel][slack_channel].
 
-## Your own recipes ?
-If you want to share your recipe in this repo, do not hesitate to create a pull request.
-
 
 [dcase_website]: https://dcase.community
 [desed]: https://github.com/turpaultn/DESED
@@ -37,5 +34,15 @@ run `python setup.py develop` to install the desed_task package
 ### Step 3
 
 Now you can run the DCASE Task 4 baseline recipes in `./recipes`
+
+
+## Your own recipes ?
+If you want to share your recipe in this repo, do not hesitate to create a pull request.
+
+### Note
+
+by default a pre-commit is installed via requirements.txt. 
+The pre-commit hook checks for Black formatting on the whole repository. 
+Black ensures that code style is consistent through the whole repository and recipes for better readability. 
 
 
