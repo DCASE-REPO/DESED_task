@@ -21,6 +21,7 @@ from local.classes_dict import classes_labels
 from local.sed_trainer import SEDTask4_2021
 from local.resample_folder import resample_folder
 from local.utils import generate_tsv_wav_durations
+from codecarbon import EmissionsTracker
 
 
 def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
@@ -257,6 +258,8 @@ def single_run(
     )
 
     if test_state_dict is None:
+
+        # start tracking energy consumption
         trainer.fit(desed_training)
         best_path = trainer.checkpoint_callback.best_model_path
         print(f"best model: {best_path}")

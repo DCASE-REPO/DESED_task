@@ -21,6 +21,10 @@ from desed_task.evaluation.evaluation_measures import (
     compute_psds_from_operating_points,
 )
 
+from codecarbon import EmissionsTracker
+
+
+
 
 class SEDTask4_2021(pl.LightningModule):
     """ Pytorch lightning module for the SED 2021 baseline
@@ -55,6 +59,9 @@ class SEDTask4_2021(pl.LightningModule):
     ):
         super(SEDTask4_2021, self).__init__()
         self.hparams = hparams
+
+        self.tracker = EmissionsTracker("DCASE Task 4 SED TRAINING",
+                                        output_dir=os.path.join(os.getcwd(), "training_codecarbon"))
 
         self.encoder = encoder
         self.sed_student = sed_student
@@ -137,9 +144,9 @@ class SEDTask4_2021(pl.LightningModule):
         )
         self.test_psds_buffer_student = {k: pd.DataFrame() for k in test_thresholds}
         self.test_psds_buffer_teacher = {k: pd.DataFrame() for k in test_thresholds}
-
         self.decoded_student_05_buffer = pd.DataFrame()
         self.decoded_teacher_05_buffer = pd.DataFrame()
+        self.tracker.start()
 
     def update_ema(self, alpha, global_step, model, ema_model):
         """ Update teacher model parameters
@@ -751,3 +758,10 @@ class SEDTask4_2021(pl.LightningModule):
             drop_last=False,
         )
         return self.test_loader
+
+    def on_train_end(self) -> None:
+        # dump consumption
+        self.tracker.stop()
+        training_kwh = self.tracker._total_energy.kwh
+        with open(os.path.join(os.getcwd(), "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
+            f.write(str(training_kwh))
