@@ -19,6 +19,14 @@ Run the command `python generate_dcase_task4_2022.py --basedir="../../data"` to 
 
 The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
 
+**Common issues:**
+
+`FileNotFoundError: [Errno 2] No such file or directory: 'ffprobe'`
+
+it probably means you have to install ffmpeg on your machine.
+
+you can solve it using `sudo apt install ffmpeg`
+
 #### Real data
 The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
 
