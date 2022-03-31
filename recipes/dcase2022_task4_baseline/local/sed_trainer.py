@@ -60,8 +60,7 @@ class SEDTask4_2021(pl.LightningModule):
         super(SEDTask4_2021, self).__init__()
         self.hparams = hparams
 
-        self.tracker = EmissionsTracker("DCASE Task 4 SED TRAINING",
-                                        output_dir=os.path.join(os.getcwd(), "training_codecarbon"))
+
 
         self.encoder = encoder
         self.sed_student = sed_student
@@ -73,7 +72,17 @@ class SEDTask4_2021(pl.LightningModule):
         self.train_sampler = train_sampler
         self.scheduler = scheduler
         self.fast_dev_run = fast_dev_run
-        self.evaluation=evaluation
+        self.evaluation = evaluation
+        if not self.evaluation:
+            self.tracker_train = EmissionsTracker("DCASE Task 4 SED TRAINING",
+                                        output_dir=os.path.join(os.getcwd(),
+                                                                "training_codecarbon"))
+            self.tracker_train.start()
+        else:
+            self.tracker_eval = EmissionsTracker("DCASE Task 4 SED EVALUATION",
+                                                  output_dir=os.path.join(os.getcwd(),
+                                                                          "evaluation_codecarbon"))
+            self.tracker_eval.start()
         if self.fast_dev_run:
             self.num_workers = 1
         else:
@@ -146,7 +155,7 @@ class SEDTask4_2021(pl.LightningModule):
         self.test_psds_buffer_teacher = {k: pd.DataFrame() for k in test_thresholds}
         self.decoded_student_05_buffer = pd.DataFrame()
         self.decoded_teacher_05_buffer = pd.DataFrame()
-        self.tracker.start()
+
 
     def update_ema(self, alpha, global_step, model, ema_model):
         """ Update teacher model parameters
@@ -724,8 +733,6 @@ class SEDTask4_2021(pl.LightningModule):
             for key in results.keys():
                 self.log(key, results[key], prog_bar=True, logger=False)
 
-
-
     def configure_optimizers(self):
         return [self.opt], [self.scheduler]
 
@@ -761,7 +768,13 @@ class SEDTask4_2021(pl.LightningModule):
 
     def on_train_end(self) -> None:
         # dump consumption
-        self.tracker.stop()
-        training_kwh = self.tracker._total_energy.kwh
+        self.tracker_train.stop()
+        training_kwh = self.tracker_train._total_energy.kwh
         with open(os.path.join(os.getcwd(), "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
             f.write(str(training_kwh))
+
+    def on_test_end(self) -> None:
+        self.tracker_eval.stop()
+        eval_kwh = self.tracker_eval._total_energy.kwh
+        with open(os.path.join(os.getcwd(), "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
+            f.write(str(eval_kwh))
