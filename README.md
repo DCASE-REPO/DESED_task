@@ -21,3 +21,21 @@ If you want to share your recipe in this repo, do not hesitate to create a pull 
 [fsd50k]: https://zenodo.org/record/4060432
 [invite_dcase_slack]: https://join.slack.com/t/dcase/shared_invite/zt-mzxct5n9-ZltMPjtAxQTSt3a6LFIVPA
 [slack_channel]: https://dcase.slack.com/archives/C01NR59KAS3
+
+## Installation Notes
+
+### Step 1
+By default `pytorch==1.11.0` CPU version is installed. 
+Refer to https://pytorch.org/ to install the correct GPU-capable pytorch
+version. 
+
+e.g. `conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch`
+
+### Step 2
+run `python setup.py develop` to install the desed_task package 
+
+### Step 3
+
+Now you can run the DCASE Task 4 baseline recipes in `./recipes`
+
+
