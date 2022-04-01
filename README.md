@@ -21,28 +21,26 @@ Updates on the [website][dcase_website] and [join us][invite_dcase_slack] in the
 
 ## Installation Notes
 
-### Step 1
-By default `pytorch==1.11.0` CPU version is installed. 
-Refer to https://pytorch.org/ to install the correct GPU-capable pytorch
-version. 
+### You want to run a recipe
 
-e.g. `conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch`
+Then go to ./recipes/YOUR_DESIRED_RECIPE and run conda from there
+this script will create a suitable conda environment with all dependencies and 
+pytorch with GPU support in order to run the recipe and download the data.  
 
-### Step 2
-run `python setup.py develop` to install the desed_task package 
 
-### Step 3
-
-Now you can run the DCASE Task 4 baseline recipes in `./recipes`
+### Only desed_task package
+run `python setup.py install` to install the desed_task package 
 
 
 ## Your own recipes ?
 If you want to share your recipe in this repo, do not hesitate to create a pull request.
+To be able to contribute/modify the code install desed_task via `python setup.py develop`.
+
 
 ### Note
 
-by default a pre-commit is installed via requirements.txt. 
-The pre-commit hook checks for Black formatting on the whole repository. 
+by default a `pre-commit` is installed via `requirements.txt`. 
+The pre-commit hook checks for **Black formatting** on the whole repository. 
 Black ensures that code style is consistent through the whole repository and recipes for better readability. 
 
 
