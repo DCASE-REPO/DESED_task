@@ -34,7 +34,7 @@ run `python setup.py install` to install the desed_task package
 
 ## Your own recipes ?
 If you want to share your recipe in this repo, do not hesitate to create a pull request.
-To be able to contribute/modify the code install desed_task via `python setup.py develop`.
+To be able to contribute/modify the code install `desed_task` via `python setup.py develop`.
 
 
 ### Note
