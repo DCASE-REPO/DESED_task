@@ -120,8 +120,9 @@ The baseline is based on [DCASE 2021 Task 4 baseline][dcase_21_repo], based on a
 
 
 The baseline uses a Mean-Teacher model which is a combination of two models: a student model and a
-teacher model, having the same architecture. The student model is the one used at inference while the goal of the teacher is to help the student model during training. The teacher's weight are the exponential average of the student model's weights. 
-Figure 1 shows an illustration of the baseline model [2]. 
+teacher model, having the same architecture. The student model is the one used at inference while the goal of the teacher is to help the student model during training. The teacher's weight are the exponential average of the student model's weights [2]. 
+
+Figure 1 shows an illustration of the baseline model. 
 
 | ![This is an image](./img/mean_teacher.png) |
 |:--:|
