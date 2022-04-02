@@ -1,5 +1,5 @@
-conda create -y -n dcase2021 python==3.8.5
-source activate dcase2021
+conda create -y -n dcase2022 python==3.8.5
+source activate dcase2022
 
 conda install -y numba
 conda install -y librosa -c conda-forge
