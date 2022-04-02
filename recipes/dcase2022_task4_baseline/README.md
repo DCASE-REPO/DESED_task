@@ -116,7 +116,7 @@ It uses very few batches and epochs so it won't give any meaningful result.
 
 **Architecture**
 
-The baseline is based on [DCASE 2021 Task 4 baseline][dcase_21_repo], based on a Mean-Teacher model [1].
+The baseline is the same as the [DCASE 2021 Task 4 baseline][dcase_21_repo], based on a Mean-Teacher model [1].
 
 
 The baseline uses a Mean-Teacher model which is a combination of two models: a student model and a
