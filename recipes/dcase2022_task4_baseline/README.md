@@ -128,6 +128,8 @@ Figure 1 shows an illustration of the baseline model.
 |:--:|
 | *Figure 1: baseline Mean-teacher model. Adapted from [2].* |
 
+Mixup is used as data augmentation technique for weak and synthetic data by mixing data in a batch (50% chance of applying it) [3].
+
 For more information regarding the baseline model, the reader is referred to [1] and [2].
 
 [audioset]: https://research.google.com/audioset/
