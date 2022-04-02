@@ -11,6 +11,7 @@ from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 from desed_task.data_augm import mixup
 from desed_task.utils.scaler import TorchScaler
 import numpy as np
+import torchmetrics
 
 from .utils import (
     batched_decode_preds,
@@ -58,7 +59,7 @@ class SEDTask4_2021(pl.LightningModule):
         evaluation=False
     ):
         super(SEDTask4_2021, self).__init__()
-        self.hparams = hparams
+        self.hparams.update(hparams)
 
 
 
@@ -115,17 +116,15 @@ class SEDTask4_2021(pl.LightningModule):
             raise NotImplementedError
 
         # for weak labels we simply compute f1 score
-        self.get_weak_student_f1_seg_macro = pl.metrics.classification.F1(
+        self.get_weak_student_f1_seg_macro = torchmetrics.classification.f_beta.F1(
             len(self.encoder.labels),
             average="macro",
-            multilabel=True,
             compute_on_step=False,
         )
 
-        self.get_weak_teacher_f1_seg_macro = pl.metrics.classification.F1(
+        self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.F1(
             len(self.encoder.labels),
             average="macro",
-            multilabel=True,
             compute_on_step=False,
         )
 
@@ -380,6 +379,7 @@ class SEDTask4_2021(pl.LightningModule):
 
         if torch.any(mask_weak):
             labels_weak = (torch.sum(labels[mask_weak], -1) >= 1).float()
+
             loss_weak_student = self.supervised_loss(
                 weak_preds_student[mask_weak], labels_weak
             )
@@ -391,10 +391,10 @@ class SEDTask4_2021(pl.LightningModule):
 
             # accumulate f1 score for weak labels
             self.get_weak_student_f1_seg_macro(
-                weak_preds_student[mask_weak], labels_weak
+                weak_preds_student[mask_weak], labels_weak.long()
             )
             self.get_weak_teacher_f1_seg_macro(
-                weak_preds_teacher[mask_weak], labels_weak
+                weak_preds_teacher[mask_weak], labels_weak.long()
             )
 
         if torch.any(mask_synth):
