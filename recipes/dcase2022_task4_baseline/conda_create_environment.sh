@@ -9,5 +9,6 @@ conda install -y pytorch torchvision torchaudio cudatoolkit=10.1 -c pytorch # fo
 # conda install pytorch-cpu torchvision-cpu -c pytorch (cpu linux)
 conda install -y youtube-dl tqdm -c conda-forge
 
+pip install codecarbon==1.2.0
 pip install -r ../../requirements.txt
 pip install -e ../../.
