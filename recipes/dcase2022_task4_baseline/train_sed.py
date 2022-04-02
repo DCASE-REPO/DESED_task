@@ -240,10 +240,11 @@ def single_run(
         n_epochs = config["training"]["n_epochs"]
 
     trainer = pl.Trainer(
+        precision=config["training"]["precision"],
         max_epochs=n_epochs,
         callbacks=callbacks,
         gpus=gpus,
-        distributed_backend=config["training"].get("backend"),
+        strategy=config["training"].get("backend"),
         accumulate_grad_batches=config["training"]["accumulate_batches"],
         logger=logger,
         resume_from_checkpoint=checkpoint_resume,
@@ -273,7 +274,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
     parser.add_argument(
         "--conf_file",
-        default="./confs/sed.yaml",
+        default="./confs/default.yaml",
         help="The configuration file with all the experiment parameters.",
     )
     parser.add_argument(
@@ -291,9 +292,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--gpus",
-        default="0",
+        default="1",
         help="The number of GPUs to train on, or the gpu to use, default='0', "
-        "so uses one GPU indexed by 0.",
+        "so uses one GPU",
     )
     parser.add_argument(
         "--fast_dev_run",
