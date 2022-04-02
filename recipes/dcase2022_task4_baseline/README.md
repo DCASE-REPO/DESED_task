@@ -120,15 +120,13 @@ The baseline is based on [DCASE 2021 Task 4 baseline][dcase_21_repo], based on a
 
 
 The baseline uses a Mean-Teacher model which is a combination of two models: a student model and a
-teacher model, having the same architecture. The student model is the one used at inference while the goal of the teacher is to help the student model during training. The teacher's weight are the exponential average of the student model's weights [2]. 
+teacher model, having the same architecture. The student model is the one used at inference while the goal of the teacher is to help the student model during training. The teacher's weight are the exponential average of the student model's weights. The models are a combination of a convolutional neural network (CNN) and a recurrent neural network (RNN) followed by an attention layer. The output of the RNN gives strong predictions while the output of the attention layer gives the weak predictions [2]. 
 
 Figure 1 shows an illustration of the baseline model. 
 
 | ![This is an image](./img/mean_teacher.png) |
 |:--:|
 | *Figure 1: baseline Mean-teacher model. Adapted from [2].* |
-
-The models are a combination of a convolutional neural network (CNN) and a recurrent neural network (RNN) followed by an attention layer. The output of the RNN gives strong predictions while the output of the attention layer gives the weak predictions [2]. 
 
 For more information regarding the baseline model, the reader is referred to [1] and [2].
 
