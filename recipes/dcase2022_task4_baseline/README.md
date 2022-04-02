@@ -20,7 +20,7 @@ Run the command `python generate_dcase_task4_2022.py --basedir="../../data"` to 
 Once the dataset is downloaded, the user should find the folder **missing_files**, containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
 
-The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
+
 
 ### Development dataset
 
@@ -55,6 +55,9 @@ For example: Y-BJNMHMZDcU_50.000_60.000.wav Alarm_bell_ringing,Dog
 
 This set contains **14412** clips. The clips are selected such that the distribution per class (based on Audioset annotations) is close to the distribution in the labeled set. However, given the uncertainty on Audioset labels, this distribution might not be exactly similar.
 
+
+
+The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed]. 
 
 For more information regarding the dataset, please refer to the [previous year DCASE Challenge website][dcase_21_dataset]. 
 
@@ -101,12 +104,31 @@ A different configuration YAML (for example sed_2.yaml) can be used in each run 
 
 The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline`.
 
-Training can be resumed using `--resume_from_checkpoint`.
+Training can be resumed using the following command:
+
+`python train_sed.py --reseume_from_checkpoint /path/to/file.ckpt`
+
+In order to make a "fast" run, which could be useful for development and debugging, you can use the following command: 
+
+`python train_sed.py --fast_dev_run`
+
+It uses very few batches and epochs so it won't give any meaningful result.
 
 **Architecture**
 
-The baseline is based on [2021 DCASE Task 4 baseline][dcase_21_repo]
-which itself is based on [1].
+The baseline is based on [DCASE 2021 Task 4 baseline][dcase_21_repo], based on a Mean-Teacher model [1].
+
+
+The baseline uses a Mean-Teacher model which is a combination of two models: a student model and a
+teacher model, having the same architecture. The student model is the model used at inference while the goal of the teacher is to help the student model during training. Its weight are the exponential average of the student model's weights. Figure shows an illustration of the baseline model [2]. 
+
+| ![This is an image](./img/mean_teacher.png) |
+|:--:|
+| *Baseline Mean-teacher model. Adapted from [2].* |
+
+The models are a combination of a convolutional neural network (CNN) and a recurrent neural network (RNN) followed by an attention layer. The output of the RNN gives strong predictions while the output of the attention layer gives the weak predictions [2]. 
+
+For more information regarding the baseline model, the reader is referred to [1] and [2].
 
 [audioset]: https://research.google.com/audioset/
 [dcase22_webpage]: https://dcase.community/challenge2022/task-sound-event-detection-in-domestic-environments
@@ -124,12 +146,14 @@ which itself is based on [1].
 #### References
 [1] L. Delphin-Poulat & C. Plapous, technical report, dcase 2019.
 
-[2] Zhang, Hongyi, et al. "mixup: Beyond empirical risk minimization." arXiv preprint arXiv:1710.09412 (2017).
+[2] Turpault, Nicolas, et al. "Sound event detection in domestic environments with weakly labeled data and soundscape synthesis."
 
-[3] Thomee, Bart, et al. "YFCC100M: The new data in multimedia research." Communications of the ACM 59.2 (2016): 64-73.
+[3] Zhang, Hongyi, et al. "mixup: Beyond empirical risk minimization." arXiv preprint arXiv:1710.09412 (2017).
 
-[4] Wisdom, Scott, et al. "Unsupervised sound separation using mixtures of mixtures." arXiv preprint arXiv:2006.12701 (2020).
+[4] Thomee, Bart, et al. "YFCC100M: The new data in multimedia research." Communications of the ACM 59.2 (2016)
 
-[5] Turpault, Nicolas, et al. "Improving sound event detection in domestic environments using sound separation." arXiv preprint arXiv:2007.03932 (2020).
+[5] Wisdom, Scott, et al. "Unsupervised sound separation using mixtures of mixtures." arXiv preprint arXiv:2006.12701 (2020).
 
-[6] Ronchini, Francesca, et al. "The impact of non-target events in synthetic soundscapes for sound event detection." arXiv preprint arXiv:2109.14061 (DCASE2021)
+[6] Turpault, Nicolas, et al. "Improving sound event detection in domestic environments using sound separation." arXiv preprint arXiv:2007.03932 (2020).
+
+[7] Ronchini, Francesca, et al. "The impact of non-target events in synthetic soundscapes for sound event detection." arXiv preprint arXiv:2109.14061 (DCASE2021)
