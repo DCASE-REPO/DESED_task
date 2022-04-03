@@ -25,8 +25,6 @@ from desed_task.evaluation.evaluation_measures import (
 from codecarbon import EmissionsTracker
 
 
-
-
 class SEDTask4_2021(pl.LightningModule):
     """ Pytorch lightning module for the SED 2021 baseline
     Args:
@@ -61,7 +59,11 @@ class SEDTask4_2021(pl.LightningModule):
         super(SEDTask4_2021, self).__init__()
         self.hparams.update(hparams)
 
-
+        try:
+            log_dir = self.logger.log_dir
+        except Exception as e:
+            log_dir = self.hparams["log_dir"]
+        self.exp_dir = log_dir
 
         self.encoder = encoder
         self.sed_student = sed_student
@@ -74,16 +76,7 @@ class SEDTask4_2021(pl.LightningModule):
         self.scheduler = scheduler
         self.fast_dev_run = fast_dev_run
         self.evaluation = evaluation
-        if not self.evaluation:
-            self.tracker_train = EmissionsTracker("DCASE Task 4 SED TRAINING",
-                                        output_dir=os.path.join(os.getcwd(),
-                                                                "training_codecarbon"))
-            self.tracker_train.start()
-        else:
-            self.tracker_eval = EmissionsTracker("DCASE Task 4 SED EVALUATION",
-                                                  output_dir=os.path.join(os.getcwd(),
-                                                                          "evaluation_codecarbon"))
-            self.tracker_eval.start()
+
         if self.fast_dev_run:
             self.num_workers = 1
         else:
@@ -129,7 +122,6 @@ class SEDTask4_2021(pl.LightningModule):
         )
 
         self.scaler = self._init_scaler()
-
         # buffer for event based scores which we compute using sed-eval
 
         self.val_buffer_student_synth = {
@@ -154,6 +146,16 @@ class SEDTask4_2021(pl.LightningModule):
         self.test_psds_buffer_teacher = {k: pd.DataFrame() for k in test_thresholds}
         self.decoded_student_05_buffer = pd.DataFrame()
         self.decoded_teacher_05_buffer = pd.DataFrame()
+
+
+    def on_train_start(self) -> None:
+
+        os.makedirs(os.path.join(self.exp_dir, "training_codecarbon"), exist_ok=True)
+        self.tracker_train = EmissionsTracker("DCASE Task 4 SED TRAINING",
+                                        output_dir=os.path.join(self.exp_dir,
+                                                                "training_codecarbon"))
+        self.tracker_train.start()
+
 
 
     def update_ema(self, alpha, global_step, model, ema_model):
@@ -598,11 +600,7 @@ class SEDTask4_2021(pl.LightningModule):
 
     def on_test_epoch_end(self):
         # pub eval dataset
-        try:
-            log_dir = self.logger.log_dir
-        except Exception as e:
-            log_dir = self.hparams["log_dir"]
-        save_dir = os.path.join(log_dir, "metrics_test")
+        save_dir = os.path.join(self.exp_dir, "metrics_test")
         
         if self.evaluation:
             # only save the predictions
@@ -770,11 +768,33 @@ class SEDTask4_2021(pl.LightningModule):
         # dump consumption
         self.tracker_train.stop()
         training_kwh = self.tracker_train._total_energy.kwh
-        with open(os.path.join(os.getcwd(), "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
+        with open(os.path.join(self.exp_dir, "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
             f.write(str(training_kwh))
 
+    def on_test_start(self) -> None:
+
+        if self.evaluation:
+            os.makedirs(os.path.join(self.exp_dir, "evaluation_codecarbon"), exist_ok=True)
+            self.tracker_eval = EmissionsTracker("DCASE Task 4 SED EVALUATION",
+                                                 output_dir=os.path.join(self.exp_dir,
+                                                                         "evaluation_codecarbon"))
+            self.tracker_eval.start()
+        else:
+            os.makedirs(os.path.join(self.exp_dir, "devtest_codecarbon"), exist_ok=True)
+            self.tracker_devtest = EmissionsTracker("DCASE Task 4 SED DEVTEST",
+                                                 output_dir=os.path.join(self.exp_dir,
+                                                                         "devtest_codecarbon"))
+            self.tracker_devtest.start()
+
+
     def on_test_end(self) -> None:
-        self.tracker_eval.stop()
-        eval_kwh = self.tracker_eval._total_energy.kwh
-        with open(os.path.join(os.getcwd(), "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
-            f.write(str(eval_kwh))
+        if self.evaluation:
+            self.tracker_eval.stop()
+            eval_kwh = self.tracker_eval._total_energy.kwh
+            with open(os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
+                f.write(str(eval_kwh))
+        else:
+            self.tracker_devtest.stop()
+            eval_kwh = self.tracker_devtest._total_energy.kwh
+            with open(os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"), "w") as f:
+                f.write(str(eval_kwh))
