@@ -270,7 +270,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
     parser.add_argument(
         "--conf_file",
-        default="./confs/default.yaml",
+        default="./confs/sed.yaml",
         help="The configuration file with all the experiment parameters.",
     )
     parser.add_argument(
