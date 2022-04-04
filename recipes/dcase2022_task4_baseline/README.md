@@ -49,7 +49,7 @@ We provide **three** baselines for the task:
 
 For now, only the SED baseline is available (the missing baselines will be published soon).
 
-### How to run the Baseline Systems
+### How to run the Baseline systems
 The **SED baseline** can be run from scratch using the following command:
 
 `python train_sed.py`
