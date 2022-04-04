@@ -30,7 +30,7 @@ In each recipe we provide a conda script which creates a suitable conda environm
 
 
 ### You need only desed_task package for other reasons
-run `python setup.py install` to install the desed_task package 
+Run `python setup.py install` to install the desed_task package 
 
 
 ## Your own recipes ?
