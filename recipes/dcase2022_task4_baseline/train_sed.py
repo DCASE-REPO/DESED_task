@@ -20,7 +20,6 @@ from local.classes_dict import classes_labels
 from local.sed_trainer import SEDTask4
 from local.resample_folder import resample_folder
 from local.utils import generate_tsv_wav_durations
-from codecarbon import EmissionsTracker
 
 
 def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
