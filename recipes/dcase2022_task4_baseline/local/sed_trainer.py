@@ -772,7 +772,7 @@ class SEDTask4(pl.LightningModule):
         # dump consumption
         self.tracker_train.stop()
         training_kwh = self.tracker_train._total_energy.kwh
-        self.logger.log_metrics("/train/tot_energy_kWh", torch.tensor(training_kwh))
+        self.log("/train/tot_energy_kWh", torch.tensor(float(training_kwh)))
         with open(os.path.join(self.exp_dir, "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
             f.write(str(training_kwh))
 
@@ -796,12 +796,12 @@ class SEDTask4(pl.LightningModule):
         if self.evaluation:
             self.tracker_eval.stop()
             eval_kwh = self.tracker_eval._total_energy.kwh
-            self.logger.log_metrics("/eval/tot_energy_kWh", torch.tensor(eval_kwh))
+            self.log("/eval/tot_energy_kWh", torch.tensor(float(eval_kwh)))
             with open(os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
                 f.write(str(eval_kwh))
         else:
             self.tracker_devtest.stop()
             eval_kwh = self.tracker_devtest._total_energy.kwh
-            self.logger.log_metrics("/test/tot_energy_kWh", torch.tensor(eval_kwh))
+            self.log("/test/tot_energy_kWh", torch.tensor(float(eval_kwh)))
             with open(os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"), "w") as f:
                 f.write(str(eval_kwh))
