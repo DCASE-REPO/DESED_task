@@ -25,7 +25,7 @@ from desed_task.evaluation.evaluation_measures import (
 from codecarbon import EmissionsTracker
 
 
-class SEDTask4_2021(pl.LightningModule):
+class SEDTask4(pl.LightningModule):
     """ Pytorch lightning module for the SED 2021 baseline
     Args:
         hparams: dict, the dictionary to be used for the current experiment/
@@ -54,9 +54,10 @@ class SEDTask4_2021(pl.LightningModule):
         train_sampler=None,
         scheduler=None,
         fast_dev_run=False,
-        evaluation=False
+        evaluation=False,
+        sed_teacher=None
     ):
-        super(SEDTask4_2021, self).__init__()
+        super(SEDTask4, self).__init__()
         self.hparams.update(hparams)
 
         try:
@@ -67,7 +68,10 @@ class SEDTask4_2021(pl.LightningModule):
 
         self.encoder = encoder
         self.sed_student = sed_student
-        self.sed_teacher = deepcopy(sed_student)
+        if self.sed_teacher is None:
+            self.sed_teacher = deepcopy(sed_student)
+        else:
+            self.sed_teacher = sed_teacher
         self.opt = opt
         self.train_data = train_data
         self.valid_data = valid_data
