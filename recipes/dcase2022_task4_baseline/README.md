@@ -8,23 +8,16 @@ The script `conda_create_environment.sh` is available to create an environment w
 following code (recommended to run line by line in case of problems).
 
 ## Dataset
-You can download the dataset using the script: `generate_dcase_task4_2022.py`.
-The dataset is composed of two parts:
-- real-world data ([DESED dataset][desed])
-- synthetically generated data 
+You can download the development dataset using the script: `generate_dcase_task4_2022.py`.
+The development dataset is composed of two parts:
+- real-world data ([DESED dataset][desed]): this part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
 
+- synthetically generated data: this part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
 
 ### Usage:
 Run the command `python generate_dcase_task4_2022.py --basedir="../../data"` to download the dataset (the user can change basedir to the desired data folder.)
 
 The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed].
-
-**Common issues:**
-
-`FileNotFoundError: [Errno 2] No such file or directory: 'ffprobe'`
-
-It probably means you have to install `ffmpeg` on your machine. 
-A possible installation: `sudo apt install ffmpeg`
 
 #### Real data
 The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
@@ -32,11 +25,46 @@ The real-world part of the dataset is composed of weak labels, unlabeled, and va
 Once the dataset is downloaded, the user should find the folder **missing_files**, containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
 
-#### Synthetic data 
-The synthetic part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
 
 
-For more information regarding the dataset, please refer to the [previous year DCASE Challenge website][dcase_20_dataset]. 
+### Development dataset
+
+The dataset is composed by 3 different splits of training data: 
+- Synthetic training set with strong annotations
+- Weak labeled training set 
+- Unlabeled in domain training set
+
+#### Strong annotations
+
+This set is composed of **10000** clips generated with the [Scaper][scaper] soundscape synthesis and augmentation library. The clips are generated such that the distribution per event is close to that of the validation set.
+
+The strong annotations are provided in a tab separated csv file under the following format:
+
+`[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
+
+For example: YOTsn73eqbfc_10.000_20.000.wav 0.163 0.665 Alarm_bell_ringing
+  
+
+#### Weak annotations 
+
+This set contains **1578** clips (2244 class occurrences) for which weak annotations have been manually verified for a small subset of the training set. 
+
+The weak annotations are provided in a tab separated csv file under the following format:
+
+`[filename (string)][tab][event_labels (strings)]`
+
+For example: Y-BJNMHMZDcU_50.000_60.000.wav Alarm_bell_ringing,Dog
+
+
+#### Unlabeled in domain training set
+
+This set contains **14412** clips. The clips are selected such that the distribution per class (based on Audioset annotations) is close to the distribution in the labeled set. However, given the uncertainty on Audioset labels, this distribution might not be exactly similar.
+
+
+
+The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed]. 
+
+For more information regarding the dataset, please refer to the [previous year DCASE Challenge website][dcase_21_dataset]. 
 
 
 
@@ -46,7 +74,7 @@ We provide **three** baselines for the task:
 - baseline using pre-trained embedding extractor DNN. 
 - baseline using Audioset data (real-world strong-label data)
 
-For now, only the SED baseline is available (the missing baselines will be published soon).
+For now, only the SED baseline is available (the missing baseline will be published soon).
 
 ### How to run the Baseline systems
 The **SED baseline** can be run from scratch using the following command:
@@ -58,7 +86,7 @@ Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] a
 
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
-The tensorboard logs can be tested using the command `tensorboard --logdir="path/to/exp_folder"`.
+The tensorboard logs can be tested using the command `tensorboard --logdir="path/to/exp_folder"`. 
 
 
 ## **(NEW!)** Energy Consumption
@@ -143,18 +171,25 @@ A different configuration YAML (for example sed_2.yaml) can be used in each run 
 
 The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline`.
 
-Training can be resumed using `--resume_from_checkpoint`.
+Training can be resumed using the following command:
+
+`python train_sed.py --reseume_from_checkpoint /path/to/file.ckpt`
+
+In order to make a "fast" run, which could be useful for development and debugging, you can use the following command: 
+
+`python train_sed.py --fast_dev_run`
+
+It uses very few batches and epochs so it won't give any meaningful result.
 
 **Architectures**
 
-The SED baseline with and without Audioset strong labels is based on [2021 DCASE Task 4 baseline][dcase_21_repo]
+The baseline is based on [2021 DCASE Task 4 baseline][dcase_21_repo]
 which itself is based on [1].
-
 
 [audioset]: https://research.google.com/audioset/
 [dcase22_webpage]: https://dcase.community/challenge2022/task-sound-event-detection-in-domestic-environments
 [dcase_21_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2021_task4_baseline
-[dcase_20_dataset]: https://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments#audio-dataset
+[dcase_21_dataset]: https://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments#audio-dataset
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
@@ -167,12 +202,14 @@ which itself is based on [1].
 #### References
 [1] L. Delphin-Poulat & C. Plapous, technical report, dcase 2019.
 
-[2] Zhang, Hongyi, et al. "mixup: Beyond empirical risk minimization." arXiv preprint arXiv:1710.09412 (2017).
+[2] Turpault, Nicolas, et al. "Sound event detection in domestic environments with weakly labeled data and soundscape synthesis."
 
-[3] Thomee, Bart, et al. "YFCC100M: The new data in multimedia research." Communications of the ACM 59.2 (2016): 64-73.
+[3] Zhang, Hongyi, et al. "mixup: Beyond empirical risk minimization." arXiv preprint arXiv:1710.09412 (2017).
 
-[4] Wisdom, Scott, et al. "Unsupervised sound separation using mixtures of mixtures." arXiv preprint arXiv:2006.12701 (2020).
+[4] Thomee, Bart, et al. "YFCC100M: The new data in multimedia research." Communications of the ACM 59.2 (2016)
 
-[5] Turpault, Nicolas, et al. "Improving sound event detection in domestic environments using sound separation." arXiv preprint arXiv:2007.03932 (2020).
+[5] Wisdom, Scott, et al. "Unsupervised sound separation using mixtures of mixtures." arXiv preprint arXiv:2006.12701 (2020).
 
-[6] Ronchini, Francesca, et al. "The impact of non-target events in synthetic soundscapes for sound event detection." arXiv preprint arXiv:2109.14061 (DCASE2021)
+[6] Turpault, Nicolas, et al. "Improving sound event detection in domestic environments using sound separation." arXiv preprint arXiv:2007.03932 (2020).
+
+[7] Ronchini, Francesca, et al. "The impact of non-target events in synthetic soundscapes for sound event detection." arXiv preprint arXiv:2109.14061 (DCASE2021)
