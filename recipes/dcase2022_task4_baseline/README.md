@@ -23,9 +23,8 @@ The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] an
 
 `FileNotFoundError: [Errno 2] No such file or directory: 'ffprobe'`
 
-it probably means you have to install ffmpeg on your machine.
-
-you can solve it using `sudo apt install ffmpeg`
+It probably means you have to install `ffmpeg` on your machine. 
+A possible installation: `sudo apt install ffmpeg`
 
 #### Real data
 The real-world part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
