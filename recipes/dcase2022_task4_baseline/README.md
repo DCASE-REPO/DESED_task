@@ -73,7 +73,7 @@ We encourage the participants to provide, for each submitted system (or at least
 2) devtest inference
 3) evaluation set inference
 
-You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to do this (super simple!)
+You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to do this (super simple! 😉 )
 or to this baseline code see `local/sed_trained.py` for some hints on 
 how we are doing this for the baseline system.
 
