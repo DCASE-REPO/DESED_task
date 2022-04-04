@@ -54,17 +54,9 @@ data: # change with your paths if different.
   fs: 16000
   net_subsample: 4
 opt:
-  lr: 0.001
-feats:
-  n_mels: 128
-  n_filters: 2048
-  hop_length: 256
-  n_window: 2048
-  sample_rate: 16000
-  f_min: 0
-  f_max: 8000
+  lr: 0.0001
 net:
-  dropout: 0.5
+  dropout: 0.1
   rnn_layers: 2
   n_in_channel: 1
   nclass: 10

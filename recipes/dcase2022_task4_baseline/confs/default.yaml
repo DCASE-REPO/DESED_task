@@ -75,7 +75,3 @@ net:
   nb_filters: [ 16, 32, 64, 128, 128, 128, 128 ]
   pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
   dropout_recurrent: 0
-use_ssmodel: False
-ssmodel:
-  name: ssast_base_patch_400 # supported: ssast_base_patch_400, ssast_base_frame_400
-  freezed: True # freeze or train together, unfreezing will increase considerably GPU usage
