@@ -67,8 +67,7 @@ The tensorboard logs can be tested using the command `tensorboard --logdir="path
 In this year DCASE Task 4 Challenge, we also use energy consumption (kWh)
 via [CodeCarbon](https://github.com/mlco2/codecarbon) as an additional metric to rank the submitted systems.
 
-We encourage the participants to provide, for each submitted system (or at least the best one),
-using [CodeCarbon](https://github.com/mlco2/codecarbon), the following energy consumption figures in kWh:
+We encourage the participants to provide, for each submitted system (or at least the best one), the following energy consumption figures in kWh using [CodeCarbon](https://github.com/mlco2/codecarbon):
 
 1) whole system training
 2) devtest inference
