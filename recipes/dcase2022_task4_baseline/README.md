@@ -80,9 +80,8 @@ how we are doing this for the baseline system.
 
 **Important** 
 
-In addition to this, we kindly ask the participants to 
-run also, on the same hardware used for 2) and 3) 
-also energy consumption kWh for:
+In addition to this, we kindly suggest the participants to
+provide the energy consumption in kWh (using the same hardware used for 2) and 3)) of:
 
 1) devtest inference for baseline system using: 
 
