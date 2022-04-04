@@ -98,7 +98,7 @@ Energy consumption depends on hardware and each participant uses
 different hardware. 
 
 To obviate for this difference we use the baseline inference kWh energy consumption 
-as a common reference. Because of this is important that 
+as a common reference. Because of this, it is important that the
 inference energy consumption figures for both submitted system 
 and baseline are computed on same hardware under similar loading. 
 
