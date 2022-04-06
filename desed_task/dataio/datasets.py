@@ -95,6 +95,8 @@ class StronglyAnnotatedSet(Dataset):
         self.return_filename = return_filename
         self.random_channel = random_channel
         self.multisrc = multisrc
+
+        tsv_entries = tsv_entries.dropna()
         
         examples = {}
         for i, r in tsv_entries.iterrows():
