@@ -85,7 +85,7 @@ The tensorboard logs can be tested using the command `tensorboard --logdir="path
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1*
 --------|--------------------|--------------------|-------------------------|-----------------
-Dev-test| **0.351**          | **0.531**          | 64.1%                   | 41.4%
+Dev-test| **0.336**          | **0.536**          | 64.1%                   | 40.1%
 
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
