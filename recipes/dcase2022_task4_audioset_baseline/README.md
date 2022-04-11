@@ -38,6 +38,8 @@ The strong annotations are provided in a tab separated csv file under the follow
 `[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
 
 For example: YOTsn73eqbfc_10.000_20.000.wav 0.163 0.665 Alarm_bell_ringing
+
+Audioset stron annotation 
   
 
 #### Weak annotations 
