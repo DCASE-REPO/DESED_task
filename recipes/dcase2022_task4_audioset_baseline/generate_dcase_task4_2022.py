@@ -164,7 +164,7 @@ if __name__ == "__main__":
             
             print("Downloading strong-label Audioset dataset...")
             path_missing_files_audioset = os.path.join(
-                basedir_missing_files, "missing_files_" + "audioset" + ".tsv"
+                basedir_missing_files, "missing_files_" + "strong_label_real" + ".tsv"
             )
             desed.download.download_audioset_files_from_csv(
                 strong_label_metadata_path,
