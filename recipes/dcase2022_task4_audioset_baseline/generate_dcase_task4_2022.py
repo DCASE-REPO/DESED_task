@@ -168,7 +168,7 @@ if __name__ == "__main__":
             )
             desed.download.download_audioset_files_from_csv(
                 strong_label_metadata_path,
-                os.path.join(dcase_dataset_folder, "audio", "train", "strong_label"),
+                os.path.join(dcase_dataset_folder, "audio", "train", "strong_label_real"),
                 missing_files_tsv=path_missing_files_audioset,
             )
         
