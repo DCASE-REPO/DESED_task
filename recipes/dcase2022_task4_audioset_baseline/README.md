@@ -56,6 +56,7 @@ For example: YOTsn73eqbfc_10.000_20.000.wav 0.163 0.665 Alarm_bell_ringing
 #### Strong labeled training set 
 
 This set is composed of **3470** audio clips coming from [Audioset][audioset]. 
+
 **This set is used at training only for the SED Audioset baseline.** 
 
 The strong annotations are provided in a tab separated csv file under the following format:
@@ -171,7 +172,7 @@ Alternatively, also in this case, we provide a [pre-trained checkpoint][zenodo_p
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1*
 --------|--------------------|--------------------|-------------------------|-----------------
-Dev-test| **0.0.351**          | **0.552**          | 64.3%                   | 42.9%
+Dev-test| **0.351**          | **0.552**          | 64.3%                   | 42.9%
 
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
