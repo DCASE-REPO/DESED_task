@@ -182,7 +182,7 @@ All the comments related to the possibility of resuming the training and the fas
 
 **Architecture**
 
-The network architecture is the same as the [SED baseline][sed_baseline]. 
+The architecture of the SED Audioset baseline is the same as the [SED baseline][sed_baseline]. 
 
 
 [audioset]: https://research.google.com/audioset/
