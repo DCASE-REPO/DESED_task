@@ -3,6 +3,8 @@ import glob
 import time
 import warnings
 from pprint import pformat
+from pathlib import Path
+
 
 import os
 import shutil
@@ -110,6 +112,12 @@ if __name__ == "__main__":
         help="True if only the synthetic part of the dataset need to be downloaded"
     )
 
+    parser.add_argument(
+        "--only_strong",
+        action="store_true",
+        help="True if only the synthetic part of the dataset need to be downloaded"
+    )
+
     args = parser.parse_args()
     pformat(vars(args))
 
@@ -120,9 +128,10 @@ if __name__ == "__main__":
     dcase_dataset_folder = args.out_dir
     only_real = args.only_real
     only_synth = args.only_synth
+    only_strong = args.only_strong
     missing_files = None
 
-    download_all = (only_real and only_synth) or (not only_real and not only_synth)
+    download_all = (only_real and only_synth and only_strong) or (not only_real and not only_synth and not only_strong)
     print(f"Download all: {download_all}")
     
 
@@ -138,6 +147,34 @@ if __name__ == "__main__":
     if only_real or download_all:
         print('Downloading audioset dataset')
         missing_files = desed.download_audioset_data(dcase_dataset_folder, n_jobs=3, chunk_size=10)
+
+    # download strong-label Audioset dataset
+    if only_strong or download_all:
+        url_strong = (
+            "https://zenodo.org/record/6444477/files/audioset_strong.tsv?download=1"
+        )
+        basedir_missing_files = "missing_files"
+        desed.utils.create_folder(basedir_missing_files)
+    
+        strong_label_metadata_path = os.path.join(dcase_dataset_folder, "metadata", "train", "audioset_strong.tsv")
+        sl_path = Path(strong_label_metadata_path)
+        if not sl_path.is_file():
+            desed.utils.download_file_from_url(url_strong, strong_label_metadata_path)
+            print(f"File saved in {strong_label_metadata_path}")
+            
+            print("Downloading strong-label Audioset dataset...")
+            path_missing_files_audioset = os.path.join(
+                basedir_missing_files, "missing_files_" + "audioset" + ".tsv"
+            )
+            desed.download.download_audioset_files_from_csv(
+                strong_label_metadata_path,
+                os.path.join(dcase_dataset_folder, "audio", "train", "strong_label"),
+                missing_files_tsv=path_missing_files_audioset,
+            )
+        
+        else:
+            print(f"The file {sl_path} already exists.")
+
 
     # download synthetic dataset
     if only_synth or download_all:

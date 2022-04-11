@@ -38,8 +38,6 @@ The strong annotations are provided in a tab separated csv file under the follow
 `[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
 
 For example: YOTsn73eqbfc_10.000_20.000.wav 0.163 0.665 Alarm_bell_ringing
-
-Audioset stron annotation 
   
 
 #### Weak annotations 
@@ -141,7 +139,7 @@ For more information regarding the baseline model, the reader is referred to [1]
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
-[zenodo_pretrained_models]: https://zenodo.org/record/4639817
+[zenodo_pretrained_models]: https://zenodo.org/record/6447197
 [google_sourcesep_repo]: https://github.com/google-research/sound-separation/tree/master/datasets/yfcc100m
 [sdk_installation_instructions]: https://cloud.google.com/sdk/docs/install
 [zenodo_evaluation_dataset]: https://zenodo.org/record/4892545#.YMHH_DYzadY
