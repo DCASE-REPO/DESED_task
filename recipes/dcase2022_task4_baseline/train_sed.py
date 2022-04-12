@@ -1,5 +1,4 @@
 import argparse
-from copy import deepcopy
 import numpy as np
 import os
 import pandas as pd
@@ -18,10 +17,9 @@ from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
 
 from local.classes_dict import classes_labels
-from local.sed_trainer import SEDTask4_2021
+from local.sed_trainer import SEDTask4
 from local.resample_folder import resample_folder
 from local.utils import generate_tsv_wav_durations
-from codecarbon import EmissionsTracker
 
 
 def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
@@ -209,7 +207,7 @@ def single_run(
         logger = True
         callbacks = None
 
-    desed_training = SEDTask4_2021(
+    desed_training = SEDTask4(
         config,
         encoder=encoder,
         sed_student=sed_student,
@@ -240,10 +238,11 @@ def single_run(
         n_epochs = config["training"]["n_epochs"]
 
     trainer = pl.Trainer(
+        precision=config["training"]["precision"],
         max_epochs=n_epochs,
         callbacks=callbacks,
         gpus=gpus,
-        distributed_backend=config["training"].get("backend"),
+        strategy=config["training"].get("backend"),
         accumulate_grad_batches=config["training"]["accumulate_batches"],
         logger=logger,
         resume_from_checkpoint=checkpoint_resume,
@@ -273,12 +272,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
     parser.add_argument(
         "--conf_file",
-        default="./confs/sed.yaml",
+        default="./confs/default.yaml",
         help="The configuration file with all the experiment parameters.",
     )
     parser.add_argument(
         "--log_dir",
-        default="./exp/2021_baseline",
+        default="./exp/2022_baseline",
         help="Directory where to save tensorboard logs, saved models, etc.",
     )
     parser.add_argument(
@@ -291,9 +290,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--gpus",
-        default="0",
+        default="1",
         help="The number of GPUs to train on, or the gpu to use, default='0', "
-        "so uses one GPU indexed by 0.",
+        "so uses one GPU",
     )
     parser.add_argument(
         "--fast_dev_run",

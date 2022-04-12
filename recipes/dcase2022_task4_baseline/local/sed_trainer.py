@@ -11,6 +11,7 @@ from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 from desed_task.data_augm import mixup
 from desed_task.utils.scaler import TorchScaler
 import numpy as np
+import torchmetrics
 
 from .utils import (
     batched_decode_preds,
@@ -24,9 +25,7 @@ from desed_task.evaluation.evaluation_measures import (
 from codecarbon import EmissionsTracker
 
 
-
-
-class SEDTask4_2021(pl.LightningModule):
+class SEDTask4(pl.LightningModule):
     """ Pytorch lightning module for the SED 2021 baseline
     Args:
         hparams: dict, the dictionary to be used for the current experiment/
@@ -55,17 +54,24 @@ class SEDTask4_2021(pl.LightningModule):
         train_sampler=None,
         scheduler=None,
         fast_dev_run=False,
-        evaluation=False
+        evaluation=False,
+        sed_teacher=None
     ):
-        super(SEDTask4_2021, self).__init__()
-        self.hparams = hparams
+        super(SEDTask4, self).__init__()
+        self.hparams.update(hparams)
 
-        self.tracker = EmissionsTracker("DCASE Task 4 SED TRAINING",
-                                        output_dir=os.path.join(os.getcwd(), "training_codecarbon"))
+        try:
+            log_dir = self.logger.log_dir
+        except Exception as e:
+            log_dir = self.hparams["log_dir"]
+        self.exp_dir = log_dir
 
         self.encoder = encoder
         self.sed_student = sed_student
-        self.sed_teacher = deepcopy(sed_student)
+        if self.sed_teacher is None:
+            self.sed_teacher = deepcopy(sed_student)
+        else:
+            self.sed_teacher = sed_teacher
         self.opt = opt
         self.train_data = train_data
         self.valid_data = valid_data
@@ -73,7 +79,8 @@ class SEDTask4_2021(pl.LightningModule):
         self.train_sampler = train_sampler
         self.scheduler = scheduler
         self.fast_dev_run = fast_dev_run
-        self.evaluation=evaluation
+        self.evaluation = evaluation
+
         if self.fast_dev_run:
             self.num_workers = 1
         else:
@@ -106,22 +113,19 @@ class SEDTask4_2021(pl.LightningModule):
             raise NotImplementedError
 
         # for weak labels we simply compute f1 score
-        self.get_weak_student_f1_seg_macro = pl.metrics.classification.F1(
+        self.get_weak_student_f1_seg_macro = torchmetrics.classification.f_beta.F1(
             len(self.encoder.labels),
             average="macro",
-            multilabel=True,
             compute_on_step=False,
         )
 
-        self.get_weak_teacher_f1_seg_macro = pl.metrics.classification.F1(
+        self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.F1(
             len(self.encoder.labels),
             average="macro",
-            multilabel=True,
             compute_on_step=False,
         )
 
         self.scaler = self._init_scaler()
-
         # buffer for event based scores which we compute using sed-eval
 
         self.val_buffer_student_synth = {
@@ -146,7 +150,17 @@ class SEDTask4_2021(pl.LightningModule):
         self.test_psds_buffer_teacher = {k: pd.DataFrame() for k in test_thresholds}
         self.decoded_student_05_buffer = pd.DataFrame()
         self.decoded_teacher_05_buffer = pd.DataFrame()
-        self.tracker.start()
+
+
+    def on_train_start(self) -> None:
+
+        os.makedirs(os.path.join(self.exp_dir, "training_codecarbon"), exist_ok=True)
+        self.tracker_train = EmissionsTracker("DCASE Task 4 SED TRAINING",
+                                        output_dir=os.path.join(self.exp_dir,
+                                                                "training_codecarbon"))
+        self.tracker_train.start()
+
+
 
     def update_ema(self, alpha, global_step, model, ema_model):
         """ Update teacher model parameters
@@ -371,6 +385,7 @@ class SEDTask4_2021(pl.LightningModule):
 
         if torch.any(mask_weak):
             labels_weak = (torch.sum(labels[mask_weak], -1) >= 1).float()
+
             loss_weak_student = self.supervised_loss(
                 weak_preds_student[mask_weak], labels_weak
             )
@@ -382,10 +397,10 @@ class SEDTask4_2021(pl.LightningModule):
 
             # accumulate f1 score for weak labels
             self.get_weak_student_f1_seg_macro(
-                weak_preds_student[mask_weak], labels_weak
+                weak_preds_student[mask_weak], labels_weak.long()
             )
             self.get_weak_teacher_f1_seg_macro(
-                weak_preds_teacher[mask_weak], labels_weak
+                weak_preds_teacher[mask_weak], labels_weak.long()
             )
 
         if torch.any(mask_synth):
@@ -589,11 +604,7 @@ class SEDTask4_2021(pl.LightningModule):
 
     def on_test_epoch_end(self):
         # pub eval dataset
-        try:
-            log_dir = self.logger.log_dir
-        except Exception as e:
-            log_dir = self.hparams["log_dir"]
-        save_dir = os.path.join(log_dir, "metrics_test")
+        save_dir = os.path.join(self.exp_dir, "metrics_test")
         
         if self.evaluation:
             # only save the predictions
@@ -717,14 +728,26 @@ class SEDTask4_2021(pl.LightningModule):
                 "test/teacher/event_f1_macro": event_macro_teacher,
                 "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher,
             }
+
+            if self.evaluation:
+                self.tracker_eval.stop()
+                eval_kwh = self.tracker_eval._total_energy.kwh
+                results.update({"/eval/tot_energy_kWh": torch.tensor(float(eval_kwh))})
+                with open(os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
+                    f.write(str(eval_kwh))
+            else:
+                self.tracker_devtest.stop()
+                eval_kwh = self.tracker_devtest._total_energy.kwh
+                results.update({"/test/tot_energy_kWh": torch.tensor(float(eval_kwh))})
+                with open(os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"), "w") as f:
+                    f.write(str(eval_kwh))
+
             if self.logger is not None:
                 self.logger.log_metrics(results)
                 self.logger.log_hyperparams(self.hparams, results)
 
             for key in results.keys():
                 self.log(key, results[key], prog_bar=True, logger=False)
-
-
 
     def configure_optimizers(self):
         return [self.opt], [self.scheduler]
@@ -761,7 +784,25 @@ class SEDTask4_2021(pl.LightningModule):
 
     def on_train_end(self) -> None:
         # dump consumption
-        self.tracker.stop()
-        training_kwh = self.tracker._total_energy.kwh
-        with open(os.path.join(os.getcwd(), "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
+        self.tracker_train.stop()
+        training_kwh = self.tracker_train._total_energy.kwh
+        self.logger.log_metrics({"/train/tot_energy_kWh": torch.tensor(float(training_kwh))})
+        with open(os.path.join(self.exp_dir, "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
             f.write(str(training_kwh))
+
+    def on_test_start(self) -> None:
+
+        if self.evaluation:
+            os.makedirs(os.path.join(self.exp_dir, "evaluation_codecarbon"), exist_ok=True)
+            self.tracker_eval = EmissionsTracker("DCASE Task 4 SED EVALUATION",
+                                                 output_dir=os.path.join(self.exp_dir,
+                                                                         "evaluation_codecarbon"))
+            self.tracker_eval.start()
+        else:
+            os.makedirs(os.path.join(self.exp_dir, "devtest_codecarbon"), exist_ok=True)
+            self.tracker_devtest = EmissionsTracker("DCASE Task 4 SED DEVTEST",
+                                                 output_dir=os.path.join(self.exp_dir,
+                                                                         "devtest_codecarbon"))
+            self.tracker_devtest.start()
+
+

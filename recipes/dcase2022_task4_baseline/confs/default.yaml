@@ -20,6 +20,7 @@ training:
   seed: 42
   mixup: soft # Soft mixup gives the ratio of the mix to the labels, hard mixup gives a 1 to every label present.
   obj_metric_synth_type: intersection
+  precision: 32
 scaler:
   statistic: instance # instance or dataset-wide statistic
   normtype: minmax # minmax or standard or mean normalization
