@@ -17,14 +17,15 @@ The development dataset is composed of two parts:
 ### Usage:
 Run the command `python generate_dcase_task4_2022.py --basedir="../../data"` to download the dataset (the user can change basedir to the desired data folder.)
 
-If the user already has downloaded part of the dataset, it does not need to re-download the whole set. IT is possible to download only part of the full dataset, if needed, using the options:
- - only_strong (download only the strong labels of the DESED dataset)
- - only_real (download the weak labels, unlabeled and validation data of the DESED dataset)
- - only_synth (download only the synthetic part of the dataset)
+If the user already has downloaded part of the dataset, it does not need to re-download the whole set. It is possible to download only part of the full dataset, if needed, using the options:
+
+ - **only_strong** (download only the strong labels of the DESED dataset)
+ - **only_real** (download the weak labels, unlabeled and validation data of the DESED dataset)
+ - **only_synth** (download only the synthetic part of the dataset)
 
  For example, if the user already has downloaded the real and synthetic part of the set, it can integrate the dataset with the strong labels of the DESED dataset with the following command:
 
- `python generate_dcase_task4_2022.py --only_strong`. 
+ `python generate_dcase_task4_2022.py --only_strong` 
 
  If the user wants to download only the synthetic part of the dataset, it could be done with the following command: 
 
