@@ -1,4 +1,6 @@
 import argparse
+import warnings
+
 import numpy as np
 import os
 import pandas as pd
@@ -236,6 +238,12 @@ def single_run(
         limit_val_batches = 1.0
         limit_test_batches = 1.0
         n_epochs = config["training"]["n_epochs"]
+
+
+    if len(gpus.split(",")) > 1:
+        config["training"]["batch_size_val"] = 1
+        warnings.warn("When using multiple GPUs (DP), validation and test batch size must be 1 with current code, "
+                      "please increase validation_interval accordingly or most training time will be validation time.")
 
     trainer = pl.Trainer(
         precision=config["training"]["precision"],

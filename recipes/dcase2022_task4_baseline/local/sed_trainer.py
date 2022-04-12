@@ -68,7 +68,7 @@ class SEDTask4(pl.LightningModule):
 
         self.encoder = encoder
         self.sed_student = sed_student
-        if self.sed_teacher is None:
+        if sed_teacher is None:
             self.sed_teacher = deepcopy(sed_student)
         else:
             self.sed_teacher = sed_teacher
@@ -352,6 +352,7 @@ class SEDTask4(pl.LightningModule):
         """
 
         audio, labels, padded_indxs, filenames = batch
+
 
         # prediction for student
         mels = self.mel_spec(audio)
