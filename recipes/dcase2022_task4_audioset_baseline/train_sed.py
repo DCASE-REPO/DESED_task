@@ -116,7 +116,6 @@ def single_run(
             pad_to=config["data"]["audio_max_len"],
         )
 
-        # audioset
         strong_df = pd.read_csv(config["data"]["strong_tsv"], sep="\t")
         strong_set = StronglyAnnotatedSet(
             config["data"]["strong_folder"],
@@ -124,8 +123,7 @@ def single_run(
             encoder,
             pad_to=config["data"]["audio_max_len"],
         )
-        # audioset
-
+ 
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
         train_weak_df = weak_df.sample(
             frac=config["training"]["weak_split"],
@@ -154,17 +152,6 @@ def single_run(
             return_filename=True,
             pad_to=config["data"]["audio_max_len"],
         )
-
-        # audioset
-        # strong_df_val = pd.read_csv(config["data"]["strong_val_tsv"], sep="\t")
-        # strong_val = StronglyAnnotatedSet(
-        #     config["data"]["strong_val_folder"],
-        #     strong_df_val,
-        #     encoder,
-        #     return_filename=True,
-        #     pad_to=config["data"]["audio_max_len"],
-        # )
-        # audioset
 
         weak_val = WeakSet(
             config["data"]["weak_folder"],
