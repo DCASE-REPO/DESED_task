@@ -45,6 +45,25 @@ The SED baseline can be run from scratch using the following command:
 
 `python train_sed.py`
 
+---
+
+You can select the GPUs by using `python train_sed.py --gpus 1,2`
+
+**note**: `python train_sed.py --gpus 0` will use the CPU. GPU indexes start from 1 here.
+
+**Common issues**
+
+If you encounter: 
+`pytorch_lightning.utilities.exceptions.MisconfigurationException: You requested GPUs: [0]
+ But your machine only has: [] (edited) `
+
+It probably means you have installed CPU-only version of Pytorch. 
+Please install the correct version from https://pytorch.org/
+
+---
+
+
+
 Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs. The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
