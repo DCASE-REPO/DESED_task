@@ -172,13 +172,15 @@ and baseline are computed on same hardware under similar loading.
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1* 
 --------|--------------------|--------------------|-------------------------|-----------------
-Dev-test| **0.352**          | **0.559**          | 78.90%                  | 43.22%
+Dev-test| **0.336**          | **0.536**          | 64.1%                   | 40.1%
 
 **Energy Consumption** (GPU: NVIDIA A100 40Gb)
 
 Dataset | Training  | Dev-Test |
 --------|-----------|--------------------
 **kWh** | **1.717** | **0.030**           
+
+
 
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
@@ -239,3 +241,6 @@ which itself is based on [1].
 [6] Turpault, Nicolas, et al. "Improving sound event detection in domestic environments using sound separation." arXiv preprint arXiv:2007.03932 (2020).
 
 [7] Ronchini, Francesca, et al. "The impact of non-target events in synthetic soundscapes for sound event detection." arXiv preprint arXiv:2109.14061 (DCASE2021)
+
+[8] Ronchini, Francesca, et al. "A benchmark of state-of-the-art sound event detection systems evaluated on synthetic soundscapes." arXiv preprint arXiv:2202.01487 
+

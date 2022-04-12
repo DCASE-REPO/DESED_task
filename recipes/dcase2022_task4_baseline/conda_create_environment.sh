@@ -4,7 +4,7 @@ source activate dcase2022
 conda install -y numba
 conda install -y librosa -c conda-forge
 conda install -y ffmpeg -c conda-forge
-conda install -c conda-forge sox
+conda install -y sox -c conda-forge
 conda install -y pandas h5py scipy
 conda install -y pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch # for gpu install (or cpu in MAC)
 # conda install pytorch-cpu torchvision-cpu -c pytorch (cpu linux)
