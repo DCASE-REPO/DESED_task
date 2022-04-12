@@ -103,7 +103,6 @@ The **SED baseline** can be run from scratch using the following command:
 `python train_sed.py`
 
 ---
-
 You can select the GPUs by using `python train_sed.py --gpus 1,2`
 
 **note**: `python train_sed.py --gpus 0` will use the CPU. GPU indexes start from 1 here.
@@ -114,7 +113,13 @@ If you encounter:
 `pytorch_lightning.utilities.exceptions.MisconfigurationException: You requested GPUs: [0]
  But your machine only has: [] (edited) `
 
-It probably means you have installed CPU-only version of Pytorch. 
+or 
+
+`OSError: libc10_cuda.so: cannot open shared object file: No such file or directory`
+
+
+It probably means you have installed CPU-only version of Pytorch or have installed the incorrect 
+**cudatoolkit** version. 
 Please install the correct version from https://pytorch.org/
 
 ---
