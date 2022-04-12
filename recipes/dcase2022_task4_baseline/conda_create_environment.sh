@@ -5,7 +5,7 @@ conda install -y numba
 conda install -y librosa -c conda-forge
 conda install -y ffmpeg -c conda-forge
 conda install -y pandas h5py scipy
-conda install -y pytorch torchvision torchaudio cudatoolkit=10.1 -c pytorch # for gpu install (or cpu in MAC)
+conda install -y pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch # for gpu install (or cpu in MAC)
 # conda install pytorch-cpu torchvision-cpu -c pytorch (cpu linux)
 conda install -y youtube-dl tqdm -c conda-forge
 
