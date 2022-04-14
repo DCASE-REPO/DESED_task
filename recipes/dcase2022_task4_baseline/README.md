@@ -47,7 +47,7 @@ The SED baseline can be run from scratch using the following command:
 
 ---
 
-You can select the GPUs by using `python train_sed.py --gpus 1,2`
+**NOTE: Currently multi-GPUs is not supported**
 
 **note**: `python train_sed.py --gpus 0` will use the CPU. GPU indexes start from 1 here.
 
