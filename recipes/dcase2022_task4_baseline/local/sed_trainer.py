@@ -26,7 +26,7 @@ from codecarbon import EmissionsTracker
 
 
 
-class SEDTask4_2022(pl.LightningModule):
+class SEDTask4(pl.LightningModule):
     """ Pytorch lightning module for the SED 2021 baseline
     Args:
         hparams: dict, the dictionary to be used for the current experiment/
@@ -57,7 +57,7 @@ class SEDTask4_2022(pl.LightningModule):
         fast_dev_run=False,
         evaluation=False
     ):
-        super(SEDTask4_2022, self).__init__()
+        super(SEDTask4, self).__init__()
         self.hparams = hparams
 
         self.tracker = EmissionsTracker("DCASE Task 4 SED TRAINING",

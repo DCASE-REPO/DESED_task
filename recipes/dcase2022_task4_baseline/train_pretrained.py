@@ -18,10 +18,10 @@ from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
 
 from local.classes_dict import classes_labels
-from local.sed_trainer import SEDTask4
+from local.sed_trainer_pretrained import SEDTask4
 from local.resample_folder import resample_folder
 from local.utils import generate_tsv_wav_durations
-from codecarbon import EmissionsTracker
+from desed_task.utils.download import download_from_url
 
 
 def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
@@ -50,14 +50,15 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
                     config_data[base_set + "_folder"], config_data[base_set + "_dur"]
                 )
 
+
 def single_run(
-    config,
-    log_dir,
-    gpus,
-    checkpoint_resume=None,
-    test_state_dict=None,
-    fast_dev_run=False,
-    evaluation=False
+        config,
+        log_dir,
+        gpus,
+        checkpoint_resume=None,
+        test_state_dict=None,
+        fast_dev_run=False,
+        evaluation=False
 ):
     """
     Running sound event detection baselin
@@ -84,6 +85,22 @@ def single_run(
         fs=config["data"]["fs"],
     )
 
+    # feature extraction pipeline for SSAST
+    from pathlib import Path
+    if config["pretrained"]["model"] == "ast":
+        raise NotImplementedError("Currently not implemented but you are free to use it!")
+
+    elif config["pretrained"]["model"] == "panns":
+        feature_extraction = None # integrated in the model
+        download_from_url(config["pretrained"]["url"], config["pretrained"]["dest"])
+        # use PANNs as additional feature
+        from local.panns.models import Cnn14_16k
+        pretrained = Cnn14_16k()
+    else:
+        raise NotImplementedError
+
+    crnn = CRNN(**config["net"])
+
     if not evaluation:
         devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
         devtest_dataset = StronglyAnnotatedSet(
@@ -91,20 +108,19 @@ def single_run(
             devtest_df,
             encoder,
             return_filename=True,
-            pad_to=config["data"]["audio_max_len"]
+            pad_to=config["data"]["audio_max_len"], feats_pipeline=feature_extraction
         )
     else:
         devtest_dataset = UnlabeledSet(
             config["data"]["eval_folder"],
             encoder,
             pad_to=None,
-            return_filename=True
+            return_filename=True, feats_pipeline=feature_extraction
         )
 
     test_dataset = devtest_dataset
 
     ##### model definition  ############
-    sed_student = CRNN(**config["net"])
 
     if test_state_dict is None:
         ##### data prep train valid ##########
@@ -113,7 +129,7 @@ def single_run(
             config["data"]["synth_folder"],
             synth_df,
             encoder,
-            pad_to=config["data"]["audio_max_len"],
+            pad_to=config["data"]["audio_max_len"], feats_pipeline=feature_extraction
         )
 
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
@@ -127,13 +143,13 @@ def single_run(
             config["data"]["weak_folder"],
             train_weak_df,
             encoder,
-            pad_to=config["data"]["audio_max_len"],
+            pad_to=config["data"]["audio_max_len"], feats_pipeline=feature_extraction
         )
 
         unlabeled_set = UnlabeledSet(
             config["data"]["unlabeled_folder"],
             encoder,
-            pad_to=config["data"]["audio_max_len"],
+            pad_to=config["data"]["audio_max_len"],  feats_pipeline=feature_extraction
         )
 
         synth_df_val = pd.read_csv(config["data"]["synth_val_tsv"], sep="\t")
@@ -142,7 +158,7 @@ def single_run(
             synth_df_val,
             encoder,
             return_filename=True,
-            pad_to=config["data"]["audio_max_len"],
+            pad_to=config["data"]["audio_max_len"],  feats_pipeline=feature_extraction
         )
 
         weak_val = WeakSet(
@@ -150,7 +166,7 @@ def single_run(
             valid_weak_df,
             encoder,
             pad_to=config["data"]["audio_max_len"],
-            return_filename=True,
+            return_filename=True,  feats_pipeline=feature_extraction
         )
 
         tot_train_data = [synth_set, weak_set, unlabeled_set]
@@ -167,14 +183,14 @@ def single_run(
             [
                 len(tot_train_data[indx])
                 // (
-                    config["training"]["batch_size"][indx]
-                    * config["training"]["accumulate_batches"]
+                        config["training"]["batch_size"][indx]
+                        * config["training"]["accumulate_batches"]
                 )
                 for indx in range(len(tot_train_data))
             ]
         )
 
-        opt = torch.optim.Adam(sed_student.parameters(), 1e-3, betas=(0.9, 0.999))
+        opt = torch.optim.Adam(list(pretrained.parameters()), config["opt"]["lr"], betas=(0.9, 0.999))
         exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
         exp_scheduler = {
             "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps),
@@ -212,7 +228,8 @@ def single_run(
     desed_training = SEDTask4(
         config,
         encoder=encoder,
-        sed_student=sed_student,
+        sed_student=crnn,
+        pretrained_model=pretrained,
         opt=opt,
         train_data=train_dataset,
         valid_data=valid_dataset,
@@ -222,7 +239,6 @@ def single_run(
         fast_dev_run=fast_dev_run,
         evaluation=evaluation
     )
-
     # Not using the fast_dev_run of Trainer because creates a DummyLogger so cannot check problems with the Logger
     if fast_dev_run:
         flush_logs_every_n_steps = 1
@@ -240,10 +256,11 @@ def single_run(
         n_epochs = config["training"]["n_epochs"]
 
     trainer = pl.Trainer(
+        precision=config["training"]["precision"],
         max_epochs=n_epochs,
         callbacks=callbacks,
         gpus=gpus,
-        distributed_backend=config["training"].get("backend"),
+        strategy=config["training"].get("backend"),
         accumulate_grad_batches=config["training"]["accumulate_batches"],
         logger=logger,
         resume_from_checkpoint=checkpoint_resume,
@@ -258,7 +275,6 @@ def single_run(
     )
 
     if test_state_dict is None:
-
         # start tracking energy consumption
         trainer.fit(desed_training)
         best_path = trainer.checkpoint_callback.best_model_path
@@ -273,12 +289,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
     parser.add_argument(
         "--conf_file",
-        default="./confs/sed.yaml",
+        default="./confs/pretrained.yaml",
         help="The configuration file with all the experiment parameters.",
     )
     parser.add_argument(
         "--log_dir",
-        default="./exp/2021_baseline",
+        default="./exp/2022_baseline_pretask",
         help="Directory where to save tensorboard logs, saved models, etc.",
     )
     parser.add_argument(
@@ -291,16 +307,16 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--gpus",
-        default="0",
+        default="1",
         help="The number of GPUs to train on, or the gpu to use, default='0', "
-        "so uses one GPU indexed by 0.",
+             "so uses one GPU",
     )
     parser.add_argument(
         "--fast_dev_run",
         action="store_true",
         default=False,
         help="Use this option to make a 'fake' run which is useful for development and debugging. "
-        "It uses very few batches and epochs so it won't give any meaningful result.",
+             "It uses very few batches and epochs so it won't give any meaningful result.",
     )
 
     parser.add_argument(
@@ -314,13 +330,13 @@ if __name__ == "__main__":
     with open(args.conf_file, "r") as f:
         configs = yaml.safe_load(f)
 
-    evaluation = False 
+    evaluation = False
     test_from_checkpoint = args.test_from_checkpoint
 
     if args.eval_from_checkpoint is not None:
         test_from_checkpoint = args.eval_from_checkpoint
         evaluation = True
-    
+
     test_model_state_dict = None
     if test_from_checkpoint is not None:
         checkpoint = torch.load(test_from_checkpoint)
@@ -334,7 +350,7 @@ if __name__ == "__main__":
 
     if evaluation:
         configs["training"]["batch_size_val"] = 1
-        
+
     seed = configs["training"]["seed"]
     if seed:
         torch.random.manual_seed(seed)
