@@ -1,5 +1,6 @@
 import argparse
-from copy import deepcopy
+import warnings
+
 import numpy as np
 import os
 import pandas as pd
@@ -21,7 +22,6 @@ from local.classes_dict import classes_labels
 from local.sed_trainer import SEDTask4
 from local.resample_folder import resample_folder
 from local.utils import generate_tsv_wav_durations
-from codecarbon import EmissionsTracker
 
 
 def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
@@ -239,11 +239,16 @@ def single_run(
         limit_test_batches = 1.0
         n_epochs = config["training"]["n_epochs"]
 
+
+    if len(gpus.split(",")) > 1:
+        raise NotImplementedError("Multiple GPUs are currently not supported")
+
     trainer = pl.Trainer(
+        precision=config["training"]["precision"],
         max_epochs=n_epochs,
         callbacks=callbacks,
         gpus=gpus,
-        distributed_backend=config["training"].get("backend"),
+        strategy=config["training"].get("backend"),
         accumulate_grad_batches=config["training"]["accumulate_batches"],
         logger=logger,
         resume_from_checkpoint=checkpoint_resume,
@@ -273,12 +278,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
     parser.add_argument(
         "--conf_file",
-        default="./confs/sed.yaml",
+        default="./confs/default.yaml",
         help="The configuration file with all the experiment parameters.",
     )
     parser.add_argument(
         "--log_dir",
-        default="./exp/2021_baseline",
+        default="./exp/2022_baseline",
         help="Directory where to save tensorboard logs, saved models, etc.",
     )
     parser.add_argument(
@@ -291,9 +296,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--gpus",
-        default="0",
+        default="1",
         help="The number of GPUs to train on, or the gpu to use, default='0', "
-        "so uses one GPU indexed by 0.",
+        "so uses one GPU",
     )
     parser.add_argument(
         "--fast_dev_run",

@@ -75,6 +75,7 @@ def read_audio(file, multisrc, random_channel, pad_to):
     mixture = mixture.float()
     return mixture, onset_s, offset_s, padded_indx
 
+
 class StronglyAnnotatedSet(Dataset):
     def __init__(
         self,
@@ -85,8 +86,8 @@ class StronglyAnnotatedSet(Dataset):
         fs=16000,
         return_filename=False,
         random_channel=False,
-        multisrc=False
-        
+        multisrc=False,
+        feats_pipeline=None
     ):
 
         self.encoder = encoder
@@ -95,7 +96,8 @@ class StronglyAnnotatedSet(Dataset):
         self.return_filename = return_filename
         self.random_channel = random_channel
         self.multisrc = multisrc
-        
+        self.feats_pipeline = feats_pipeline
+
         examples = {}
         for i, r in tsv_entries.iterrows():
             if r["filename"] not in examples.keys():
@@ -125,8 +127,6 @@ class StronglyAnnotatedSet(Dataset):
         self.examples = examples
         self.examples_list = list(examples.keys())
 
-
-
     def __len__(self):
         return len(self.examples_list)
 
@@ -152,6 +152,9 @@ class StronglyAnnotatedSet(Dataset):
         else:
             strong = self.encoder.encode_strong_df(labels_df)
             strong = torch.from_numpy(strong).float()
+        if self.feats_pipeline is not None:
+            # use this function to extract features in the dataloader and apply possibly some data augm
+            mixture = self.feats_pipeline(mixture)
         if self.return_filename:
             return mixture, strong.transpose(0, 1), padded_indx, c_ex["mixture"]
         else:
@@ -169,6 +172,7 @@ class WeakSet(Dataset):
         return_filename=False,
         random_channel=False,
         multisrc=False,
+        feats_pipeline=None
     ):
 
         self.encoder = encoder
@@ -177,6 +181,7 @@ class WeakSet(Dataset):
         self.return_filename = return_filename
         self.random_channel = random_channel
         self.multisrc = multisrc
+        self.feats_pipeline = feats_pipeline
 
         examples = {}
         for i, r in tsv_entries.iterrows():
@@ -210,6 +215,9 @@ class WeakSet(Dataset):
             weak_labels = self.encoder.encode_weak(labels)
             weak[0, :] = torch.from_numpy(weak_labels).float()
 
+        if self.feats_pipeline is not None:
+            mixture = self.feats_pipeline(mixture)
+
         out_args = [mixture, weak.transpose(0, 1), padded_indx]
 
         if self.return_filename:
@@ -228,6 +236,7 @@ class UnlabeledSet(Dataset):
         return_filename=False,
         random_channel=False,
         multisrc=False,
+        feats_pipeline=None
     ):
 
         self.encoder = encoder
@@ -237,6 +246,7 @@ class UnlabeledSet(Dataset):
         self.return_filename = return_filename
         self.random_channel = random_channel
         self.multisrc = multisrc
+        self.feats_pipeline = feats_pipeline
 
     def __len__(self):
         return len(self.examples)
@@ -250,6 +260,8 @@ class UnlabeledSet(Dataset):
 
         max_len_targets = self.encoder.n_frames
         strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
+        if self.feats_pipeline is not None:
+            mixture = self.feats_pipeline(mixture)
         out_args = [mixture, strong.transpose(0, 1), padded_indx]
 
         if self.return_filename:

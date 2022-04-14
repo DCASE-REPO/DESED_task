@@ -22,6 +22,7 @@ class CRNN(nn.Module):
         dropout_recurrent=0,
         cnn_integration=False,
         freeze_bn=False,
+        use_embeddings=False,
         **kwargs,
     ):
         """
@@ -84,7 +85,7 @@ class CRNN(nn.Module):
             self.dense_softmax = nn.Linear(n_RNN_cell * 2, nclass)
             self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, x, pad_mask=None):
+    def forward(self, x, pad_mask=None, embeddings=None):
 
         x = x.transpose(1, 2).unsqueeze(1)
 
@@ -95,6 +96,8 @@ class CRNN(nn.Module):
 
         # conv features
         x = self.cnn(x)
+        import pdb
+        pdb.set_trace()
         bs, chan, frames, freq = x.size()
         if self.cnn_integration:
             x = x.reshape(bs_in, chan * nc_in, frames, freq)

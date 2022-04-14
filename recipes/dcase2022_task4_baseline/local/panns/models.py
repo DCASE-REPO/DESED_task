@@ -138,17 +138,19 @@ class AttBlock(nn.Module):
             return torch.sigmoid(x)
 
 class Cnn14_16k(nn.Module):
-    def __init__(self, sample_rate, window_size,
-                 hop_size, mel_bins, fmin, fmax, classes_num):
+    def __init__(self, freeze_bn=True, use_specaugm=False):
 
         super(Cnn14_16k, self).__init__()
 
-        assert sample_rate == 16000
-        assert window_size == 512
-        assert hop_size == 160
-        assert mel_bins == 64
-        assert fmin == 50
-        assert fmax == 8000
+        self.freeze_bn = freeze_bn
+        self.use_specaugm = use_specaugm
+        sample_rate = 16000
+        window_size = 512
+        hop_size = 160
+        mel_bins = 64
+        fmin = 50
+        fmax = 8000
+        classes_num = 527
 
         window = 'hann'
         center = True
@@ -201,7 +203,7 @@ class Cnn14_16k(nn.Module):
         x = self.bn0(x)
         x = x.transpose(1, 3)
 
-        if self.training:
+        if self.training and self.use_specaugm:
             x = self.spec_augmenter(x)
 
         # Mixup on spectrogram
@@ -233,3 +235,20 @@ class Cnn14_16k(nn.Module):
                        'frame_embedding': embedding, "global_embedding": x}
 
         return output_dict
+
+    def train(self, mode=True):
+        """
+        Override the default train() to freeze the BN parameters
+        """
+        super(Cnn14_16k, self).train(mode)
+        if self.freeze_bn:
+            print("Freezing Mean/Var of BatchNorm2D.")
+            if self.freeze_bn:
+                print("Freezing Weight/Bias of BatchNorm2D.")
+        if self.freeze_bn:
+            for m in self.modules():
+                if isinstance(m, nn.BatchNorm2d):
+                    m.eval()
+                    if self.freeze_bn:
+                        m.weight.requires_grad = False
+                        m.bias.requires_grad = False
