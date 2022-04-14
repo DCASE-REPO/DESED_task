@@ -12,7 +12,7 @@ setup(
     install_requires=[
         "asteroid==0.4.1",
         "dcase_util==0.2.16",
-        "psds_eval==0.3.0",
+        "psds_eval>=0.4.0",
         "sed_eval==0.2.1",
     ],
 )

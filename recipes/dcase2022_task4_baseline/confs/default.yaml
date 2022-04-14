@@ -14,13 +14,14 @@ training:
   n_test_thresholds: 50 # number of thresholds used to compute psds in test
   ema_factor: 0.999 # ema factor for mean teacher
   self_sup_loss: mse # bce or mse for self supervised mean teacher loss
-  backend: # pytorch lightning backend, ddp, dp or None
+  backend: dp # pytorch lightning backend, ddp, dp or None
   validation_interval: 1 # perform validation every X epoch, 1 default
   weak_split: 0.9
   seed: 42
   precision: 32
   mixup: soft # Soft mixup gives the ratio of the mix to the labels, hard mixup gives a 1 to every label present.
   obj_metric_synth_type: intersection
+  precision: 32
 scaler:
   statistic: instance # instance or dataset-wide statistic
   normtype: minmax # minmax or standard or mean normalization
