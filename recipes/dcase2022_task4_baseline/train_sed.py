@@ -18,7 +18,7 @@ from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
 
 from local.classes_dict import classes_labels
-from local.sed_trainer import SEDTask4_2021
+from local.sed_trainer import SEDTask4_2022
 from local.resample_folder import resample_folder
 from local.utils import generate_tsv_wav_durations
 from codecarbon import EmissionsTracker
@@ -209,7 +209,7 @@ def single_run(
         logger = True
         callbacks = None
 
-    desed_training = SEDTask4_2021(
+    desed_training = SEDTask4_2022(
         config,
         encoder=encoder,
         sed_student=sed_student,
