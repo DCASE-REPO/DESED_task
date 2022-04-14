@@ -161,7 +161,7 @@ For more information regarding the baseline model, the reader is referred to [1]
 
 
 ### SED baseline using Audioset data (real-world strong-label data)
-The SED baseline using Audioset can be run from scratch using the following command:
+The SED baseline using the strongly annotated part of Audioset can be run from scratch using the following command:
 
 `python train_sed.py`
 
