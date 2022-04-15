@@ -216,7 +216,7 @@ class Cnn14_16k(nn.Module):
         x = F.dropout(x, p=0.2, training=self.training)
         x = self.conv_block3(x, pool_size=(2, 2), pool_type='avg')
         x = F.dropout(x, p=0.2, training=self.training)
-        embedding = x # we take frame-level embedding from this layer, participants are free to use other layers
+        embedding = x  # we take frame-level embedding from this layer, participants are free to use other layers
         x = self.conv_block4(x, pool_size=(2, 2), pool_type='avg')
         x = F.dropout(x, p=0.2, training=self.training)
         x = self.conv_block5(x, pool_size=(2, 2), pool_type='avg')
@@ -224,15 +224,15 @@ class Cnn14_16k(nn.Module):
         x = self.conv_block6(x, pool_size=(1, 1), pool_type='avg')
         x = F.dropout(x, p=0.2, training=self.training)
         x = torch.mean(x, dim=3)
-
         (x1, _) = torch.max(x, dim=2)
         x2 = torch.mean(x, dim=2)
         x = x1 + x2
         x = F.dropout(x, p=0.5, training=self.training)
+        global_embedding = x
         x = F.relu_(self.fc1(x))
         clipwise_output = torch.sigmoid(self.fc_audioset(x))
         output_dict = {'clipwise_output': clipwise_output,
-                       'frame_embedding': embedding, "global_embedding": x}
+                       'frame_embedding': embedding, "global_embedding": global_embedding}
 
         return output_dict
 

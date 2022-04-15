@@ -95,7 +95,7 @@ def single_run(
         download_from_url(config["pretrained"]["url"], config["pretrained"]["dest"])
         # use PANNs as additional feature
         from local.panns.models import Cnn14_16k
-        pretrained = Cnn14_16k()
+        pretrained = Cnn14_16k(freeze_bn=False, use_specaugm=True)
     else:
         raise NotImplementedError
 
@@ -190,7 +190,7 @@ def single_run(
             ]
         )
 
-        opt = torch.optim.Adam(list(pretrained.parameters()), config["opt"]["lr"], betas=(0.9, 0.999))
+        opt = torch.optim.Adam(list(crnn.parameters()), config["opt"]["lr"], betas=(0.9, 0.999))
         exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
         exp_scheduler = {
             "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps),

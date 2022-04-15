@@ -11,6 +11,7 @@ from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 from desed_task.data_augm import mixup
 from desed_task.utils.scaler import TorchScaler
 import numpy as np
+import torchmetrics
 
 from .utils import (
     batched_decode_preds,
@@ -42,30 +43,37 @@ class SEDTask4(pl.LightningModule):
     """
 
     def __init__(
-            self,
-            hparams,
-            encoder,
-            sed_student,
-            pretrained_model,
-            opt=None,
-            train_data=None,
-            valid_data=None,
-            test_data=None,
-            train_sampler=None,
-            scheduler=None,
-            fast_dev_run=False,
-            evaluation=False
+        self,
+        hparams,
+        encoder,
+        sed_student,
+        pretrained_model,
+        opt=None,
+        train_data=None,
+        valid_data=None,
+        test_data=None,
+        train_sampler=None,
+        scheduler=None,
+        fast_dev_run=False,
+        evaluation=False,
+        sed_teacher=None
     ):
         super(SEDTask4, self).__init__()
         self.hparams.update(hparams)
 
-        self.tracker = EmissionsTracker("DCASE Task 4 SED TRAINING",
-                                        output_dir=os.path.join(os.getcwd(), "training_codecarbon"))
+        try:
+            log_dir = self.logger.log_dir
+        except Exception as e:
+            log_dir = self.hparams["log_dir"]
+        self.exp_dir = log_dir
 
         self.encoder = encoder
         self.sed_student = sed_student
         self.pretrained_model = pretrained_model
-        self.sed_teacher = deepcopy(sed_student)
+        if sed_teacher is None:
+            self.sed_teacher = deepcopy(sed_student)
+        else:
+            self.sed_teacher = sed_teacher
         self.opt = opt
         self.train_data = train_data
         self.valid_data = valid_data
@@ -74,6 +82,7 @@ class SEDTask4(pl.LightningModule):
         self.scheduler = scheduler
         self.fast_dev_run = fast_dev_run
         self.evaluation = evaluation
+
         if self.fast_dev_run:
             self.num_workers = 1
         else:
@@ -106,17 +115,15 @@ class SEDTask4(pl.LightningModule):
             raise NotImplementedError
 
         # for weak labels we simply compute f1 score
-        self.get_weak_student_f1_seg_macro = pl.metrics.classification.F1(
+        self.get_weak_student_f1_seg_macro = torchmetrics.classification.f_beta.F1(
             len(self.encoder.labels),
             average="macro",
-            multilabel=True,
             compute_on_step=False,
         )
 
-        self.get_weak_teacher_f1_seg_macro = pl.metrics.classification.F1(
+        self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.F1(
             len(self.encoder.labels),
             average="macro",
-            multilabel=True,
             compute_on_step=False,
         )
 
@@ -145,7 +152,17 @@ class SEDTask4(pl.LightningModule):
         self.test_psds_buffer_teacher = {k: pd.DataFrame() for k in test_thresholds}
         self.decoded_student_05_buffer = pd.DataFrame()
         self.decoded_teacher_05_buffer = pd.DataFrame()
-        self.tracker.start()
+
+
+    def on_train_start(self) -> None:
+
+        os.makedirs(os.path.join(self.exp_dir, "training_codecarbon"), exist_ok=True)
+        self.tracker_train = EmissionsTracker("DCASE Task 4 SED TRAINING",
+                                        output_dir=os.path.join(self.exp_dir,
+                                                                "training_codecarbon"))
+        self.tracker_train.start()
+
+
 
     def update_ema(self, alpha, global_step, model, ema_model):
         """ Update teacher model parameters
@@ -230,7 +247,7 @@ class SEDTask4(pl.LightningModule):
         if embeddings is None:
             return model(self.scaler(self.take_log(mel_feats)))
         else:
-            return model(self.scaler(self.take_log(mel_feats)), embeddings)
+            return model(self.scaler(self.take_log(mel_feats)), embeddings=embeddings)
 
     def training_step(self, batch, batch_indx):
         """ Apply the training for one batch (a step). Used during trainer.fit
@@ -246,16 +263,14 @@ class SEDTask4(pl.LightningModule):
         audio, labels, padded_indxs = batch
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
         features = self.mel_spec(audio)
-        import pdb
-        pdb.set_trace()
-        embeddings = self.pretrained_model(audio)["frame_embedding"]
+        embeddings = self.pretrained_model(audio)["global_embedding"]
 
         batch_num = features.shape[0]
         # deriving masks for each dataset
         strong_mask = torch.zeros(batch_num).to(features).bool()
         weak_mask = torch.zeros(batch_num).to(features).bool()
         strong_mask[:indx_synth] = 1
-        weak_mask[indx_synth: indx_weak + indx_synth] = 1
+        weak_mask[indx_synth : indx_weak + indx_synth] = 1
 
         # deriving weak labels
         labels_weak = (torch.sum(labels[weak_mask], -1) > 0).float()
@@ -296,8 +311,8 @@ class SEDTask4(pl.LightningModule):
             )
         # we apply consistency between the predictions, use the scheduler for learning rate (to be changed ?)
         weight = (
-                self.hparams["training"]["const_max"]
-                * self.scheduler["scheduler"]._get_scaling_factor()
+            self.hparams["training"]["const_max"]
+            * self.scheduler["scheduler"]._get_scaling_factor()
         )
 
         strong_self_sup_loss = self.selfsup_loss(
@@ -346,7 +361,7 @@ class SEDTask4(pl.LightningModule):
 
         # prediction for student
         mels = self.mel_spec(audio)
-        embeddings = self.pretrained_model(audio)["frame_embedding"]
+        embeddings = self.pretrained_model(audio)["global_embedding"]
         strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student, embeddings)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher, embeddings)
@@ -360,8 +375,8 @@ class SEDTask4(pl.LightningModule):
                     for x in filenames
                 ]
             )
-                .to(audio)
-                .bool()
+            .to(audio)
+            .bool()
         )
         mask_synth = (
             torch.tensor(
@@ -371,12 +386,13 @@ class SEDTask4(pl.LightningModule):
                     for x in filenames
                 ]
             )
-                .to(audio)
-                .bool()
+            .to(audio)
+            .bool()
         )
 
         if torch.any(mask_weak):
             labels_weak = (torch.sum(labels[mask_weak], -1) >= 1).float()
+
             loss_weak_student = self.supervised_loss(
                 weak_preds_student[mask_weak], labels_weak
             )
@@ -388,10 +404,10 @@ class SEDTask4(pl.LightningModule):
 
             # accumulate f1 score for weak labels
             self.get_weak_student_f1_seg_macro(
-                weak_preds_student[mask_weak], labels_weak
+                weak_preds_student[mask_weak], labels_weak.long()
             )
             self.get_weak_teacher_f1_seg_macro(
-                weak_preds_teacher[mask_weak], labels_weak
+                weak_preds_teacher[mask_weak], labels_weak.long()
             )
 
         if torch.any(mask_synth):
@@ -525,8 +541,11 @@ class SEDTask4(pl.LightningModule):
         Returns:
         """
 
+        audio, labels, padded_indxs, filenames = batch
+
+        # prediction for student
         mels = self.mel_spec(audio)
-        embeddings = self.pretrained_model(audio)["frame_embedding"]
+        embeddings = self.pretrained_model(audio)["global_embedding"]
         strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student, embeddings)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher, embeddings)
@@ -592,11 +611,7 @@ class SEDTask4(pl.LightningModule):
 
     def on_test_epoch_end(self):
         # pub eval dataset
-        try:
-            log_dir = self.logger.log_dir
-        except Exception as e:
-            log_dir = self.hparams["log_dir"]
-        save_dir = os.path.join(log_dir, "metrics_test")
+        save_dir = os.path.join(self.exp_dir, "metrics_test")
 
         if self.evaluation:
             # only save the predictions
@@ -720,6 +735,20 @@ class SEDTask4(pl.LightningModule):
                 "test/teacher/event_f1_macro": event_macro_teacher,
                 "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher,
             }
+
+            if self.evaluation:
+                self.tracker_eval.stop()
+                eval_kwh = self.tracker_eval._total_energy.kwh
+                results.update({"/eval/tot_energy_kWh": torch.tensor(float(eval_kwh))})
+                with open(os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
+                    f.write(str(eval_kwh))
+            else:
+                self.tracker_devtest.stop()
+                eval_kwh = self.tracker_devtest._total_energy.kwh
+                results.update({"/test/tot_energy_kWh": torch.tensor(float(eval_kwh))})
+                with open(os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"), "w") as f:
+                    f.write(str(eval_kwh))
+
             if self.logger is not None:
                 self.logger.log_metrics(results)
                 self.logger.log_hyperparams(self.hparams, results)
@@ -762,7 +791,25 @@ class SEDTask4(pl.LightningModule):
 
     def on_train_end(self) -> None:
         # dump consumption
-        self.tracker.stop()
-        training_kwh = self.tracker._total_energy.kwh
-        with open(os.path.join(os.getcwd(), "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
+        self.tracker_train.stop()
+        training_kwh = self.tracker_train._total_energy.kwh
+        self.logger.log_metrics({"/train/tot_energy_kWh": torch.tensor(float(training_kwh))})
+        with open(os.path.join(self.exp_dir, "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
             f.write(str(training_kwh))
+
+    def on_test_start(self) -> None:
+
+        if self.evaluation:
+            os.makedirs(os.path.join(self.exp_dir, "evaluation_codecarbon"), exist_ok=True)
+            self.tracker_eval = EmissionsTracker("DCASE Task 4 SED EVALUATION",
+                                                 output_dir=os.path.join(self.exp_dir,
+                                                                         "evaluation_codecarbon"))
+            self.tracker_eval.start()
+        else:
+            os.makedirs(os.path.join(self.exp_dir, "devtest_codecarbon"), exist_ok=True)
+            self.tracker_devtest = EmissionsTracker("DCASE Task 4 SED DEVTEST",
+                                                 output_dir=os.path.join(self.exp_dir,
+                                                                         "devtest_codecarbon"))
+            self.tracker_devtest.start()
+
+

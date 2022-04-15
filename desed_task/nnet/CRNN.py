@@ -23,6 +23,7 @@ class CRNN(nn.Module):
         cnn_integration=False,
         freeze_bn=False,
         use_embeddings=False,
+        embedding_size=2048,
         **kwargs,
     ):
         """
@@ -48,6 +49,7 @@ class CRNN(nn.Module):
         self.attention = attention
         self.cnn_integration = cnn_integration
         self.freeze_bn = freeze_bn
+        self.use_embeddings = use_embeddings
 
         n_in_cnn = n_in_channel
 
@@ -85,6 +87,11 @@ class CRNN(nn.Module):
             self.dense_softmax = nn.Linear(n_RNN_cell * 2, nclass)
             self.softmax = nn.Softmax(dim=-1)
 
+
+        if self.use_embeddings:
+            self.film_mul = torch.nn.Linear(embedding_size, nb_in)
+            self.film_bias = torch.nn.Linear(2*nb_in, nb_in)
+
     def forward(self, x, pad_mask=None, embeddings=None):
 
         x = x.transpose(1, 2).unsqueeze(1)
@@ -96,8 +103,6 @@ class CRNN(nn.Module):
 
         # conv features
         x = self.cnn(x)
-        import pdb
-        pdb.set_trace()
         bs, chan, frames, freq = x.size()
         if self.cnn_integration:
             x = x.reshape(bs_in, chan * nc_in, frames, freq)
@@ -113,6 +118,8 @@ class CRNN(nn.Module):
             x = x.permute(0, 2, 1)  # [bs, frames, chan]
 
         # rnn features
+        if self.use_embeddings:
+            x = self.film_bias(torch.cat((x, self.film_mul(embeddings).unsqueeze(1).repeat(1, x.shape[1], 1)), -1))
         x = self.rnn(x)
         x = self.dropout(x)
         strong = self.dense(x)  # [bs, frames, nclass]
