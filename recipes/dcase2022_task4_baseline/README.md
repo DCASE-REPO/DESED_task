@@ -10,26 +10,41 @@ following code (recommended to run line by line in case of problems).
 ## Dataset
 You can download the development dataset using the script: `generate_dcase_task4_2022.py`.
 The development dataset is composed of two parts:
-- real-world data ([DESED dataset][desed]): this part of the dataset is composed of weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
+- real-world data ([DESED dataset][desed]): this part of the dataset is composed of strong labels, weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
 
 - synthetically generated data: this part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
 
 ### Usage:
 Run the command `python generate_dcase_task4_2022.py --basedir="../../data"` to download the dataset (the user can change basedir to the desired data folder.)
 
+If the user already has downloaded part of the dataset, it does not need to re-download the whole set. It is possible to download only part of the full dataset, if needed, using the options:
+
+ - **only_strong** (download only the strong labels of the DESED dataset)
+ - **only_real** (download the weak labels, unlabeled and validation data of the DESED dataset)
+ - **only_synth** (download only the synthetic part of the dataset)
+
+ For example, if the user already has downloaded the real and synthetic part of the set, it can integrate the dataset with the strong labels of the DESED dataset with the following command:
+
+ `python generate_dcase_task4_2022.py --only_strong` 
+
+ If the user wants to download only the synthetic part of the dataset, it could be done with the following command: 
+
+ `python generate_dcase_task4_2022.py --only_synth`
+
+
 Once the dataset is downloaded, the user should find the folder **missing_files**, containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
 organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
 
 
-
 ### Development dataset
 
-The dataset is composed by 3 different splits of training data: 
+The dataset is composed by 4 different splits of training data: 
 - Synthetic training set with strong annotations
+- Strong labeled training set **(only for the SED Audioset baseline)**
 - Weak labeled training set 
 - Unlabeled in domain training set
 
-#### Strong annotations
+#### Synthetic training set with strong annotations
 
 This set is composed of **10000** clips generated with the [Scaper][scaper] soundscape synthesis and augmentation library. The clips are generated such that the distribution per event is close to that of the validation set.
 
@@ -38,9 +53,21 @@ The strong annotations are provided in a tab separated csv file under the follow
 `[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
 
 For example: YOTsn73eqbfc_10.000_20.000.wav 0.163 0.665 Alarm_bell_ringing
-  
 
-#### Weak annotations 
+#### Strong labeled training set 
+
+This set is composed of **3470** audio clips coming from [Audioset][audioset]. 
+
+**This set is used at training only for the SED Audioset baseline.** 
+
+The strong annotations are provided in a tab separated csv file under the following format:
+
+`[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
+
+For example: Y07fghylishw_20.000_30.000.wav 0.163 0.665 Dog
+
+
+#### Weak labeled training set 
 
 This set contains **1578** clips (2244 class occurrences) for which weak annotations have been manually verified for a small subset of the training set. 
 
@@ -106,7 +133,7 @@ The default directory for checkpoints and logging can be changed using `--log_di
 
 Training can be resumed using the following command:
 
-`python train_sed.py --reseume_from_checkpoint /path/to/file.ckpt`
+`python train_sed.py --resume_from_checkpoint /path/to/file.ckpt`
 
 In order to make a "fast" run, which could be useful for development and debugging, you can use the following command: 
 
@@ -132,6 +159,35 @@ Mixup is used as data augmentation technique for weak and synthetic data by mixi
 
 For more information regarding the baseline model, the reader is referred to [1] and [2].
 
+
+### SED baseline using Audioset data (real-world strong-label data)
+The SED baseline using the strongly annotated part of Audioset can be run from scratch using the following command:
+
+`python train_sed.py --strong_real`
+
+The command will automatically considered the strong labels recorded data coming from Audioset in the training process.
+
+Alternatively, also in this case, we provide a [pre-trained checkpoint][zenodo_pretrained_audioset_models]. The baseline can be tested on the development set of the dataset using the following command:
+
+`python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
+
+#### Results:
+
+Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1*
+--------|--------------------|--------------------|-------------------------|-----------------
+Dev-test| **0.351**          | **0.552**          | 64.3%                   | 42.9%
+
+Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
+
+The results are computed from the **student** predictions. 
+
+All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
+
+**Architecture**
+
+The architecture of the SED Audioset baseline is the same as the [SED baseline][sed_baseline]. 
+
+
 [audioset]: https://research.google.com/audioset/
 [dcase22_webpage]: https://dcase.community/challenge2022/task-sound-event-detection-in-domestic-environments
 [dcase_21_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2021_task4_baseline
@@ -140,11 +196,12 @@ For more information regarding the baseline model, the reader is referred to [1]
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
 [zenodo_pretrained_models]: https://zenodo.org/record/4639817
+[zenodo_pretrained_audioset_models]: https://zenodo.org/record/6447197
 [google_sourcesep_repo]: https://github.com/google-research/sound-separation/tree/master/datasets/yfcc100m
 [sdk_installation_instructions]: https://cloud.google.com/sdk/docs/install
 [zenodo_evaluation_dataset]: https://zenodo.org/record/4892545#.YMHH_DYzadY
 [scaper]: https://github.com/justinsalamon/scaper
-
+[sed_baseline]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2022_task4_baseline#sed-baseline
 #### References
 [1] L. Delphin-Poulat & C. Plapous, technical report, dcase 2019.
 
