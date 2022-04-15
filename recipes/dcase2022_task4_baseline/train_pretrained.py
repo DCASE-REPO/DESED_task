@@ -190,7 +190,7 @@ def single_run(
             ]
         )
 
-        opt = torch.optim.Adam(list(crnn.parameters()), config["opt"]["lr"], betas=(0.9, 0.999))
+        opt = torch.optim.Adam(list(crnn.parameters()) + list(pretrained.parameters()), config["opt"]["lr"], betas=(0.9, 0.999))
         exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
         exp_scheduler = {
             "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps),
