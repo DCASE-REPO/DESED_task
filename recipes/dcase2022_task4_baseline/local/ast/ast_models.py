@@ -12,6 +12,7 @@ import os
 import wget
 import timm
 from timm.models.layers import to_2tuple,trunc_normal_
+from pathlib import Path
 
 # override the timm package to relax the input shape constraint.
 class PatchEmbed(nn.Module):
@@ -118,11 +119,12 @@ class ASTModel(nn.Module):
             if model_size != 'base384':
                 raise ValueError('currently only has base384 AudioSet pretrained model.')
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            if os.path.exists('../../pretrained_models/audioset_10_10_0.4593.pth') == False:
+            if os.path.exists('./pretrained_models/audioset_10_10_0.4593.pth') == False:
                 # this model performs 0.4593 mAP on the audioset eval set
+                os.makedirs(Path('./pretrained_models/audioset_10_10_0.4593.pth').parent, exist_ok=True)
                 audioset_mdl_url = 'https://www.dropbox.com/s/cv4knew8mvbrnvq/audioset_0.4593.pth?dl=1'
-                wget.download(audioset_mdl_url, out='../../pretrained_models/audioset_10_10_0.4593.pth')
-            sd = torch.load('../../pretrained_models/audioset_10_10_0.4593.pth', map_location=device)
+                wget.download(audioset_mdl_url, out='./pretrained_models/audioset_10_10_0.4593.pth')
+            sd = torch.load('./pretrained_models/audioset_10_10_0.4593.pth', map_location=device)
             audio_model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=False, audioset_pretrain=False, model_size='base384', verbose=False)
             audio_model = torch.nn.DataParallel(audio_model)
             audio_model.load_state_dict(sd, strict=False)
@@ -175,10 +177,11 @@ class ASTModel(nn.Module):
         for blk in self.v.blocks:
             x = blk(x)
         x = self.v.norm(x)
+        frame_embeds = x
         x = (x[:, 0] + x[:, 1]) / 2
 
         x = self.mlp_head(x)
-        return x, x[:, 2:]
+        return x.float(), frame_embeds.transpose(1, 2).float()
 
 if __name__ == '__main__':
     input_tdim = 100

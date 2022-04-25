@@ -259,18 +259,25 @@ class SEDTask4(pl.LightningModule):
         Returns:
            torch.Tensor, the loss to take into account.
         """
-
-        audio, labels, padded_indxs = batch
+        if len(batch) > 3:
+            audio, labels, padded_indxs, ast_feats = batch
+            pretrained_input = ast_feats
+        else:
+            audio, labels, padded_indxs = batch
+            pretrained_input = audio
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
         features = self.mel_spec(audio)
-        embeddings = self.pretrained_model(audio)["global_embedding"]
+
+        if self.pretrained_model.training:
+            self.pretrained_model.eval()
+        embeddings = self.pretrained_model(pretrained_input)[0]
 
         batch_num = features.shape[0]
         # deriving masks for each dataset
         strong_mask = torch.zeros(batch_num).to(features).bool()
         weak_mask = torch.zeros(batch_num).to(features).bool()
         strong_mask[:indx_synth] = 1
-        weak_mask[indx_synth : indx_weak + indx_synth] = 1
+        weak_mask[indx_synth:indx_weak + indx_synth] = 1
 
         # deriving weak labels
         labels_weak = (torch.sum(labels[weak_mask], -1) > 0).float()
@@ -356,12 +363,16 @@ class SEDTask4(pl.LightningModule):
             batch_indx: torch.Tensor, 1D tensor of indexes to know which data are present in each batch.
         Returns:
         """
-
-        audio, labels, padded_indxs, filenames = batch
+        if len(batch) > 4:
+            audio, labels, padded_indxs, ast_feats, filenames = batch
+            pretrained_input = ast_feats
+        else:
+            audio, labels, padded_indxs, filenames = batch
+            pretrained_input = audio
 
         # prediction for student
         mels = self.mel_spec(audio)
-        embeddings = self.pretrained_model(audio)["global_embedding"]
+        embeddings = self.pretrained_model(pretrained_input)[0]
         strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student, embeddings)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher, embeddings)
@@ -541,11 +552,16 @@ class SEDTask4(pl.LightningModule):
         Returns:
         """
 
-        audio, labels, padded_indxs, filenames = batch
+        if len(batch) > 4:
+            audio, labels, padded_indxs, ast_feats, filenames = batch
+            pretrained_input = ast_feats
+        else:
+            audio, labels, padded_indxs, filenames = batch
+            pretrained_input = audio
 
         # prediction for student
         mels = self.mel_spec(audio)
-        embeddings = self.pretrained_model(audio)["global_embedding"]
+        embeddings = self.pretrained_model(pretrained_input)[0]
         strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student, embeddings)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher, embeddings)

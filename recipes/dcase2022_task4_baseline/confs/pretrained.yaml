@@ -1,11 +1,11 @@
 pretrained:
-  model: panns
+  model: ast
   url: https://zenodo.org/record/3987831/files/Cnn14_16k_mAP%3D0.438.pth?download=1
   dest: ./pretrained_models/Cnn14_16k_mAP%3D0.438.pth
 training:
   #batch size: [synth, weak, unlabel]
-  batch_size: [12, 12, 24]
-  batch_size_val: 24
+  batch_size: [3, 3, 6]
+  batch_size_val: 6
   const_max: 2 # max weight used for self supervised loss
   n_epochs_warmup: 50 # num epochs used for exponential warmup
   num_workers: 6 # change according to your cpu

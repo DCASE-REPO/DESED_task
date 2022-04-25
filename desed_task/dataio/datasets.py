@@ -152,13 +152,16 @@ class StronglyAnnotatedSet(Dataset):
         else:
             strong = self.encoder.encode_strong_df(labels_df)
             strong = torch.from_numpy(strong).float()
+
+        out_args = [mixture, strong.transpose(0, 1), padded_indx]
+
         if self.feats_pipeline is not None:
             # use this function to extract features in the dataloader and apply possibly some data augm
-            mixture = self.feats_pipeline(mixture)
+            feats = self.feats_pipeline(mixture)
+            out_args.append(feats)
         if self.return_filename:
-            return mixture, strong.transpose(0, 1), padded_indx, c_ex["mixture"]
-        else:
-            return mixture, strong.transpose(0, 1), padded_indx
+            out_args.append(c_ex["mixture"])
+        return out_args
 
 
 class WeakSet(Dataset):
@@ -215,10 +218,11 @@ class WeakSet(Dataset):
             weak_labels = self.encoder.encode_weak(labels)
             weak[0, :] = torch.from_numpy(weak_labels).float()
 
-        if self.feats_pipeline is not None:
-            mixture = self.feats_pipeline(mixture)
-
         out_args = [mixture, weak.transpose(0, 1), padded_indx]
+
+        if self.feats_pipeline is not None:
+            feats = self.feats_pipeline(mixture)
+            out_args.append(feats)
 
         if self.return_filename:
             out_args.append(c_ex["mixture"])
@@ -260,9 +264,10 @@ class UnlabeledSet(Dataset):
 
         max_len_targets = self.encoder.n_frames
         strong = torch.zeros(max_len_targets, len(self.encoder.labels)).float()
-        if self.feats_pipeline is not None:
-            mixture = self.feats_pipeline(mixture)
         out_args = [mixture, strong.transpose(0, 1), padded_indx]
+        if self.feats_pipeline is not None:
+            feats = self.feats_pipeline(mixture)
+            out_args.append(feats)
 
         if self.return_filename:
             out_args.append(c_ex)

@@ -6,6 +6,7 @@ import pandas as pd
 import random
 import torch
 import yaml
+import torchaudio
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
@@ -88,14 +89,42 @@ def single_run(
     # feature extraction pipeline for SSAST
     from pathlib import Path
     if config["pretrained"]["model"] == "ast":
-        raise NotImplementedError("Currently not implemented but you are free to use it!")
+        class ASTFeatsExtraction:
+            # need feature extraction in dataloader because kaldi compliant torchaudio fbank are used (no gpu support)
+            def __init__(self, audioset_mean=-4.2677393, audioset_std=4.5689974,
+                         target_length=1024):
+                super(ASTFeatsExtraction, self).__init__()
+                self.audioset_mean = audioset_mean
+                self.audioset_std = audioset_std
+                self.target_length = target_length
+            def __call__(self, waveform):
+                waveform = waveform - torch.mean(waveform, -1)
+
+                fbank = torchaudio.compliance.kaldi.fbank(waveform.unsqueeze(0), htk_compat=True, sample_frequency=16000, use_energy=False,
+                                                  window_type='hanning', num_mel_bins=128,
+                                                          dither=0.0, frame_shift=10)
+                fbank = torch.nn.functional.pad(fbank, (0, 0, 0, self.target_length-fbank.shape[0]), mode="constant")
+
+                fbank = (fbank - self.audioset_mean) / (self.audioset_std * 2)
+                return fbank
+
+        assert config["data"]["fs"] == 16000, "this pretrained model is trained on 16k"
+        feature_extraction = ASTFeatsExtraction()
+        from local.ast.ast_models import ASTModel
+        pretrained = ASTModel(label_dim=527,
+         fstride=10, tstride=10,
+         input_fdim=128, input_tdim=1024,
+         imagenet_pretrain=True, audioset_pretrain=True,
+         model_size='base384')
 
     elif config["pretrained"]["model"] == "panns":
+        assert config["data"]["fs"] == 16000, "this pretrained model is trained on 16k"
         feature_extraction = None # integrated in the model
         download_from_url(config["pretrained"]["url"], config["pretrained"]["dest"])
         # use PANNs as additional feature
         from local.panns.models import Cnn14_16k
-        pretrained = Cnn14_16k(freeze_bn=False, use_specaugm=True)
+        pretrained = Cnn14_16k()
+        pretrained.load_state_dict(torch.load(config["pretrained"]["dest"])["model"], strict=False)
     else:
         raise NotImplementedError
 
@@ -190,7 +219,7 @@ def single_run(
             ]
         )
 
-        opt = torch.optim.Adam(list(crnn.parameters()) + list(pretrained.parameters()), config["opt"]["lr"], betas=(0.9, 0.999))
+        opt = torch.optim.Adam(list(crnn.parameters()), config["opt"]["lr"], betas=(0.9, 0.999))
         exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
         exp_scheduler = {
             "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps),

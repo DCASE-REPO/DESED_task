@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchlibrosa.stft import Spectrogram, LogmelFilterBank
 from torchlibrosa.augmentation import SpecAugmentation
-
 from local.panns.pytorch_utils import do_mixup, interpolate, pad_framewise_output
 
 
@@ -138,7 +137,7 @@ class AttBlock(nn.Module):
             return torch.sigmoid(x)
 
 class Cnn14_16k(nn.Module):
-    def __init__(self, hop_size=160, freeze_bn=True, use_specaugm=False, output_type="frame"):
+    def __init__(self, hop_size=160, freeze_bn=True, use_specaugm=False):
 
         super(Cnn14_16k, self).__init__()
 
@@ -159,9 +158,6 @@ class Cnn14_16k(nn.Module):
         amin = 1e-10
         top_db = None
 
-        assert output_type in ["frame", "global"]
-        self.output_type = output_type
-
         # Spectrogram extractor
         self.spectrogram_extractor = Spectrogram(n_fft=window_size, hop_length=hop_size,
             win_length=window_size, window=window, center=center, pad_mode=pad_mode,
@@ -181,23 +177,20 @@ class Cnn14_16k(nn.Module):
         self.conv_block1 = ConvBlock(in_channels=1, out_channels=64)
         self.conv_block2 = ConvBlock(in_channels=64, out_channels=128)
         self.conv_block3 = ConvBlock(in_channels=128, out_channels=256)
-        if self.output_from == "frame":
-            self.init_weight()
-            return
-        else:
-            self.conv_block4 = ConvBlock(in_channels=256, out_channels=512)
-            self.conv_block5 = ConvBlock(in_channels=512, out_channels=1024)
-            self.conv_block6 = ConvBlock(in_channels=1024, out_channels=2048)
 
-            #self.fc1 = nn.Linear(2048, 2048, bias=True)
-            #self.fc_audioset = nn.Linear(2048, classes_num, bias=True)
+        self.conv_block4 = ConvBlock(in_channels=256, out_channels=512)
+        self.conv_block5 = ConvBlock(in_channels=512, out_channels=1024)
+        self.conv_block6 = ConvBlock(in_channels=1024, out_channels=2048)
 
-            self.init_weight()
+        self.fc1 = nn.Linear(2048, 2048, bias=True)
+        # this is not used here, we only use the pretrained model as an embedding extractor
+        #self.fc_audioset = nn.Linear(2048, classes_num, bias=True)
+        self.init_weight()
 
     def init_weight(self):
         init_bn(self.bn0)
         init_layer(self.fc1)
-        init_layer(self.fc_audioset)
+        #init_layer(self.fc_audioset)
 
     def forward(self, input, mixup_lambda=None):
         """
@@ -223,28 +216,22 @@ class Cnn14_16k(nn.Module):
         x = F.dropout(x, p=0.2, training=self.training)
         x = self.conv_block3(x, pool_size=(2, 2), pool_type='avg')
         x = F.dropout(x, p=0.2, training=self.training)
-        if self.output_from == "frame":
-            return x# we take frame-level embedding from this layer, participants are free to use other layers
+        frame_embedding = x
+        # we take frame-level embedding from this layer, participants are free to use other layers
         x = self.conv_block4(x, pool_size=(2, 2), pool_type='avg')
         x = F.dropout(x, p=0.2, training=self.training)
         x = self.conv_block5(x, pool_size=(2, 2), pool_type='avg')
         x = F.dropout(x, p=0.2, training=self.training)
         x = self.conv_block6(x, pool_size=(1, 1), pool_type='avg')
         x = F.dropout(x, p=0.2, training=self.training)
+
         x = torch.mean(x, dim=3)
         (x1, _) = torch.max(x, dim=2)
         x2 = torch.mean(x, dim=2)
         x = x1 + x2
-        x = F.dropout(x, p=0.5, training=self.training)
-        return x
-        """" # not used but allowed for participants
-        x = F.relu_(self.fc1(x))
-        clipwise_output = torch.sigmoid(self.fc_audioset(x))
-        output_dict = {'clipwise_output': clipwise_output,
-                       'frame_embedding': embedding, "global_embedding": global_embedding}
-
-        return output_dict
-        """
+        global_emb = F.dropout(x, p=0.5, training=self.training)
+        bsz, chans, time, freq = frame_embedding.shape
+        return global_emb, frame_embedding.transpose(2, -1).reshape(bsz, chans*freq, time)
 
     def train(self, mode=True):
         """
@@ -262,56 +249,3 @@ class Cnn14_16k(nn.Module):
                     if self.freeze_bn:
                         m.weight.requires_grad = False
                         m.bias.requires_grad = False
-
-
-class PANN_RNN(nn.Module):
-    def __init__(self, checkpoint, freeze=False, use_specaugm=False):
-        super(PANN_RNN, self).__init__()
-        assert pretrained_model.output_type == "frame"
-
-        self.freeze = freeze
-        state_dict = torch.load(checkpoint, map_location="cpu")
-        model = Cnn14_16k(hop_size, freeze, use_specaugm, output_type="frame")
-        model.load_state_dict(state_dict["model"], strict=False)
-
-        self.conv_block1 = torch.nn.Sequential(torch.nn.Conv2d(128, 64, (3, 3), (2, 1), padding=(1, 1),
-                                                               ), torch.nn.ReLU(), torch.nn.BatchNorm2d(128),
-                                               torch.nn.Dropout2d(0.5))
-        self.conv_block2 = torch.nn.Sequential(torch.nn.Conv2d(64, 64, (3, 3), (2, 1), padding=(1, 1),
-                                                               ), torch.nn.ReLU(), torch.nn.BatchNorm2d(128),
-                                               torch.nn.Dropout2d(0.5))
-        self.conv_block3 = torch.nn.Sequential(torch.nn.Conv2d(64, 32, (3, 3), (2, 1), padding=(1, 1),
-                                                               ), torch.nn.ReLU(), torch.nn.BatchNorm2d(128),
-                                               torch.nn.Dropout2d(0.5))
-
-        self.pann_model = model
-        self.attention = attention
-        self.out_strong = torch.nn.Linear(32 * 2, out_classes)
-        if self.attention:
-            self.dense_softmax = torch.nn.Linear(32 * 2, out_classes)
-
-    def forward(self, audio):
-
-        embeddings = self.pann_model(audio)
-        if self.freeze:
-            embeddings = embeddings.detach()
-
-        embeddings = self.conv_block1(embeddings)
-        embeddings = self.conv_block2(embeddings)
-        embeddings = self.conv_block3(embeddings)
-
-        _, chans, frames, freq = embeddings.shape
-        embeddings = embeddings.transpose(-1, -2).reshape(-1, chans * freq, frames).transpose(-1, -2)
-        strong = torch.sigmoid(self.out_strong(embeddings))
-        if self.attention:
-            sof = self.dense_softmax(embeddings)  # [bs, frames, nclass]
-            sof = torch.softmax(sof, -1)
-            sof = torch.clamp(sof, min=1e-7, max=1)
-            weak = (strong * sof).sum(1) / sof.sum(1)  # [bs, nclass]
-        else:
-            weak = strong.mean(1)
-        return strong.transpose(1, 2), weak
-
-
-
-

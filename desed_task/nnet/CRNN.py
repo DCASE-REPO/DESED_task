@@ -23,7 +23,7 @@ class CRNN(nn.Module):
         cnn_integration=False,
         freeze_bn=False,
         use_embeddings=False,
-        embedding_size=2048,
+        embedding_size=527,
         **kwargs,
     ):
         """
