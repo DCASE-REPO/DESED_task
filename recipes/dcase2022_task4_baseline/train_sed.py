@@ -29,6 +29,7 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
         dsets = [
             "synth_folder",
             "synth_val_folder",
+            "strong_folder",
             "weak_folder",
             "unlabeled_folder",
             "test_folder",
@@ -54,6 +55,7 @@ def single_run(
     config,
     log_dir,
     gpus,
+    strong_real=False,
     checkpoint_resume=None,
     test_state_dict=None,
     fast_dev_run=False,
@@ -116,6 +118,16 @@ def single_run(
             pad_to=config["data"]["audio_max_len"],
         )
 
+        if strong_real:
+            strong_df = pd.read_csv(config["data"]["strong_tsv"], sep="\t")
+            strong_set = StronglyAnnotatedSet(
+                config["data"]["strong_folder"],
+                strong_df,
+                encoder,
+                pad_to=config["data"]["audio_max_len"],
+            )
+        
+
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
         train_weak_df = weak_df.sample(
             frac=config["training"]["weak_split"],
@@ -153,7 +165,11 @@ def single_run(
             return_filename=True,
         )
 
-        tot_train_data = [synth_set, weak_set, unlabeled_set]
+        if strong_real:
+            strong_full_set = torch.utils.data.ConcatDataset([strong_set, synth_set])
+            tot_train_data = [strong_full_set, weak_set, unlabeled_set]
+        else:
+            tot_train_data = [synth_set, weak_set, unlabeled_set]
         train_dataset = torch.utils.data.ConcatDataset(tot_train_data)
 
         batch_sizes = config["training"]["batch_size"]
@@ -288,6 +304,13 @@ if __name__ == "__main__":
         default="./exp/2022_baseline",
         help="Directory where to save tensorboard logs, saved models, etc.",
     )
+
+    parser.add_argument(
+        "--strong_real",
+        action="store_true",
+        default=False,
+        help="The strong annotations coming from Audioset will be included in the training phase.",
+    )
     parser.add_argument(
         "--resume_from_checkpoint",
         default=None,
@@ -355,6 +378,7 @@ if __name__ == "__main__":
         configs,
         args.log_dir,
         args.gpus,
+        args.strong_real,
         args.resume_from_checkpoint,
         test_model_state_dict,
         args.fast_dev_run,
