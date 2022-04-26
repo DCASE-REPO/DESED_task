@@ -270,7 +270,6 @@ class SEDTask4(pl.LightningModule):
 
         if self.pretrained_model.training:
             self.pretrained_model.eval()
-
         embeddings = self.pretrained_model(pretrained_input)[self.hparams["net"]["embedding_type"]]
 
         batch_num = features.shape[0]
