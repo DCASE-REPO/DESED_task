@@ -7,6 +7,28 @@
 The script `conda_create_environment.sh` is available to create an environment which runs the
 following code (recommended to run line by line in case of problems).
 
+#### Common issues
+
+**Data Download**
+
+`FileNotFoundError: [Errno 2] No such file or directory: 'ffprobe'`
+
+it probably means you have to install ffmpeg on your machine.
+
+A possible installation: `sudo apt install ffmpeg`
+
+
+ **Training**
+
+If training appears too slow, check with `top` and with `nvidia-smi` that you 
+are effectively using a GPU and not the CPU. 
+If running `python train_sed.py` uses by default the CPU you may have **pytorch** installed 
+without CUDA support. 
+
+Check with IPython by running this pytorch line `torch.rand((1)).cuda()` 
+If you encounter an error install CUDA-enabled pytorch from https://pytorch.org/
+Check again till you can run `torch.rand((1)).cuda()` successfully. 
+
 ## Dataset
 You can download the development dataset using the script: `generate_dcase_task4_2022.py`.
 The development dataset is composed of two parts:
@@ -89,43 +111,117 @@ The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] an
 For more information regarding the dataset, please refer to the [previous year DCASE Challenge website][dcase_21_dataset]. 
 
 
+
 ## Training
-We provide three baselines for the task:
+We provide **three** baselines for the task:
 - SED baseline
-- baseline using pre-embeddings 
+- baseline using pre-trained embedding extractor DNN. 
 - baseline using Audioset data (real-world strong-label data)
 
 For now, only the SED baseline is available (the missing baseline will be published soon).
 
-### SED Baseline
-The SED baseline can be run from scratch using the following command:
+### How to run the Baseline systems
+The **SED baseline** can be run from scratch using the following command:
 
 `python train_sed.py`
 
+---
+You can select the GPUs by using `python train_sed.py --gpus 1,2`
+
+**note**: `python train_sed.py --gpus 0` will use the CPU. GPU indexes start from 1 here.
+
+**Common issues**
+
+If you encounter: 
+`pytorch_lightning.utilities.exceptions.MisconfigurationException: You requested GPUs: [0]
+ But your machine only has: [] (edited) `
+
+or 
+
+`OSError: libc10_cuda.so: cannot open shared object file: No such file or directory`
+
+
+It probably means you have installed CPU-only version of Pytorch or have installed the incorrect 
+**cudatoolkit** version. 
+Please install the correct version from https://pytorch.org/
+
+---
+
+Note that the default training config will use 1 GPU. 
 Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs. The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 The tensorboard logs can be tested using the command `tensorboard --logdir="path/to/exp_folder"`. 
 
+
+## **(NEW!)** Energy Consumption
+
+In this year DCASE Task 4 Challenge, we also use energy consumption (kWh)
+via [CodeCarbon](https://github.com/mlco2/codecarbon) as an additional metric to rank the submitted systems.
+
+We encourage the participants to provide, for each submitted system (or at least the best one), the following energy consumption figures in kWh using [CodeCarbon](https://github.com/mlco2/codecarbon):
+
+1) whole system training
+2) devtest inference
+3) evaluation set inference
+
+You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to do this (super simple! 😉 )
+or to this baseline code see `local/sed_trained.py` for some hints on 
+how we are doing this for the baseline system.
+
+
+**Important** 
+
+In addition to this, we kindly suggest the participants to
+provide the energy consumption in kWh (using the same hardware used for 2) and 3)) of:
+
+1) devtest inference for baseline system using: 
+
+`python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
+You can find the energy consumed in kWh in `./exp/2022_baseline/devtest_codecarbon/devtest_tot_kwh.txt`
+
+2) evaluation set inference for baseline system using:
+`python train_sed.py --eval_from_checkpoint /path/to/downloaded.ckpt`
+You can find the energy consumed in kWh in `./exp/2022_baseline/evaluation_codecarbon/eval_tot_kwh.txt`
+
+**Why we require this ?**
+
+Energy consumption depends on hardware and each participant uses
+different hardware. 
+
+To obviate for this difference we use the baseline inference kWh energy consumption 
+as a common reference. Because of this, it is important that the
+inference energy consumption figures for both submitted system 
+and baseline are computed on same hardware under similar loading. 
+
+
 #### Results:
 
-Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1*
+Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1* 
 --------|--------------------|--------------------|-------------------------|-----------------
 Dev-test| **0.336**          | **0.536**          | 64.1%                   | 40.1%
+
+**Energy Consumption** (GPU: NVIDIA A100 40Gb)
+
+Dataset | Training  | Dev-Test |
+--------|-----------|--------------------
+**kWh** | **1.717** | **0.030**           
+
+
 
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
 The results are from the **student** predictions. 
 
-**Note**:
+**NOTES**:
 
-These scripts assume that your data is in `../../data` folder in DESED_task directory.
+All baselines scripts assume that your data is in `../../data` folder in DESED_task directory.
 If your data is in another folder, you will have to change the paths of your data in the corresponding `data` keys in YAML configuration file in `conf/sed.yaml`.
 Note that `train_sed.py` will create (at its very first run) additional folders with resampled data (from 44kHz to 16kHz)
 so the user need to have write permissions on the folder where your data are saved.
 
-Hyperparameters can be changed in the YAML file (e.g. lower or higher batch size).
+**Hyperparameters** can be changed in the YAML file (e.g. lower or higher batch size).
 
 A different configuration YAML (for example sed_2.yaml) can be used in each run using `--conf_file="confs/sed_2.yaml` argument.
 

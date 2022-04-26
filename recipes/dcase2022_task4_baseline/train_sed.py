@@ -1,5 +1,6 @@
 import argparse
-from copy import deepcopy
+import warnings
+
 import numpy as np
 import os
 import pandas as pd
@@ -18,7 +19,7 @@ from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
 
 from local.classes_dict import classes_labels
-from local.sed_trainer import SEDTask4_2021
+from local.sed_trainer import SEDTask4
 from local.resample_folder import resample_folder
 from local.utils import generate_tsv_wav_durations
 
@@ -224,7 +225,7 @@ def single_run(
         logger = True
         callbacks = None
 
-    desed_training = SEDTask4_2021(
+    desed_training = SEDTask4(
         config,
         encoder=encoder,
         sed_student=sed_student,
@@ -254,11 +255,18 @@ def single_run(
         limit_test_batches = 1.0
         n_epochs = config["training"]["n_epochs"]
 
+
+    if len(gpus.split(",")) > 1:
+        config["training"]["batch_size_val"] = 1
+        warnings.warn("When using multiple GPUs (DP), validation and test batch size must be 1 with current code, "
+                      "please increase validation_interval accordingly or most training time will be validation time.")
+
     trainer = pl.Trainer(
+        precision=config["training"]["precision"],
         max_epochs=n_epochs,
         callbacks=callbacks,
         gpus=gpus,
-        distributed_backend=config["training"].get("backend"),
+        strategy=config["training"].get("backend"),
         accumulate_grad_batches=config["training"]["accumulate_batches"],
         logger=logger,
         resume_from_checkpoint=checkpoint_resume,
@@ -273,6 +281,8 @@ def single_run(
     )
 
     if test_state_dict is None:
+
+        # start tracking energy consumption
         trainer.fit(desed_training)
         best_path = trainer.checkpoint_callback.best_model_path
         print(f"best model: {best_path}")
@@ -286,12 +296,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
     parser.add_argument(
         "--conf_file",
-        default="./confs/sed.yaml",
+        default="./confs/default.yaml",
         help="The configuration file with all the experiment parameters.",
     )
     parser.add_argument(
         "--log_dir",
-        default="./exp/2021_baseline",
+        default="./exp/2022_baseline",
         help="Directory where to save tensorboard logs, saved models, etc.",
     )
 
@@ -311,9 +321,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--gpus",
-        default="0",
+        default="1",
         help="The number of GPUs to train on, or the gpu to use, default='0', "
-        "so uses one GPU indexed by 0.",
+        "so uses one GPU",
     )
     parser.add_argument(
         "--fast_dev_run",
