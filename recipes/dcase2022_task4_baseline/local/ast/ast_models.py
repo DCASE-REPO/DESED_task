@@ -181,7 +181,7 @@ class ASTModel(nn.Module):
         x = (x[:, 0] + x[:, 1]) / 2
 
         x = self.mlp_head(x)
-        return x.float(), frame_embeds.transpose(1, 2).float()
+        return {"global": x.float(), "frame": frame_embeds.transpose(1, 2).float()}
 
 if __name__ == '__main__':
     input_tdim = 100

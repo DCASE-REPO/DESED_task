@@ -2,7 +2,6 @@ import warnings
 
 import torch.nn as nn
 import torch
-
 from .RNN import BidirectionalGRU
 from .CNN import CNN
 
@@ -24,6 +23,8 @@ class CRNN(nn.Module):
         freeze_bn=False,
         use_embeddings=False,
         embedding_size=527,
+        embedding_type="global",
+        frame_emb_enc_dim=512,
         **kwargs,
     ):
         """
@@ -50,6 +51,7 @@ class CRNN(nn.Module):
         self.cnn_integration = cnn_integration
         self.freeze_bn = freeze_bn
         self.use_embeddings = use_embeddings
+        self.embedding_type = embedding_type
 
         n_in_cnn = n_in_channel
 
@@ -89,8 +91,16 @@ class CRNN(nn.Module):
 
 
         if self.use_embeddings:
-            self.film_mul = torch.nn.Linear(embedding_size, nb_in)
-            self.film_bias = torch.nn.Linear(2*nb_in, nb_in)
+            if self.embedding_type == "frame":
+                self.frame_embs_encoder = nn.GRU(batch_first=True, input_size=embedding_size,
+                                                      hidden_size=512,
+                                                      bidirectional=True)
+                self.shrink_emb = torch.nn.Sequential(torch.nn.Linear(2 * frame_emb_enc_dim, nb_in),
+                                                      torch.nn.LayerNorm(nb_in))
+            else:
+                self.shrink_emb = torch.nn.Sequential(torch.nn.Linear(embedding_size, nb_in),
+                                                      torch.nn.LayerNorm(nb_in))
+            self.cat_tf = torch.nn.Linear(2*nb_in, nb_in)
 
     def forward(self, x, pad_mask=None, embeddings=None):
 
@@ -119,7 +129,15 @@ class CRNN(nn.Module):
 
         # rnn features
         if self.use_embeddings:
-            x = self.film_bias(torch.cat((x, self.film_mul(embeddings).unsqueeze(1).repeat(1, x.shape[1], 1)), -1))
+            if self.embedding_type == "global":
+                x = self.cat_tf(torch.cat((x, self.shrink_emb(embeddings).unsqueeze(1).repeat(1, x.shape[1], 1)), -1))
+            else:
+                # there can be some mismatch between seq length of cnn of crnn and the pretrained embeddings, we use an rnn
+                # as an encoder and we use the last state
+                last, _ = self.frame_embs_encoder(embeddings.transpose(1, 2))
+                embeddings = last[:, -1]
+                x = self.cat_tf(torch.cat((x, self.shrink_emb(embeddings).unsqueeze(1).repeat(1, x.shape[1], 1)), -1))
+
         x = self.rnn(x)
         x = self.dropout(x)
         strong = self.dense(x)  # [bs, frames, nclass]

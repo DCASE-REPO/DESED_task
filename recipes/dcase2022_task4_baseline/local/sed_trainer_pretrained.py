@@ -270,7 +270,8 @@ class SEDTask4(pl.LightningModule):
 
         if self.pretrained_model.training:
             self.pretrained_model.eval()
-        embeddings = self.pretrained_model(pretrained_input)[0]
+
+        embeddings = self.pretrained_model(pretrained_input)[self.hparams["net"]["embedding_type"]]
 
         batch_num = features.shape[0]
         # deriving masks for each dataset
@@ -372,7 +373,7 @@ class SEDTask4(pl.LightningModule):
 
         # prediction for student
         mels = self.mel_spec(audio)
-        embeddings = self.pretrained_model(pretrained_input)[0]
+        embeddings = self.pretrained_model(pretrained_input)[self.hparams["net"]["embedding_type"]]
         strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student, embeddings)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher, embeddings)
@@ -561,7 +562,7 @@ class SEDTask4(pl.LightningModule):
 
         # prediction for student
         mels = self.mel_spec(audio)
-        embeddings = self.pretrained_model(pretrained_input)[0]
+        embeddings = self.pretrained_model(pretrained_input)[self.hparams["net"]["embedding_type"]]
         strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student, embeddings)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher, embeddings)

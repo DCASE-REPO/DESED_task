@@ -231,7 +231,7 @@ class Cnn14_16k(nn.Module):
         x = x1 + x2
         global_emb = F.dropout(x, p=0.5, training=self.training)
         bsz, chans, time, freq = frame_embedding.shape
-        return global_emb, frame_embedding.transpose(2, -1).reshape(bsz, chans*freq, time)
+        return {"global": global_emb, "frame": frame_embedding.transpose(2, -1).reshape(bsz, chans*freq, time)}
 
     def train(self, mode=True):
         """
