@@ -86,9 +86,17 @@ def single_run(
         fs=config["data"]["fs"],
     )
 
-    # feature extraction pipeline for SSAST
-    from pathlib import Path
-    if config["pretrained"]["model"] == "ast":
+    if not config["pretrained"]["freezed"]:
+        assert config["pretrained"]["e2e"], "If freezed is false, you have to train end2end ! " \
+                                            "You cannot use precomputed embeddings if you want to update the pretrained model."
+    #FIXME
+    if not config["pretrained"]["e2e"]:
+        assert config["pretrained"]["extracted_embeddings_dir"] is not None, \
+            "If e2e is false, you have to download pretrained embeddings from {}" \
+                                                                             "and set in the config yaml file the path to the downloaded directory".format("REPLACE ME")
+
+    if config["pretrained"]["model"] == "ast" and config["pretrained"]["e2e"]:
+        # feature extraction pipeline for SSAST
         class ASTFeatsExtraction:
             # need feature extraction in dataloader because kaldi compliant torchaudio fbank are used (no gpu support)
             def __init__(self, audioset_mean=-4.2677393, audioset_std=4.5689974,
@@ -117,7 +125,7 @@ def single_run(
          imagenet_pretrain=True, audioset_pretrain=True,
          model_size='base384')
 
-    elif config["pretrained"]["model"] == "panns":
+    elif config["pretrained"]["model"] == "panns" and config["pretrained"]["e2e"]:
         assert config["data"]["fs"] == 16000, "this pretrained model is trained on 16k"
         feature_extraction = None # integrated in the model
         download_from_url(config["pretrained"]["url"], config["pretrained"]["dest"])
@@ -126,18 +134,23 @@ def single_run(
         pretrained = Cnn14_16k()
         pretrained.load_state_dict(torch.load(config["pretrained"]["dest"])["model"], strict=False)
     else:
-        raise NotImplementedError
+        pretrained = None
+        feature_extraction = None
 
     crnn = CRNN(**config["net"])
 
     if not evaluation:
         devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
+        devtest_embeddings = None if config["pretrained"]["e2e"] else os.path.join(config["pretrained"]["extracted_embeddings_dir"],
+                                                                                   config["pretrained"]["model"], "devtest.hdf5")
         devtest_dataset = StronglyAnnotatedSet(
             config["data"]["test_folder"],
             devtest_df,
             encoder,
             return_filename=True,
-            pad_to=config["data"]["audio_max_len"], feats_pipeline=feature_extraction
+            pad_to=config["data"]["audio_max_len"], feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=devtest_embeddings,
+            embedding_type=config["net"]["embedding_type"]
         )
     else:
         devtest_dataset = UnlabeledSet(
@@ -150,16 +163,22 @@ def single_run(
     test_dataset = devtest_dataset
 
     ##### model definition  ############
-
     if test_state_dict is None:
         ##### data prep train valid ##########
         synth_df = pd.read_csv(config["data"]["synth_tsv"], sep="\t")
+        synth_set_embeddings = None if config["pretrained"]["e2e"] else os.path.join(config["pretrained"]["extracted_embeddings_dir"],
+                                                                                   config["pretrained"]["model"],
+                                                                                   "synth_train.hdf5")
         synth_set = StronglyAnnotatedSet(
             config["data"]["synth_folder"],
             synth_df,
             encoder,
-            pad_to=config["data"]["audio_max_len"], feats_pipeline=feature_extraction
+            pad_to=config["data"]["audio_max_len"],
+            feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=synth_set_embeddings,
+            embedding_type=config["net"]["embedding_type"]
         )
+        synth_set[0]
 
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
         train_weak_df = weak_df.sample(
@@ -168,34 +187,54 @@ def single_run(
         )
         valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
         train_weak_df = train_weak_df.reset_index(drop=True)
+        weak_set_embeddings = None if config["pretrained"]["e2e"] else os.path.join(config["pretrained"]["extracted_embeddings_dir"],
+                                                                                     config["pretrained"]["model"],
+                                                                                     "weak_train.hdf5")
         weak_set = WeakSet(
             config["data"]["weak_folder"],
             train_weak_df,
             encoder,
-            pad_to=config["data"]["audio_max_len"], feats_pipeline=feature_extraction
-        )
+            pad_to=config["data"]["audio_max_len"], feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=weak_set_embeddings,
+            embedding_type=config["net"]["embedding_type"]
 
+        )
+        unlabeled_set_embeddings = None if config["pretrained"]["e2e"] else os.path.join(config["pretrained"]["extracted_embeddings_dir"],
+                                                                                    config["pretrained"]["model"],
+                                                                                    "unlabeled_train.hdf5")
         unlabeled_set = UnlabeledSet(
             config["data"]["unlabeled_folder"],
             encoder,
-            pad_to=config["data"]["audio_max_len"],  feats_pipeline=feature_extraction
+            pad_to=config["data"]["audio_max_len"],  feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=unlabeled_set_embeddings,
+            embedding_type=config["net"]["embedding_type"]
         )
 
         synth_df_val = pd.read_csv(config["data"]["synth_val_tsv"], sep="\t")
+        synth_val_embeddings = None if config["pretrained"]["e2e"] else os.path.join(config["pretrained"]["extracted_embeddings_dir"],
+                                                                                         config["pretrained"]["model"],
+                                                                                         "synth_val.hdf5")
         synth_val = StronglyAnnotatedSet(
             config["data"]["synth_val_folder"],
             synth_df_val,
             encoder,
             return_filename=True,
-            pad_to=config["data"]["audio_max_len"],  feats_pipeline=feature_extraction
+            pad_to=config["data"]["audio_max_len"],  feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=synth_val_embeddings,
+            embedding_type=config["net"]["embedding_type"]
         )
 
+        weak_val_embeddings = None if config["pretrained"]["e2e"] else os.path.join(config["pretrained"]["extracted_embeddings_dir"],
+                                                                                     config["pretrained"]["model"],
+                                                                                     "weak_val.hdf5")
         weak_val = WeakSet(
             config["data"]["weak_folder"],
             valid_weak_df,
             encoder,
             pad_to=config["data"]["audio_max_len"],
-            return_filename=True,  feats_pipeline=feature_extraction
+            return_filename=True,  feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=weak_val_embeddings,
+            embedding_type=config["net"]["embedding_type"]
         )
 
         tot_train_data = [synth_set, weak_set, unlabeled_set]
@@ -219,7 +258,12 @@ def single_run(
             ]
         )
 
-        opt = torch.optim.Adam(list(crnn.parameters()), config["opt"]["lr"], betas=(0.9, 0.999))
+        if config["pretrained"]["freezed"] or not config["pretrained"]["e2e"]:
+            parameters = list(crnn.parameters())
+        else:
+            parameters = list(crnn.parameters()) + list(pretrained.parameters())
+        opt = torch.optim.Adam(parameters, config["opt"]["lr"], betas=(0.9, 0.999))
+
         exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
         exp_scheduler = {
             "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps),

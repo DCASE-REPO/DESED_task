@@ -3,10 +3,8 @@ import glob
 import time
 import warnings
 from pprint import pformat
-
 import os
 import shutil
-
 import desed
 
 def create_folder(folder, exist_ok=True, delete_if_exists=False):

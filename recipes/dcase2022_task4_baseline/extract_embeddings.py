@@ -63,11 +63,16 @@ def extract(batch_size, folder, dset_name, torch_dset, embedding_model, use_gpu=
         feats, filenames = batch
         if use_gpu:
             feats = feats.cuda()
-        c_glob_emb, c_frame_emb = embedding_model(feats)
+
+        with torch.inference_mode():
+            emb = embedding_model(feats)
+            c_glob_emb =  emb["global"]
+            c_frame_emb = emb["frame"]
         # enumerate, convert to numpy and write to h5py
         bsz = feats.shape[0]
         for b_indx in range(bsz):
             global_embeddings[global_indx] = c_glob_emb[b_indx].detach().cpu().numpy()
+            global_embeddings.attrs[filenames[b_indx]] = global_indx
             frame_embeddings[global_indx] = c_frame_emb[b_indx].detach().cpu().numpy()
             frame_embeddings.attrs[filenames[b_indx]] = global_indx
             global_indx += 1
@@ -81,8 +86,8 @@ if __name__ == "__main__":
         "--conf_file",
         default="./confs/default.yaml",
         help="The configuration file with all the experiment parameters.")
-    parser.add_argument("--pretrained_model", default="pann", help="The pretrained model to use,"
-                                                                   "choose between pann and ast")
+    parser.add_argument("--pretrained_model", default="panns", help="The pretrained model to use,"
+                                                                   "choose between panns and ast")
     parser.add_argument(
         "--use_gpu",
         default="1",
@@ -93,7 +98,7 @@ if __name__ == "__main__":
         help="Batch size for model inference, used to speed up the embedding extraction.")
 
     args = parser.parse_args()
-    assert args.pretrained_model in ["pann", "ast"], "pretrained model must be either pann or ast"
+    assert args.pretrained_model in ["panns", "ast"], "pretrained model must be either panns or ast"
 
     with open(args.conf_file, "r") as f:
         config = yaml.safe_load(f)
@@ -132,10 +137,10 @@ if __name__ == "__main__":
 
 
 
-    elif args.pretrained_model == "pann":
+    elif args.pretrained_model == "panns":
         feature_extraction = None  # integrated in the model
         download_from_url("https://zenodo.org/record/3987831/files/Cnn14_16k_mAP%3D0.438.pth?download=1", "./pretrained_models/Cnn14_16k_mAP%3D0.438.pth")
-        # use PANNs as additional feature
+        # use pannss as additional feature
         from local.panns.models import Cnn14_16k
         pretrained = Cnn14_16k(freeze_bn=True,
                                use_specaugm=True)
@@ -183,8 +188,14 @@ if __name__ == "__main__":
         feats_pipeline=feature_extraction
     )
 
+    devtest_dataset = WavDataset(
+        config["data"]["test_folder"], feats_pipeline=feature_extraction)
+    """
     for k, elem in {"synth_train": synth_set, "weak_train": weak_set,
                     "unlabeled_train" : unlabeled_set,
                    "synth_val" : synth_val,
-                   "weak_val" : weak_val}.items():
+                   "weak_val" : weak_val,
+                    "devtest": devtest_dataset}.items():
+                    """
+    for k, elem in {"devtest": devtest_dataset}.items():
         extract(int(args.batch_size), output_dir, k, elem, pretrained, use_gpu)

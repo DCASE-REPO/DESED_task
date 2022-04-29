@@ -1,13 +1,14 @@
 pretrained:
   model: ast
-  e2e: True
-  freezed: False
+  e2e: False
+  freezed: True
   url: https://zenodo.org/record/3987831/files/Cnn14_16k_mAP%3D0.438.pth?download=1
   dest: ./pretrained_models/Cnn14_16k_mAP%3D0.438.pth
+  extracted_embeddings_dir: ./embeddings
 training:
   #batch size: [synth, weak, unlabel]
-  batch_size: [3, 3, 6]
-  batch_size_val: 6
+  batch_size: [12, 12, 24]
+  batch_size_val: 24
   const_max: 2 # max weight used for self supervised loss
   n_epochs_warmup: 50 # num epochs used for exponential warmup
   num_workers: 6 # change according to your cpu
@@ -82,5 +83,5 @@ net:
   pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
   dropout_recurrent: 0
   use_embeddings: True
-  embedding_size: 768
-  embedding_type: frame
+  embedding_size: 527
+  embedding_type: global
