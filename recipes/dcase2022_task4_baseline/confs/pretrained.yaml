@@ -83,5 +83,5 @@ net:
   pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
   dropout_recurrent: 0
   use_embeddings: True
-  embedding_size: 527
-  embedding_type: global
+  embedding_size: 768
+  embedding_type: frame
