@@ -274,11 +274,51 @@ Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *C
 --------|--------------------|--------------------|-------------------------|-----------------
 Dev-test| **0.351**          | **0.552**          | 64.3%                   | 42.9%
 
+
+**Energy Consumption** (GPU: NVIDIA A100 40Gb)
+
+Dataset | Training  | Dev-Test |
+--------|-----------|--------------------
+**kWh** | **2.418** | **0.027**           
+
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
 The results are computed from the **student** predictions. 
 
 All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
+
+## **(NEW)** baseline using pre-trained models for SEC/Tagging on Audioset
+We added a new baseline which exploits pre-trained models such as [PANNs]() and [AST]() 
+to increase the performance.
+
+In this baseline the frame-level or whole-clip level features are used in a late-fusion fashion 
+with the existing CRNN baseline classifier.
+
+
+
+
+`python train_pretrained.py`
+
+The command will automatically considered the strong labels recorded data coming from Audioset in the training process.
+
+Alternatively, also in this case, we provide a [pre-trained checkpoint][zenodo_pretrained_audioset_models]. The baseline can be tested on the development set of the dataset using the following command:
+
+`python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
+
+#### Results:
+
+Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1*
+--------|--------------------|--------------------|-------------------------|-----------------
+Dev-test| **0.351**          | **0.552**          | 64.3%                   | 42.9%
+
+Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
+
+The results are computed from the **student** predictions. 
+
+All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
+
+
+
 
 **Architecture**
 
