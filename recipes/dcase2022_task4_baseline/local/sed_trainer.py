@@ -113,13 +113,13 @@ class SEDTask4(pl.LightningModule):
             raise NotImplementedError
 
         # for weak labels we simply compute f1 score
-        self.get_weak_student_f1_seg_macro = torchmetrics.classification.f_beta.F1(
+        self.get_weak_student_f1_seg_macro = torchmetrics.classification.f_beta.F1Score(
             len(self.encoder.labels),
             average="macro",
             compute_on_step=False,
         )
 
-        self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.F1(
+        self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.F1Score(
             len(self.encoder.labels),
             average="macro",
             compute_on_step=False,
