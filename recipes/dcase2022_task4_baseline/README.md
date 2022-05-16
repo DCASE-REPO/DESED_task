@@ -387,7 +387,7 @@ Dataset | Training | Dev-Test |
 
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
-The results are computed from the **student** predictions. 
+The results are computed from the **teacher** predictions. 
 
 All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
 
