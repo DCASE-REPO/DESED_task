@@ -358,7 +358,7 @@ frame-level features in `./confs/pretrained.yaml`:
   pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
   dropout_recurrent: 0
   use_embeddings: True
-  embedding_size: 768 # use 2048 for PANNs global and frame
+  embedding_size: 768 # use 2048 for PANNs global and frame, 527 for AST global and 768 for AST frame
   embedding_type: frame # or global
  ```
 
