@@ -293,8 +293,10 @@ to increase the performance.
 
 In this baseline the frame-level or whole-clip level features are used in a late-fusion fashion 
 with the existing CRNN baseline classifier.
-In detail, see `desed_task/nnet/CRNN.py`, the whole-clip features are concatenated with CNN extracted features in the baseline
-CRNN classifier. For the frame-level features instead, since they have different sequence length w.r.t. CNN features 
+In detail, see `desed_task/nnet/CRNN.py`: the whole-clip features are concatenated with CNN extracted features in the baseline
+CRNN classifier. 
+
+For the frame-level features instead, since they have different sequence length w.r.t. CNN features 
 we use a trainable RNN-based encoder to encode those to a fixed dim output (obtaining again a whole-clip level embedding).
 This embedding is then concatenated in the same way as the whole-clip features.
 
@@ -364,9 +366,11 @@ frame-level features in `./confs/pretrained.yaml`:
 
 `python train_pretrained.py`
 By default this uses AST with frame-level embeddings. The pre-trained model is freezed and expects the pre-extracted AST 
-embeddings in a local folder ./embeddings as you can see from the details provided before. 
-Thus you would need to download the AST embeddings from the Zenodo links above.
-Alternatively, also in this case, we provide a [pre-trained checkpoint][zenodo_pretrained_audioset_models]. The baseline can be tested on the development set of the dataset using the following command:
+embeddings in a local folder `./embeddings` as you can see from the details provided before about the YAML config. 
+Thus you would need to download the AST embeddings from the Zenodo links above, unless you set `freezed: False`. 
+This latter however requires significant GPU memory.
+
+Also in this case, we provide a [pre-trained checkpoint][zenodo_pretrained_audioset_models]. The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
