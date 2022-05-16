@@ -380,6 +380,7 @@ Dev-test| **32.24%**          |    **72.22%**       | **90.34**               | 
 
 **Energy Consumption** (GPU: NVIDIA A100 40Gb)
 **Note we used pre-extracted embeddings, so the power consuption for the pre-trained model is not accounted for**
+
 Dataset | Training | Dev-Test |
 --------|----------|--------------------
 **kWh** | **4.41** | **0.036**           
