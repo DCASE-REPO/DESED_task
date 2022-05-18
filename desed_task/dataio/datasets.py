@@ -105,6 +105,8 @@ class StronglyAnnotatedSet(Dataset):
         self.embedding_type = embedding_type
         assert embedding_type in ["global", "frame", None], "embedding type are either frame or global or None, got {}".format(embedding_type)
 
+        tsv_entries = tsv_entries.dropna()
+
         examples = {}
         for i, r in tsv_entries.iterrows():
             if r["filename"] not in examples.keys():
