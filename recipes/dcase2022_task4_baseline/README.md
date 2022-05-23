@@ -288,7 +288,7 @@ The results are computed from the **student** predictions.
 All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
 
 ## **(NEW)** baseline using pre-trained embeddings from models (SEC/Tagging) trained on Audioset
-We added a new baseline which exploits pre-trained models such as [PANNs](https://arxiv.org/abs/1912.10211) and [AST](https://arxiv.org/abs/2104.01778). 
+We added a new baseline which exploits pre-trained models such as [PANNs](https://arxiv.org/abs/1912.10211) and [AST](https://arxiv.org/abs/2104.01778) to increase the performance.
 to increase the performance.
 
 In this baseline the frame-level or whole-clip level features are used in a late-fusion fashion 
