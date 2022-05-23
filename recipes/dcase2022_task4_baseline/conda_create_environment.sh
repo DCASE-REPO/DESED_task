@@ -12,4 +12,5 @@ conda install -y youtube-dl tqdm -c conda-forge
 
 pip install codecarbon==1.2.0
 pip install -r ../../requirements.txt
+pip install torchmetrics==0.7.3
 pip install -e ../../.

@@ -126,7 +126,8 @@ The **SED baseline** can be run from scratch using the following command:
 `python train_sed.py`
 
 ---
-You can select the GPUs by using `python train_sed.py --gpus 1,2`
+
+**NOTE: Currently multi-GPUs is not supported**
 
 **note**: `python train_sed.py --gpus 0` will use the CPU. GPU indexes start from 1 here.
 
@@ -147,7 +148,7 @@ Please install the correct version from https://pytorch.org/
 
 ---
 
-Note that the default training config will use 1 GPU. 
+Note that the default training config will use GPU 0. 
 Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs. The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
@@ -273,11 +274,129 @@ Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *C
 --------|--------------------|--------------------|-------------------------|-----------------
 Dev-test| **0.351**          | **0.552**          | 64.3%                   | 42.9%
 
+
+**Energy Consumption** (GPU: NVIDIA A100 40Gb)
+
+Dataset | Training  | Dev-Test |
+--------|-----------|--------------------
+**kWh** | **2.418** | **0.027**           
+
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
 The results are computed from the **student** predictions. 
 
 All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
+
+## **(NEW)** baseline using pre-trained embeddings from models (SEC/Tagging) trained on Audioset
+We added a new baseline which exploits pre-trained models such as [PANNs](https://arxiv.org/abs/1912.10211) and [AST](https://arxiv.org/abs/2104.01778) to increase the performance.
+to increase the performance.
+
+In this baseline the frame-level or whole-clip level features are used in a late-fusion fashion 
+with the existing CRNN baseline classifier.
+See `desed_task/nnet/CRNN.py` for details. The whole-clip features are concatenated with CNN extracted features in the baseline
+CRNN classifier. 
+
+Regarding he frame-level features, since they have different sequence length w.r.t. CNN features 
+we use a trainable RNN-based encoder to encode those to a fixed dim output (obtaining again a whole-clip level embedding).
+This embedding is then concatenated in the same way as the whole-clip features.
+
+**We provide different ways to integrate such pre-trained models.**
+
+See the configuration file: `./confs/pretrained.yaml`:
+```yaml
+pretrained:
+  model: ast
+  e2e: False
+  freezed: True
+  url: https://zenodo.org/record/3987831/files/Cnn14_16k_mAP%3D0.438.pth?download=1
+  dest: ./pretrained_models/Cnn14_16k_mAP%3D0.438.pth
+  extracted_embeddings_dir: ./embeddings
+ ```
+
+
+You can choose **ast** or **panns**. 
+You can choose whether to keep the pre-trained model **freezed** or train it along with the CRNN architecture. 
+If you want to keep it freezed, we already provide the pre-extracted embeddings for you. 
+This is useful if you want to train with a big batch size because you won't have to store the rather heavy 
+PANNs or AST models on your GPU. 
+
+Here are the links to the pre-extracted embeddings for AST and PANNs: 
+
+
+https://zenodo.org/record/6541454#.YnzHq2YzbDI (unalabeled ast)
+
+https://zenodo.org/record/6539466#.YnvtWmYzbAM (ast synth train, ast synth val,ast weak val)
+
+https://zenodo.org/record/6518380#.YnvWZGYzbAM (panns, ast weak train, ast devtest)
+
+You can download and unpack them in your preferred directory. 
+Do not forget then to set in the configuration
+above `extracted_embeddings_dir: YOUR_PATH`. 
+The script expects a folder structure like this:
+
+```
+YOUR_PATH |--- ast
+                  |----  devtest.hdf5    
+                  |----  synth_train.hdf5
+                  |----  unlabeled_train.hdf5
+                  |----  weak_train.hdf5
+                  |----  weak_val.hdf5
+                  |----  synth_val.hdf5   
+          |--- panns
+                  |----  devtest.hdf5    
+                  |----  synth_train.hdf5
+                  |----  unlabeled_train.hdf5
+                  |----  weak_train.hdf5
+                  |----  weak_val.hdf5
+                  |----  synth_val.hdf5 
+```
+
+You can also select if you want to do late fusion with global, whole-clip features from PANNs or 
+frame-level features in `./confs/pretrained.yaml`:
+```yaml
+  nb_filters: [ 16, 32, 64, 128, 128, 128, 128 ]
+  pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
+  dropout_recurrent: 0
+  use_embeddings: True
+  embedding_size: 768 # use 2048 for PANNs global and frame, 527 for AST global and 768 for AST frame
+  embedding_type: frame # or global
+ ```
+
+**The training can be started simply with**
+
+`python train_pretrained.py`
+By default this uses AST with frame-level embeddings. The pre-trained model is freezed and expects the pre-extracted AST 
+embeddings in a local folder `./embeddings` as you can see from the details provided before about the YAML config. 
+Thus you would need to download the AST embeddings from the Zenodo links above, unless you set `freezed: False`. 
+However, the latter requires significant GPU memory.
+
+Also in this case, we provide a [pre-trained checkpoint][zenodo_pretrained_audioset_models]. The baseline can be tested on the development set of the dataset using the following command:
+
+`python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
+
+#### Results for best system, late fusion with AST frame:
+
+
+Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1*
+--------|------------|--------------------|-------------------------|-----------------
+Dev-test| **32.24%**          |    **72.22%**       | **90.34**               |  **37.16**
+
+
+**Energy Consumption** (GPU: NVIDIA A100 40Gb)
+**Note we used pre-extracted embeddings, so the power consuption for the pre-trained model is not accounted for**
+
+Dataset | Training | Dev-Test |
+--------|----------|--------------------
+**kWh** | **4.41** | **0.036**           
+
+Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
+
+The results are computed from the **teacher** predictions. 
+
+All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
+
+
+
 
 **Architecture**
 
@@ -293,6 +412,7 @@ The architecture of the SED Audioset baseline is the same as the [SED baseline][
 [fsd50k]: https://zenodo.org/record/4060432
 [zenodo_pretrained_models]: https://zenodo.org/record/4639817
 [zenodo_pretrained_audioset_models]: https://zenodo.org/record/6447197
+[zenodo_pretrained_ast_embedding_model]: 
 [google_sourcesep_repo]: https://github.com/google-research/sound-separation/tree/master/datasets/yfcc100m
 [sdk_installation_instructions]: https://cloud.google.com/sdk/docs/install
 [zenodo_evaluation_dataset]: https://zenodo.org/record/4892545#.YMHH_DYzadY

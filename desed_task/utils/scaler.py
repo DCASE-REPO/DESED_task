@@ -21,8 +21,8 @@ class TorchScaler(torch.nn.Module):
 
     def __init__(self, statistic="dataset", normtype="standard", dims=(1, 2), eps=1e-8):
         super(TorchScaler, self).__init__()
-        assert statistic in ["dataset", "instance"]
-        assert normtype in ["standard", "mean", "minmax"]
+        assert statistic in ["dataset", "instance", None]
+        assert normtype in ["standard", "mean", "minmax", None]
         if statistic == "dataset" and normtype == "minmax":
             raise NotImplementedError(
                 "statistic==dataset and normtype==minmax is not currently implemented."
@@ -89,6 +89,10 @@ class TorchScaler(torch.nn.Module):
         self.register_buffer("mean_squared", mean_squared)
 
     def forward(self, tensor):
+
+        if self.statistic is None or self.normtype is None:
+            return tensor
+
         if self.statistic == "dataset":
             assert hasattr(self, "mean") and hasattr(
                 self, "mean_squared"

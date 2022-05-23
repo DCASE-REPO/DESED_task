@@ -155,13 +155,13 @@ if __name__ == "__main__":
         )
         basedir_missing_files = "missing_files"
         desed.utils.create_folder(basedir_missing_files)
-    
+
         strong_label_metadata_path = os.path.join(dcase_dataset_folder, "metadata", "train", "audioset_strong.tsv")
         sl_path = Path(strong_label_metadata_path)
         if not sl_path.is_file():
             desed.utils.download_file_from_url(url_strong, strong_label_metadata_path)
             print(f"File saved in {strong_label_metadata_path}")
-            
+
             print("Downloading strong-label Audioset dataset...")
             path_missing_files_audioset = os.path.join(
                 basedir_missing_files, "missing_files_" + "strong_label_real" + ".tsv"
@@ -171,7 +171,7 @@ if __name__ == "__main__":
                 os.path.join(dcase_dataset_folder, "audio", "train", "strong_label_real"),
                 missing_files_tsv=path_missing_files_audioset,
             )
-        
+
         else:
             print(f"The file {sl_path} already exists.")
 
