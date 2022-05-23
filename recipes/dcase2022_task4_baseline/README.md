@@ -316,7 +316,7 @@ pretrained:
 
 You can choose **ast** or **panns**. 
 You can choose whether to keep the pre-trained model **freezed** or train it along with the CRNN architecture. 
-In detail if you keep it freezed we already provide the pre-extracted embeddings for you. 
+If you want to keep it freezed, we already provide the pre-extracted embeddings for you. 
 This is useful if you want to train with a big batch size because you won't have to store the rather heavy 
 PANNs or AST models on your GPU. 
 
