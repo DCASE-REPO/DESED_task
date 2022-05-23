@@ -293,7 +293,7 @@ to increase the performance.
 
 In this baseline the frame-level or whole-clip level features are used in a late-fusion fashion 
 with the existing CRNN baseline classifier.
-In detail, see `desed_task/nnet/CRNN.py`: the whole-clip features are concatenated with CNN extracted features in the baseline
+See `desed_task/nnet/CRNN.py` for details. The whole-clip features are concatenated with CNN extracted features in the baseline
 CRNN classifier. 
 
 Regarding he frame-level features, since they have different sequence length w.r.t. CNN features 
