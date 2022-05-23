@@ -368,7 +368,7 @@ frame-level features in `./confs/pretrained.yaml`:
 By default this uses AST with frame-level embeddings. The pre-trained model is freezed and expects the pre-extracted AST 
 embeddings in a local folder `./embeddings` as you can see from the details provided before about the YAML config. 
 Thus you would need to download the AST embeddings from the Zenodo links above, unless you set `freezed: False`. 
-This latter however requires significant GPU memory.
+However, the latter requires significant GPU memory.
 
 Also in this case, we provide a [pre-trained checkpoint][zenodo_pretrained_audioset_models]. The baseline can be tested on the development set of the dataset using the following command:
 
