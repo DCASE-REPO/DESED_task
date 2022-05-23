@@ -329,7 +329,7 @@ https://zenodo.org/record/6539466#.YnvtWmYzbAM (ast synth train, ast synth val,a
 
 https://zenodo.org/record/6518380#.YnvWZGYzbAM (panns, ast weak train, ast devtest)
 
-You can download them and unpack them in your preferred directory. 
+You can download and unpack them in your preferred directory. 
 Do not forget then to set in the configuration
 above `extracted_embeddings_dir: YOUR_PATH`. 
 The script expects a folder structure like this:
