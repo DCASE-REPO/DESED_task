@@ -288,15 +288,15 @@ The results are computed from the **student** predictions.
 All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
 
 ## **(NEW)** baseline using pre-trained embeddings from models (SEC/Tagging) trained on Audioset
-We added a new baseline which exploits pre-trained models such as [PANNs](https://arxiv.org/abs/1912.10211) and [AST](https://arxiv.org/abs/2104.01778). 
+We added a new baseline which exploits pre-trained models such as [PANNs](https://arxiv.org/abs/1912.10211) and [AST](https://arxiv.org/abs/2104.01778) to increase the performance.
 to increase the performance.
 
 In this baseline the frame-level or whole-clip level features are used in a late-fusion fashion 
 with the existing CRNN baseline classifier.
-In detail, see `desed_task/nnet/CRNN.py`: the whole-clip features are concatenated with CNN extracted features in the baseline
+See `desed_task/nnet/CRNN.py` for details. The whole-clip features are concatenated with CNN extracted features in the baseline
 CRNN classifier. 
 
-For the frame-level features instead, since they have different sequence length w.r.t. CNN features 
+Regarding he frame-level features, since they have different sequence length w.r.t. CNN features 
 we use a trainable RNN-based encoder to encode those to a fixed dim output (obtaining again a whole-clip level embedding).
 This embedding is then concatenated in the same way as the whole-clip features.
 
@@ -316,7 +316,7 @@ pretrained:
 
 You can choose **ast** or **panns**. 
 You can choose whether to keep the pre-trained model **freezed** or train it along with the CRNN architecture. 
-In detail if you keep it freezed we already provide the pre-extracted embeddings for you. 
+If you want to keep it freezed, we already provide the pre-extracted embeddings for you. 
 This is useful if you want to train with a big batch size because you won't have to store the rather heavy 
 PANNs or AST models on your GPU. 
 
@@ -329,7 +329,7 @@ https://zenodo.org/record/6539466#.YnvtWmYzbAM (ast synth train, ast synth val,a
 
 https://zenodo.org/record/6518380#.YnvWZGYzbAM (panns, ast weak train, ast devtest)
 
-You can download them and unpack them in your preferred directory. 
+You can download and unpack them in your preferred directory. 
 Do not forget then to set in the configuration
 above `extracted_embeddings_dir: YOUR_PATH`. 
 The script expects a folder structure like this:
@@ -368,7 +368,7 @@ frame-level features in `./confs/pretrained.yaml`:
 By default this uses AST with frame-level embeddings. The pre-trained model is freezed and expects the pre-extracted AST 
 embeddings in a local folder `./embeddings` as you can see from the details provided before about the YAML config. 
 Thus you would need to download the AST embeddings from the Zenodo links above, unless you set `freezed: False`. 
-This latter however requires significant GPU memory.
+However, the latter requires significant GPU memory.
 
 Also in this case, we provide a [pre-trained checkpoint][zenodo_pretrained_audioset_models]. The baseline can be tested on the development set of the dataset using the following command:
 
