@@ -296,7 +296,7 @@ with the existing CRNN baseline classifier.
 In detail, see `desed_task/nnet/CRNN.py`: the whole-clip features are concatenated with CNN extracted features in the baseline
 CRNN classifier. 
 
-For the frame-level features instead, since they have different sequence length w.r.t. CNN features 
+Regarding he frame-level features, since they have different sequence length w.r.t. CNN features 
 we use a trainable RNN-based encoder to encode those to a fixed dim output (obtaining again a whole-clip level embedding).
 This embedding is then concatenated in the same way as the whole-clip features.
 
