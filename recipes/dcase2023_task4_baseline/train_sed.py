@@ -110,6 +110,7 @@ def single_run(
 
     test_dataset = devtest_dataset
 
+
     ##### model definition  ############
     sed_student = CRNN(**config["net"]) 
 
@@ -328,7 +329,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--gpus",
-        default="0",
+        default="1",
         help="The number of GPUs to train on, or the gpu to use, default='0', "
         "so uses one GPU",
     )
