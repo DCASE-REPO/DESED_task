@@ -1,4 +1,4 @@
-### DCASE2022 Task 4 Baseline for Sound Event Detection in Domestic Environments.
+### DCASE2023 Task 4 Baseline for Sound Event Detection in Domestic Environments (Subtask A).
 
 ---
 
