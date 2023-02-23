@@ -17,7 +17,6 @@ it probably means you have to install ffmpeg on your machine.
 
 A possible installation: `sudo apt install ffmpeg`
 
-
  **Training**
 
 If training appears too slow, check with `top` and with `nvidia-smi` that you 
@@ -53,10 +52,7 @@ If the user already has downloaded part of the dataset, it does not need to re-d
 
  `python generate_dcase_task4_2022.py --only_synth`
 
-
-Once the dataset is downloaded, the user should find the folder **missing_files**, containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task
-organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
-
+Once the dataset is downloaded, the user should find the folder **missing_files**, containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
 
 ### Development dataset
 
@@ -105,10 +101,9 @@ For example: Y-BJNMHMZDcU_50.000_60.000.wav Alarm_bell_ringing,Dog
 This set contains **14412** clips. The clips are selected such that the distribution per class (based on Audioset annotations) is close to the distribution in the labeled set. However, given the uncertainty on Audioset labels, this distribution might not be exactly similar.
 
 
-
 The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed]. 
 
-For more information regarding the dataset, please refer to the [previous year DCASE Challenge website][dcase_21_dataset]. 
+For more information regarding the dataset, please refer to the [previous year DCASE Challenge website][dcase_22_dataset]. 
 
 
 
@@ -117,8 +112,6 @@ We provide **three** baselines for the task:
 - SED baseline
 - baseline using pre-trained embedding extractor DNN. 
 - baseline using Audioset data (real-world strong-label data)
-
-For now, only the SED baseline is available (the missing baseline will be published soon).
 
 ### How to run the Baseline systems
 The **SED baseline** can be run from scratch using the following command:
@@ -158,21 +151,19 @@ The tensorboard logs can be tested using the command `tensorboard --logdir="path
 
 ## **(NEW!)** Energy Consumption
 
-In this year DCASE Task 4 Challenge, we also use energy consumption (kWh)
-via [CodeCarbon](https://github.com/mlco2/codecarbon) as an additional metric to rank the submitted systems.
+From this year DCASE Task 4 Challenge, the energy consumption (kWh) would be considered an additional metric to rank the submitted systems.
 
-We encourage the participants to provide, for each submitted system (or at least the best one), the following energy consumption figures in kWh using [CodeCarbon](https://github.com/mlco2/codecarbon):
+Participants need to provide, for each submitted system (or at least the best one), the following energy consumption figures in kWh using [CodeCarbon](https://github.com/mlco2/codecarbon):
 
 1) whole system training
 2) devtest inference
 3) evaluation set inference
 
 You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to do this (super simple! 😉 )
-or to this baseline code see `local/sed_trained.py` for some hints on 
-how we are doing this for the baseline system.
+or to this baseline code see `local/sed_trained.py` for some hints on how we are doing this for the baseline system.
 
 
-**Important** 
+**Important!!** 
 
 In addition to this, we kindly suggest the participants to
 provide the energy consumption in kWh (using the same hardware used for 2) and 3)) of:
@@ -240,7 +231,7 @@ It uses very few batches and epochs so it won't give any meaningful result.
 
 **Architecture**
 
-The baseline is the same as the [DCASE 2021 Task 4 baseline][dcase_21_repo], based on a Mean-Teacher model [1].
+The baseline is the same as the [DCASE 2022 Task 4 baseline][dcase_21_repo], based on a Mean-Teacher model [1].
 
 
 The baseline uses a Mean-Teacher model which is a combination of two models: a student model and a
@@ -287,16 +278,16 @@ The results are computed from the **student** predictions.
 
 All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
 
-## **(NEW)** baseline using pre-trained embeddings from models (SEC/Tagging) trained on Audioset
-We added a new baseline which exploits pre-trained models such as [PANNs](https://arxiv.org/abs/1912.10211) and [AST](https://arxiv.org/abs/2104.01778) to increase the performance.
-to increase the performance.
+## Baseline using pre-trained embeddings from models (SEC/Tagging) trained on Audioset
+Last year we added a second baseline which exploits pre-trained models such as [PANNs](https://arxiv.org/abs/1912.10211) and [AST](https://arxiv.org/abs/2104.01778) to increase the performance.
+
 
 In this baseline the frame-level or whole-clip level features are used in a late-fusion fashion 
 with the existing CRNN baseline classifier.
 See `desed_task/nnet/CRNN.py` for details. The whole-clip features are concatenated with CNN extracted features in the baseline
 CRNN classifier. 
 
-Regarding he frame-level features, since they have different sequence length w.r.t. CNN features 
+Regarding the frame-level features, since they have different sequence length w.r.t. CNN features 
 we use a trainable RNN-based encoder to encode those to a fixed dim output (obtaining again a whole-clip level embedding).
 This embedding is then concatenated in the same way as the whole-clip features.
 
@@ -312,7 +303,6 @@ pretrained:
   dest: ./pretrained_models/Cnn14_16k_mAP%3D0.438.pth
   extracted_embeddings_dir: ./embeddings
  ```
-
 
 You can choose **ast** or **panns**. 
 You can choose whether to keep the pre-trained model **freezed** or train it along with the CRNN architecture. 
@@ -396,8 +386,6 @@ The results are computed from the **teacher** predictions.
 All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
 
 
-
-
 **Architecture**
 
 The architecture of the SED Audioset baseline is the same as the [SED baseline][sed_baseline]. 
@@ -405,14 +393,14 @@ The architecture of the SED Audioset baseline is the same as the [SED baseline][
 
 [audioset]: https://research.google.com/audioset/
 [dcase22_webpage]: https://dcase.community/challenge2022/task-sound-event-detection-in-domestic-environments
-[dcase_21_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2021_task4_baseline
-[dcase_21_dataset]: https://dcase.community/challenge2021/task-sound-event-detection-and-separation-in-domestic-environments#audio-dataset
+[dcase_22_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2022_task4_baseline
+[dcase_22_dataset]: https://dcase.community/challenge2022/task-sound-event-detection-in-domestic-environments#audio-dataset
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
 [zenodo_pretrained_models]: https://zenodo.org/record/4639817
 [zenodo_pretrained_audioset_models]: https://zenodo.org/record/6447197
-[zenodo_pretrained_ast_embedding_model]: 
+[zenodo_pretrained_ast_embedding_model]: https://zenodo.org/record/6539466
 [google_sourcesep_repo]: https://github.com/google-research/sound-separation/tree/master/datasets/yfcc100m
 [sdk_installation_instructions]: https://cloud.google.com/sdk/docs/install
 [zenodo_evaluation_dataset]: https://zenodo.org/record/4892545#.YMHH_DYzadY
