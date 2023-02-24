@@ -309,7 +309,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--log_dir",
-        default="./exp/2022_baseline",
+        default="./exp/2023_baseline",
         help="Directory where to save tensorboard logs, saved models, etc.",
     )
 

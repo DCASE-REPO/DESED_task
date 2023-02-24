@@ -29,14 +29,14 @@ If you encounter an error install CUDA-enabled pytorch from https://pytorch.org/
 Check again till you can run `torch.rand((1)).cuda()` successfully. 
 
 ## Dataset
-You can download the development dataset using the script: `generate_dcase_task4_2022.py`.
+You can download the development dataset using the script: `generate_dcase_task4_2023.py`.
 The development dataset is composed of two parts:
 - real-world data ([DESED dataset][desed]): this part of the dataset is composed of strong labels, weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
 
 - synthetically generated data: this part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
 
 ### Usage:
-Run the command `python generate_dcase_task4_2022.py --basedir="../../data"` to download the dataset (the user can change basedir to the desired data folder.)
+Run the command `python generate_dcase_task4_2023.py --basedir="../../data"` to download the dataset (the user can change basedir to the desired data folder.)
 
 If the user already has downloaded part of the dataset, it does not need to re-download the whole set. It is possible to download only part of the full dataset, if needed, using the options:
 
@@ -46,11 +46,11 @@ If the user already has downloaded part of the dataset, it does not need to re-d
 
  For example, if the user already has downloaded the real and synthetic part of the set, it can integrate the dataset with the strong labels of the DESED dataset with the following command:
 
- `python generate_dcase_task4_2022.py --only_strong` 
+ `python generate_dcase_task4_2023.py --only_strong` 
 
  If the user wants to download only the synthetic part of the dataset, it could be done with the following command: 
 
- `python generate_dcase_task4_2022.py --only_synth`
+ `python generate_dcase_task4_2023.py --only_synth`
 
 Once the dataset is downloaded, the user should find the folder **missing_files**, containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
 
@@ -151,7 +151,7 @@ The tensorboard logs can be tested using the command `tensorboard --logdir="path
 
 ## Energy Consumption
 
-From this year DCASE Task 4 Challenge, the energy consumption (kWh) is going to be considered as additional metric to rank the submitted systems, therefore it is mandatory to report the energy consumption of the submitted models.
+From this year, the energy consumption (kWh) is going to be considered as additional metric to rank the submitted systems, therefore it is mandatory to report the energy consumption of the submitted models.
 
 Participants need to provide, for each submitted system (or at least the best one), the following energy consumption figures in kWh using [CodeCarbon](https://github.com/mlco2/codecarbon):
 
@@ -189,10 +189,10 @@ and baseline are computed on same hardware under similar loading.
 
 ## (New) Multiply–accumulate (MAC) operations. 
 
-This year we are introducing a new metric, complementary to the energy consumption metric introduced last year. 
+This year we are introducing a new metric, complementary to the energy consumption metric. 
 We are considering the Multiply–accumulate operations (MACs) for 10 seconds of audio prediction, so to have information regarding the computational complexity of the network in terms of multiply-accumulate (MAC) operations.
 
-We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as framework to compute the number of multiply-accumulate operations. For more information regarding how to install and use THOP, the reader is referred to [9]. 
+We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as framework to compute the number of multiply-accumulate operations (MACs). For more information regarding how to install and use THOP, the reader is referred to [9]. 
 
 ## Results:
 
