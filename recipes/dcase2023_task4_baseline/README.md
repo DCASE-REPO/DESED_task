@@ -149,9 +149,9 @@ Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] a
 The tensorboard logs can be tested using the command `tensorboard --logdir="path/to/exp_folder"`. 
 
 
-## **(NEW!)** Energy Consumption
+## Energy Consumption
 
-From this year DCASE Task 4 Challenge, the energy consumption (kWh) would be considered an additional metric to rank the submitted systems.
+From this year DCASE Task 4 Challenge, the energy consumption (kWh) is going to be considered as additional metric to rank the submitted systems, therefore it is mandatory to report the energy consumption of the submitted models.
 
 Participants need to provide, for each submitted system (or at least the best one), the following energy consumption figures in kWh using [CodeCarbon](https://github.com/mlco2/codecarbon):
 
@@ -187,8 +187,14 @@ as a common reference. Because of this, it is important that the
 inference energy consumption figures for both submitted system 
 and baseline are computed on same hardware under similar loading. 
 
+## (New) Multiply–accumulate (MAC) operations. 
 
-#### Results:
+This year we are introducing a new metric, complementary to the energy consumption metric introduced last year. 
+We are considering the Multiply–accumulate operations (MACs) for 10 seconds of audio prediction, so to have information regarding the computational complexity of the network in terms of multiply-accumulate (MAC) operations.
+
+We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as framework to compute the number of multiply-accumulate operations. For more information regarding how to install and use THOP, the reader is referred to [9]. 
+
+## Results:
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1* 
 --------|--------------------|--------------------|-------------------------|-----------------
@@ -200,7 +206,7 @@ Dataset | Training  | Dev-Test |
 --------|-----------|--------------------
 **kWh** | **1.717** | **0.030**           
 
-
+**Total number of multiply–accumulate operation (MACs):** 44.683 G
 
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
@@ -406,6 +412,8 @@ The architecture of the SED Audioset baseline is the same as the [SED baseline][
 [zenodo_evaluation_dataset]: https://zenodo.org/record/4892545#.YMHH_DYzadY
 [scaper]: https://github.com/justinsalamon/scaper
 [sed_baseline]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2022_task4_baseline#sed-baseline
+[THOP: PyTorch-OpCounter]: https://github.com/Lyken17/pytorch-OpCounter
+
 #### References
 [1] L. Delphin-Poulat & C. Plapous, technical report, dcase 2019.
 
@@ -422,4 +430,6 @@ The architecture of the SED Audioset baseline is the same as the [SED baseline][
 [7] Ronchini, Francesca, et al. "The impact of non-target events in synthetic soundscapes for sound event detection." arXiv preprint arXiv:2109.14061 (DCASE2021)
 
 [8] Ronchini, Francesca, et al. "A benchmark of state-of-the-art sound event detection systems evaluated on synthetic soundscapes." arXiv preprint arXiv:2202.01487 
+
+[9] https://github.com/Lyken17/pytorch-OpCounter
 

@@ -254,10 +254,10 @@ def single_run(
     if fast_dev_run:
         flush_logs_every_n_steps = 1
         log_every_n_steps = 1
-        limit_train_batches = 1
-        limit_val_batches = 1
-        limit_test_batches = 1
-        n_epochs = 1 # defalut value = 3
+        limit_train_batches = 2
+        limit_val_batches = 2
+        limit_test_batches = 2
+        n_epochs = 3 
     else:
         flush_logs_every_n_steps = 100
         log_every_n_steps = 40
