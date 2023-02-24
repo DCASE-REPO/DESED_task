@@ -10,9 +10,8 @@ setup(
     packages=["desed_task"],
     python_requires=">=3.8",
     install_requires=[
-        "asteroid==0.4.1",
-        "dcase_util==0.2.16",
+        "dcase_util>=0.2.16",
         "psds_eval>=0.4.0",
-        "sed_eval==0.2.1",
+        "sed_eval>=0.2.1",
     ],
 )
