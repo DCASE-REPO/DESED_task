@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import scipy
 import torch
@@ -12,6 +13,7 @@ import soundfile
 import glob
 from thop import profile, clever_format
 
+from sed_scores_eval.utils.scores import create_score_dataframe
 
 
 def batched_decode_preds(
@@ -32,25 +34,39 @@ def batched_decode_preds(
         dict of predictions, each keys is a threshold and the value is the DataFrame of predictions.
     """
     # Init a dataframe per threshold
+    scores_raw = {}
+    scores_postprocessed = {}
     prediction_dfs = {}
     for threshold in thresholds:
         prediction_dfs[threshold] = pd.DataFrame()
 
     for j in range(strong_preds.shape[0]):  # over batches
+        audio_id = Path(filenames[j]).stem
+        filename = audio_id + ".wav"
+        c_scores = strong_preds[j]
+        if pad_indx is not None:
+            true_len = int(c_scores.shape[-1] * pad_indx[j].item())
+            c_scores = c_scores[:true_len]
+        c_scores = c_scores.transpose(0, 1).detach().cpu().numpy()
+        scores_raw[audio_id] = create_score_dataframe(
+            scores=c_scores,
+            timestamps=encoder._frame_to_time(np.arange(len(c_scores)+1)),
+            event_classes=encoder.labels,
+        )
+        c_scores = scipy.ndimage.filters.median_filter(c_scores, (median_filter, 1))
+        scores_postprocessed[audio_id] = create_score_dataframe(
+            scores=c_scores,
+            timestamps=encoder._frame_to_time(np.arange(len(c_scores)+1)),
+            event_classes=encoder.labels,
+        )
         for c_th in thresholds:
-            c_preds = strong_preds[j]
-            if pad_indx is not None:
-                true_len = int(c_preds.shape[-1] * pad_indx[j].item())
-                c_preds = c_preds[:true_len]
-            pred = c_preds.transpose(0, 1).detach().cpu().numpy()
-            pred = pred > c_th
-            pred = scipy.ndimage.filters.median_filter(pred, (median_filter, 1))
+            pred = c_scores > c_th
             pred = encoder.decode_strong(pred)
             pred = pd.DataFrame(pred, columns=["event_label", "onset", "offset"])
-            pred["filename"] = Path(filenames[j]).stem + ".wav"
+            pred["filename"] = filename
             prediction_dfs[c_th] = prediction_dfs[c_th].append(pred, ignore_index=True)
 
-    return prediction_dfs
+    return scores_raw, scores_postprocessed, prediction_dfs
 
 
 def convert_to_event_based(weak_dataframe):
@@ -185,6 +201,7 @@ def generate_tsv_wav_durations(audio_dir, out_tsv):
         meta_df.to_csv(out_tsv, sep="\t", index=False, float_format="%.1f")
 
     return meta_df
+
 
 def calculate_macs(model, config):
     """

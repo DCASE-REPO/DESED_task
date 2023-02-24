@@ -5,6 +5,7 @@ import pandas as pd
 import psds_eval
 import sed_eval
 from psds_eval import PSDSEval, plot_psd_roc
+import sed_scores_eval
 
 
 def get_event_list_current_file(df, fname):
@@ -243,9 +244,51 @@ def compute_psds_from_operating_points(
                 index=False,
             )
 
+        filename = (
+            f"PSDS_dtc{dtc_threshold}_gtc{gtc_threshold}_cttc{cttc_threshold}"
+            f"_ct{alpha_ct}_st{alpha_st}_max{max_efpr}_psds_eval.png"
+        )
         plot_psd_roc(
             psds_score,
-            filename=os.path.join(save_dir, f"PSDS_ct{alpha_ct}_st{alpha_st}_100.png"),
+            filename=os.path.join(save_dir, filename),
         )
 
     return psds_score.value
+
+
+def compute_psds_from_scores(
+    scores,
+    ground_truth_file,
+    durations_file,
+    dtc_threshold=0.5,
+    gtc_threshold=0.5,
+    cttc_threshold=0.3,
+    alpha_ct=0,
+    alpha_st=0,
+    max_efpr=100,
+    num_jobs=4,
+    save_dir=None,
+):
+    psds, psd_roc, single_class_rocs, *_ = sed_scores_eval.intersection_based.psds(
+        scores=scores, ground_truth=ground_truth_file,
+        audio_durations=durations_file,
+        dtc_threshold=dtc_threshold, gtc_threshold=gtc_threshold,
+        cttc_threshold=cttc_threshold, alpha_ct=alpha_ct, alpha_st=alpha_st,
+        max_efpr=max_efpr, num_jobs=num_jobs,
+    )
+    if save_dir is not None:
+        scores_dir = os.path.join(save_dir, "scores")
+        sed_scores_eval.io.write_sed_scores(scores, scores_dir)
+        filename = (
+            f"PSDS_dtc{dtc_threshold}_gtc{gtc_threshold}_cttc{cttc_threshold}"
+            f"_ct{alpha_ct}_st{alpha_st}_max{max_efpr}_sed_scores_eval.png"
+        )
+        sed_scores_eval.utils.visualization.plot_psd_roc(
+            psd_roc,
+            filename=os.path.join(save_dir, filename),
+            dtc_threshold=dtc_threshold, gtc_threshold=gtc_threshold,
+            cttc_threshold=cttc_threshold, alpha_ct=alpha_ct,
+            alpha_st=alpha_st, unit_of_time='hour',  max_efpr=max_efpr,
+            psds=psds,
+        )
+    return psds

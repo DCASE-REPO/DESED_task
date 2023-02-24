@@ -13,5 +13,6 @@ setup(
         "dcase_util>=0.2.16",
         "psds_eval>=0.4.0",
         "sed_eval>=0.2.1",
+        "sed_scores_eval>=0.0.0",
     ],
 )

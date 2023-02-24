@@ -20,9 +20,11 @@ from .utils import (
 from desed_task.evaluation.evaluation_measures import (
     compute_per_intersection_macro_f1,
     compute_psds_from_operating_points,
+    compute_psds_from_scores
 )
 
 from codecarbon import EmissionsTracker
+import sed_scores_eval
 
 
 class SEDTask4(pl.LightningModule):
@@ -59,12 +61,6 @@ class SEDTask4(pl.LightningModule):
     ):
         super(SEDTask4, self).__init__()
         self.hparams.update(hparams)
-
-        try:
-            log_dir = self.logger.log_dir
-        except Exception as e:
-            log_dir = self.hparams["log_dir"]
-        self.exp_dir = log_dir
 
         self.encoder = encoder
         self.sed_student = sed_student
@@ -141,6 +137,8 @@ class SEDTask4(pl.LightningModule):
         self.val_buffer_teacher_test = {
             k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
         }
+        self.val_scores_postprocessed_buffer_student_synth = {}
+        self.val_scores_postprocessed_buffer_teacher_synth = {}
 
         test_n_thresholds = self.hparams["training"]["n_test_thresholds"]
         test_thresholds = np.arange(
@@ -150,7 +148,21 @@ class SEDTask4(pl.LightningModule):
         self.test_psds_buffer_teacher = {k: pd.DataFrame() for k in test_thresholds}
         self.decoded_student_05_buffer = pd.DataFrame()
         self.decoded_teacher_05_buffer = pd.DataFrame()
+        self.test_scores_raw_buffer_student = {}
+        self.test_scores_raw_buffer_teacher = {}
+        self.test_scores_postprocessed_buffer_student = {}
+        self.test_scores_postprocessed_buffer_teacher = {}
 
+    _exp_dir = None
+
+    @property
+    def exp_dir(self):
+        if self._exp_dir is None:
+            try:
+                self._exp_dir = self.logger.log_dir
+            except Exception as e:
+                self._exp_dir = self.hparams["log_dir"]
+        return self._exp_dir
 
     def on_train_start(self) -> None:
 
@@ -159,8 +171,6 @@ class SEDTask4(pl.LightningModule):
                                         output_dir=os.path.join(self.exp_dir,
                                                                 "training_codecarbon"))
         self.tracker_train.start()
-
-
 
     def update_ema(self, alpha, global_step, model, ema_model):
         """ Update teacher model parameters
@@ -421,7 +431,10 @@ class SEDTask4(pl.LightningModule):
                 if Path(x).parent == Path(self.hparams["data"]["synth_val_folder"])
             ]
 
-            decoded_student_strong = batched_decode_preds(
+            (
+                scores_raw_student_strong, scores_postprocessed_student_strong,
+                decoded_student_strong,
+            ) = batched_decode_preds(
                 strong_preds_student[mask_synth],
                 filenames_synth,
                 self.encoder,
@@ -429,17 +442,27 @@ class SEDTask4(pl.LightningModule):
                 thresholds=list(self.val_buffer_student_synth.keys()),
             )
 
+            self.val_scores_postprocessed_buffer_student_synth.update(
+                scores_postprocessed_student_strong
+            )
             for th in self.val_buffer_student_synth.keys():
                 self.val_buffer_student_synth[th] = self.val_buffer_student_synth[
                     th
                 ].append(decoded_student_strong[th], ignore_index=True)
 
-            decoded_teacher_strong = batched_decode_preds(
+            (
+                scores_raw_teacher_strong, scores_postprocessed_teacher_strong,
+                decoded_teacher_strong,
+            ) = batched_decode_preds(
                 strong_preds_teacher[mask_synth],
                 filenames_synth,
                 self.encoder,
                 median_filter=self.hparams["training"]["median_window"],
                 thresholds=list(self.val_buffer_teacher_synth.keys()),
+            )
+
+            self.val_scores_postprocessed_buffer_teacher_synth.update(
+                scores_postprocessed_teacher_strong
             )
             for th in self.val_buffer_teacher_synth.keys():
                 self.val_buffer_teacher_synth[th] = self.val_buffer_teacher_synth[
@@ -462,16 +485,80 @@ class SEDTask4(pl.LightningModule):
         weak_teacher_f1_macro = self.get_weak_teacher_f1_seg_macro.compute()
 
         # synth dataset
+        ground_truth = sed_scores_eval.io.read_ground_truth_events(self.hparams["data"]["synth_val_tsv"])
+        audio_durations = sed_scores_eval.io.read_audio_durations(self.hparams["data"]["synth_val_dur"])
+        if self.fast_dev_run:
+            ground_truth = {
+                audio_id: ground_truth[audio_id]
+                for audio_id in self.val_scores_postprocessed_buffer_student_synth
+            }
+            audio_durations = {
+                audio_id: audio_durations[audio_id]
+                for audio_id in self.val_scores_postprocessed_buffer_student_synth
+            }
+        else:
+            # drop audios without events
+            ground_truth = {
+                audio_id: gt for audio_id, gt in ground_truth.items()
+                if len(gt) > 0
+            }
+            audio_durations = {
+                audio_id: audio_durations[audio_id]
+                for audio_id in ground_truth.keys()
+            }
+        psds1_student_sed_scores_eval = compute_psds_from_scores(
+            self.val_scores_postprocessed_buffer_student_synth,
+            ground_truth,
+            audio_durations,
+            dtc_threshold=0.7,
+            gtc_threshold=0.7,
+            cttc_threshold=None,
+            alpha_ct=0,
+            alpha_st=1,
+            # save_dir=os.path.join(save_dir, "student", "scenario1"),
+        )
+        # psds2_student_sed_scores_eval = compute_psds_from_scores(
+        #     self.val_scores_postprocessed_buffer_student_synth,
+        #     ground_truth,
+        #     audio_durations,
+        #     dtc_threshold=0.1,
+        #     gtc_threshold=0.1,
+        #     cttc_threshold=0.3,
+        #     alpha_ct=0.5,
+        #     alpha_st=1,
+        #     # save_dir=os.path.join(save_dir, "student", "scenario1"),
+        # )
         intersection_f1_macro_student = compute_per_intersection_macro_f1(
             self.val_buffer_student_synth,
             self.hparams["data"]["synth_val_tsv"],
             self.hparams["data"]["synth_val_dur"],
         )
-
         synth_student_event_macro = log_sedeval_metrics(
             self.val_buffer_student_synth[0.5], self.hparams["data"]["synth_val_tsv"],
         )[0]
 
+        # psds1_teacher_sed_scores_eval = compute_psds_from_scores(
+        #     self.val_scores_postprocessed_buffer_teacher_synth,
+        #     ground_truth,
+        #     audio_durations,
+        #     dtc_threshold=0.7,
+        #     gtc_threshold=0.7,
+        #     cttc_threshold=None,
+        #     alpha_ct=0,
+        #     alpha_st=1,
+        #     # save_dir=os.path.join(save_dir, "student", "scenario1"),
+        # )
+        # psds2_teacher_sed_scores_eval = compute_psds_from_scores(
+        #     self.val_scores_postprocessed_buffer_teacher_synth,
+        #     ground_truth,
+        #     audio_durations,
+        #     dtc_threshold=0.1,
+        #     gtc_threshold=0.1,
+        #     cttc_threshold=0.3,
+        #     alpha_ct=0.5,
+        #     alpha_st=1,
+        #     # save_dir=os.path.join(save_dir, "student", "scenario1"),
+        # )
         intersection_f1_macro_teacher = compute_per_intersection_macro_f1(
             self.val_buffer_teacher_synth,
             self.hparams["data"]["synth_val_tsv"],
@@ -484,11 +571,13 @@ class SEDTask4(pl.LightningModule):
 
         obj_metric_synth_type = self.hparams["training"].get("obj_metric_synth_type")
         if obj_metric_synth_type is None:
-            synth_metric = intersection_f1_macro_student
+            synth_metric = psds1_student_sed_scores_eval
         elif obj_metric_synth_type == "event":
             synth_metric = synth_student_event_macro
         elif obj_metric_synth_type == "intersection":
             synth_metric = intersection_f1_macro_student
+        elif obj_metric_synth_type == "psds":
+            synth_metric = psds1_student_sed_scores_eval
         else:
             raise NotImplementedError(
                 f"obj_metric_synth_type: {obj_metric_synth_type} not implemented."
@@ -499,6 +588,7 @@ class SEDTask4(pl.LightningModule):
         self.log("val/obj_metric", obj_metric, prog_bar=True)
         self.log("val/weak/student/macro_F1", weak_student_f1_macro)
         self.log("val/weak/teacher/macro_F1", weak_teacher_f1_macro)
+        self.log("val/synth/student/psds1_sed_scores_eval", psds1_student_sed_scores_eval)
         self.log(
             "val/synth/student/intersection_f1_macro", intersection_f1_macro_student
         )
@@ -515,6 +605,8 @@ class SEDTask4(pl.LightningModule):
         self.val_buffer_teacher_synth = {
             k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
         }
+        self.val_scores_postprocessed_buffer_student_synth = {}
+        self.val_scores_postprocessed_buffer_teacher_synth = {}
 
         self.get_weak_student_f1_seg_macro.reset()
         self.get_weak_teacher_f1_seg_macro.reset()
@@ -551,52 +643,49 @@ class SEDTask4(pl.LightningModule):
             self.log("test/teacher/loss_strong", loss_strong_teacher)
 
         # compute psds
-        decoded_student_strong = batched_decode_preds(
+        (
+            scores_raw_student_strong, scores_postprocessed_student_strong,
+            decoded_student_strong,
+        ) = batched_decode_preds(
             strong_preds_student,
             filenames,
             self.encoder,
             median_filter=self.hparams["training"]["median_window"],
-            thresholds=list(self.test_psds_buffer_student.keys()),
+            thresholds=list(self.test_psds_buffer_student.keys()) + [.5],
         )
 
+        self.test_scores_raw_buffer_student.update(scores_raw_student_strong)
+        self.test_scores_postprocessed_buffer_student.update(
+            scores_postprocessed_student_strong
+        )
         for th in self.test_psds_buffer_student.keys():
             self.test_psds_buffer_student[th] = self.test_psds_buffer_student[
                 th
             ].append(decoded_student_strong[th], ignore_index=True)
 
-        decoded_teacher_strong = batched_decode_preds(
+        (
+            scores_raw_teacher_strong, scores_postprocessed_teacher_strong,
+            decoded_teacher_strong,
+        ) = batched_decode_preds(
             strong_preds_teacher,
             filenames,
             self.encoder,
             median_filter=self.hparams["training"]["median_window"],
-            thresholds=list(self.test_psds_buffer_teacher.keys()),
+            thresholds=list(self.test_psds_buffer_teacher.keys()) + [.5],
         )
 
+        self.test_scores_raw_buffer_teacher.update(scores_raw_teacher_strong)
+        self.test_scores_postprocessed_buffer_teacher.update(
+            scores_postprocessed_teacher_strong
+        )
         for th in self.test_psds_buffer_teacher.keys():
             self.test_psds_buffer_teacher[th] = self.test_psds_buffer_teacher[
                 th
             ].append(decoded_teacher_strong[th], ignore_index=True)
 
-        
         # compute f1 score
-        decoded_student_strong = batched_decode_preds(
-            strong_preds_student,
-            filenames,
-            self.encoder,
-            median_filter=self.hparams["training"]["median_window"],
-            thresholds=[0.5],
-        )
-
         self.decoded_student_05_buffer = self.decoded_student_05_buffer.append(
             decoded_student_strong[0.5]
-        )
-
-        decoded_teacher_strong = batched_decode_preds(
-            strong_preds_teacher,
-            filenames,
-            self.encoder,
-            median_filter=self.hparams["training"]["median_window"],
-            thresholds=[0.5],
         )
 
         self.decoded_teacher_05_buffer = self.decoded_teacher_05_buffer.append(
@@ -606,45 +695,54 @@ class SEDTask4(pl.LightningModule):
     def on_test_epoch_end(self):
         # pub eval dataset
         save_dir = os.path.join(self.exp_dir, "metrics_test")
-        
+
         if self.evaluation:
-            # only save the predictions
-            save_dir_student = os.path.join(save_dir, "student")
-            os.makedirs(save_dir_student, exist_ok=True)
-            self.decoded_student_05_buffer.to_csv(
-                os.path.join(save_dir_student, f"predictions_05_student.tsv"),
-                sep="\t",
-                index=False
-            )
+            # only save prediction scores
+            save_dir_student_raw = os.path.join(save_dir, "student_scores", "raw")
+            sed_scores_eval.io.write_sed_scores(self.test_scores_raw_buffer_student, save_dir_student_raw)
+            print(f"\nRaw scores for student saved in: {save_dir_student_raw}")
 
-            for k in self.test_psds_buffer_student.keys():
-                self.test_psds_buffer_student[k].to_csv(
-                    os.path.join(save_dir_student, f"predictions_th_{k:.2f}.tsv"),
-                    sep="\t",
-                    index=False,
-                )
-            print(f"\nPredictions for student saved in: {save_dir_student}")
-            
-            save_dir_teacher = os.path.join(save_dir, "teacher")
-            os.makedirs(save_dir_teacher, exist_ok=True)
-           
-            self.decoded_teacher_05_buffer.to_csv(
-                os.path.join(save_dir_teacher, f"predictions_05_teacher.tsv"),
-                sep="\t",
-                index=False
-            )
+            save_dir_student_postprocessed = os.path.join(save_dir, "student_scores", "postprocessed")
+            sed_scores_eval.io.write_sed_scores(self.test_scores_postprocessed_buffer_student, save_dir_student_postprocessed)
+            print(f"\nPostprocessed scores for student saved in: {save_dir_student_postprocessed}")
 
-            for k in self.test_psds_buffer_student.keys():
-                self.test_psds_buffer_student[k].to_csv(
-                    os.path.join(save_dir_teacher, f"predictions_th_{k:.2f}.tsv"),
-                    sep="\t",
-                    index=False,
-                )
-            print(f"\nPredictions for teacher saved in: {save_dir_teacher}")
+            save_dir_teacher_raw = os.path.join(save_dir, "teacher_scores", "raw")
+            sed_scores_eval.io.write_sed_scores(self.test_scores_raw_buffer_teacher, save_dir_teacher_raw)
+            print(f"\nRaw scores for teacher saved in: {save_dir_teacher_raw}")
 
+            save_dir_teacher_postprocessed = os.path.join(save_dir, "teacher_scores", "postprocessed")
+            sed_scores_eval.io.write_sed_scores(self.test_scores_postprocessed_buffer_teacher, save_dir_teacher_postprocessed)
+            print(f"\nPostprocessed scores for teacher saved in: {save_dir_teacher_postprocessed}")
+
+            self.tracker_eval.stop()
+            eval_kwh = self.tracker_eval._total_energy.kwh
+            results = {"/eval/tot_energy_kWh": torch.tensor(float(eval_kwh))}
+            with open(os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
+                f.write(str(eval_kwh))
         else:
             # calculate the metrics
-            psds_score_scenario1 = compute_psds_from_operating_points(
+            ground_truth = sed_scores_eval.io.read_ground_truth_events(self.hparams["data"]["test_tsv"])
+            audio_durations = sed_scores_eval.io.read_audio_durations(self.hparams["data"]["test_dur"])
+            if self.fast_dev_run:
+                ground_truth = {
+                    audio_id: ground_truth[audio_id]
+                    for audio_id in self.test_scores_postprocessed_buffer_student
+                }
+                audio_durations = {
+                    audio_id: audio_durations[audio_id]
+                    for audio_id in self.test_scores_postprocessed_buffer_student
+                }
+            else:
+                # drop audios without events
+                ground_truth = {
+                    audio_id: gt for audio_id, gt in ground_truth.items()
+                    if len(gt) > 0
+                }
+                audio_durations = {
+                    audio_id: audio_durations[audio_id]
+                    for audio_id in ground_truth.keys()
+                }
+            psds1_student_psds_eval = compute_psds_from_operating_points(
                 self.test_psds_buffer_student,
                 self.hparams["data"]["test_tsv"],
                 self.hparams["data"]["test_dur"],
@@ -654,8 +752,19 @@ class SEDTask4(pl.LightningModule):
                 alpha_st=1,
                 save_dir=os.path.join(save_dir, "student", "scenario1"),
             )
+            psds1_student_sed_scores_eval = compute_psds_from_scores(
+                self.test_scores_postprocessed_buffer_student,
+                ground_truth,
+                audio_durations,
+                dtc_threshold=0.7,
+                gtc_threshold=0.7,
+                cttc_threshold=None,
+                alpha_ct=0,
+                alpha_st=1,
+                save_dir=os.path.join(save_dir, "student", "scenario1"),
+            )
 
-            psds_score_scenario2 = compute_psds_from_operating_points(
+            psds2_student_psds_eval = compute_psds_from_operating_points(
                 self.test_psds_buffer_student,
                 self.hparams["data"]["test_tsv"],
                 self.hparams["data"]["test_dur"],
@@ -666,8 +775,19 @@ class SEDTask4(pl.LightningModule):
                 alpha_st=1,
                 save_dir=os.path.join(save_dir, "student", "scenario2"),
             )
+            psds2_student_sed_scores_eval = compute_psds_from_scores(
+                self.test_scores_postprocessed_buffer_student,
+                ground_truth,
+                audio_durations,
+                dtc_threshold=0.1,
+                gtc_threshold=0.1,
+                cttc_threshold=0.3,
+                alpha_ct=0.5,
+                alpha_st=1,
+                save_dir=os.path.join(save_dir, "student", "scenario1"),
+            )
 
-            psds_score_teacher_scenario1 = compute_psds_from_operating_points(
+            psds1_teacher_psds_eval = compute_psds_from_operating_points(
                 self.test_psds_buffer_teacher,
                 self.hparams["data"]["test_tsv"],
                 self.hparams["data"]["test_dur"],
@@ -677,11 +797,33 @@ class SEDTask4(pl.LightningModule):
                 alpha_st=1,
                 save_dir=os.path.join(save_dir, "teacher", "scenario1"),
             )
+            psds1_teacher_sed_scores_eval = compute_psds_from_scores(
+                self.test_scores_postprocessed_buffer_teacher,
+                ground_truth,
+                audio_durations,
+                dtc_threshold=0.7,
+                gtc_threshold=0.7,
+                cttc_threshold=None,
+                alpha_ct=0,
+                alpha_st=1,
+                save_dir=os.path.join(save_dir, "teacher", "scenario1"),
+            )
 
-            psds_score_teacher_scenario2 = compute_psds_from_operating_points(
+            psds2_teacher_psds_eval = compute_psds_from_operating_points(
                 self.test_psds_buffer_teacher,
                 self.hparams["data"]["test_tsv"],
                 self.hparams["data"]["test_dur"],
+                dtc_threshold=0.1,
+                gtc_threshold=0.1,
+                cttc_threshold=0.3,
+                alpha_ct=0.5,
+                alpha_st=1,
+                save_dir=os.path.join(save_dir, "teacher", "scenario2"),
+            )
+            psds2_teacher_sed_scores_eval = compute_psds_from_scores(
+                self.test_scores_postprocessed_buffer_student,
+                ground_truth,
+                audio_durations,
                 dtc_threshold=0.1,
                 gtc_threshold=0.1,
                 cttc_threshold=0.3,
@@ -716,39 +858,35 @@ class SEDTask4(pl.LightningModule):
                 self.hparams["data"]["test_dur"],
             )
 
-            best_test_result = torch.tensor(max(psds_score_scenario1, psds_score_scenario2))
+            best_test_result = torch.tensor(max(psds1_student_psds_eval, psds2_student_psds_eval))
 
             results = {
                 "hp_metric": best_test_result,
-                "test/student/psds_score_scenario1": psds_score_scenario1,
-                "test/student/psds_score_scenario2": psds_score_scenario2,
-                "test/teacher/psds_score_scenario1": psds_score_teacher_scenario1,
-                "test/teacher/psds_score_scenario2": psds_score_teacher_scenario2,
+                "test/student/psds1_psds_eval": psds1_student_psds_eval,
+                "test/student/psds1_sed_scores_eval": psds1_student_sed_scores_eval,
+                "test/student/psds2_psds_eval": psds2_student_psds_eval,
+                "test/student/psds2_sed_scores_eval": psds2_student_sed_scores_eval,
+                "test/teacher/psds1_psds_eval": psds1_teacher_psds_eval,
+                "test/teacher/psds1_sed_scores_eval": psds1_teacher_sed_scores_eval,
+                "test/teacher/psds2_psds_eval": psds2_teacher_psds_eval,
+                "test/teacher/psds2_sed_scores_eval": psds2_teacher_sed_scores_eval,
                 "test/student/event_f1_macro": event_macro_student,
                 "test/student/intersection_f1_macro": intersection_f1_macro_student,
                 "test/teacher/event_f1_macro": event_macro_teacher,
                 "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher,
             }
+            self.tracker_devtest.stop()
+            eval_kwh = self.tracker_devtest._total_energy.kwh
+            results.update({"/test/tot_energy_kWh": torch.tensor(float(eval_kwh))})
+            with open(os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"), "w") as f:
+                f.write(str(eval_kwh))
 
-            if self.evaluation:
-                self.tracker_eval.stop()
-                eval_kwh = self.tracker_eval._total_energy.kwh
-                results.update({"/eval/tot_energy_kWh": torch.tensor(float(eval_kwh))})
-                with open(os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
-                    f.write(str(eval_kwh))
-            else:
-                self.tracker_devtest.stop()
-                eval_kwh = self.tracker_devtest._total_energy.kwh
-                results.update({"/test/tot_energy_kWh": torch.tensor(float(eval_kwh))})
-                with open(os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"), "w") as f:
-                    f.write(str(eval_kwh))
+        if self.logger is not None:
+            self.logger.log_metrics(results)
+            self.logger.log_hyperparams(self.hparams, results)
 
-            if self.logger is not None:
-                self.logger.log_metrics(results)
-                self.logger.log_hyperparams(self.hparams, results)
-
-            for key in results.keys():
-                self.log(key, results[key], prog_bar=True, logger=False)
+        for key in results.keys():
+            self.log(key, results[key], prog_bar=True, logger=False)
 
     def configure_optimizers(self):
         return [self.opt], [self.scheduler]
@@ -805,5 +943,3 @@ class SEDTask4(pl.LightningModule):
                                                  output_dir=os.path.join(self.exp_dir,
                                                                          "devtest_codecarbon"))
             self.tracker_devtest.start()
-
-
