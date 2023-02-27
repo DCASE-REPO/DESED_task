@@ -784,7 +784,7 @@ class SEDTask4(pl.LightningModule):
                 cttc_threshold=0.3,
                 alpha_ct=0.5,
                 alpha_st=1,
-                save_dir=os.path.join(save_dir, "student", "scenario1"),
+                save_dir=os.path.join(save_dir, "student", "scenario2"),
             )
 
             psds1_teacher_psds_eval = compute_psds_from_operating_points(
