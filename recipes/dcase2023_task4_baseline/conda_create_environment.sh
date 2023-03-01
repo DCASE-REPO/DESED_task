@@ -1,16 +1,10 @@
-conda create -y -n dcase2022 python==3.8.5
-source activate dcase2022
-
-conda install -y numba
-conda install -y librosa -c conda-forge
-conda install -y ffmpeg -c conda-forge
-conda install -y sox -c conda-forge
-conda install -y pandas h5py scipy
-conda install -y pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch # for gpu install (or cpu in MAC)
-# conda install pytorch-cpu torchvision-cpu -c pytorch (cpu linux)
-conda install -y youtube-dl tqdm -c conda-forge
-
+conda create -y -n dcase2023 python==3.8.5
+conda activate dcase2023
+conda install -y pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
+conda install -y librosa ffmpeg sox pandas numba scipy torchmetrics youtube-dl tqdm pytorch-lightning -c conda-forge
+pip install tensorboard
+pip install h5py
+pip install thop
 pip install codecarbon==1.2.0
 pip install -r ../../requirements.txt
-pip install torchmetrics==0.7.3
 pip install -e ../../.

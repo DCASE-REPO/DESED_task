@@ -2,6 +2,7 @@ import os
 import random
 from copy import deepcopy
 from pathlib import Path
+import warnings
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -109,13 +110,13 @@ class SEDTask4(pl.LightningModule):
             raise NotImplementedError
 
         # for weak labels we simply compute f1 score
-        self.get_weak_student_f1_seg_macro = torchmetrics.classification.f_beta.F1Score(
+        self.get_weak_student_f1_seg_macro = torchmetrics.classification.f_beta.MultilabelF1Score(
             len(self.encoder.labels),
             average="macro",
             compute_on_step=False,
         )
 
-        self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.F1Score(
+        self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.MultilabelF1Score(
             len(self.encoder.labels),
             average="macro",
             compute_on_step=False,
@@ -164,6 +165,9 @@ class SEDTask4(pl.LightningModule):
                 self._exp_dir = self.hparams["log_dir"]
         return self._exp_dir
 
+    def lr_scheduler_step(self, scheduler, optimizer_idx, metric):
+        scheduler.step()
+
     def on_train_start(self) -> None:
 
         os.makedirs(os.path.join(self.exp_dir, "training_codecarbon"), exist_ok=True)
@@ -171,6 +175,16 @@ class SEDTask4(pl.LightningModule):
                                         output_dir=os.path.join(self.exp_dir,
                                                                 "training_codecarbon"))
         self.tracker_train.start()
+
+        # Remove for debugging. Those warnings can be ignored during training otherwise.
+        # to_ignore = []
+        to_ignore = [".*Trying to infer the `batch_size` from an ambiguous collection.*",
+                     ".*invalid value encountered in divide*",
+                     ".*mean of empty slice*",
+                     ".*self.log*"
+                     ]
+        for message in to_ignore:
+            warnings.filterwarnings("ignore", message)
 
     def update_ema(self, alpha, global_step, model, ema_model):
         """ Update teacher model parameters
@@ -446,9 +460,7 @@ class SEDTask4(pl.LightningModule):
                 scores_postprocessed_student_strong
             )
             for th in self.val_buffer_student_synth.keys():
-                self.val_buffer_student_synth[th] = self.val_buffer_student_synth[
-                    th
-                ].append(decoded_student_strong[th], ignore_index=True)
+                self.val_buffer_student_synth[th] = pd.concat([self.val_buffer_student_synth[th], decoded_student_strong[th]], ignore_index=True)
 
             (
                 scores_raw_teacher_strong, scores_postprocessed_teacher_strong,
@@ -465,9 +477,7 @@ class SEDTask4(pl.LightningModule):
                 scores_postprocessed_teacher_strong
             )
             for th in self.val_buffer_teacher_synth.keys():
-                self.val_buffer_teacher_synth[th] = self.val_buffer_teacher_synth[
-                    th
-                ].append(decoded_teacher_strong[th], ignore_index=True)
+                self.val_buffer_teacher_synth[th] = pd.concat([self.val_buffer_teacher_synth[th], decoded_teacher_strong[th]], ignore_index=True)
 
         return
 
@@ -659,9 +669,7 @@ class SEDTask4(pl.LightningModule):
             scores_postprocessed_student_strong
         )
         for th in self.test_psds_buffer_student.keys():
-            self.test_psds_buffer_student[th] = self.test_psds_buffer_student[
-                th
-            ].append(decoded_student_strong[th], ignore_index=True)
+            self.test_psds_buffer_student[th] = pd.concat([self.test_psds_buffer_student[th], decoded_student_strong[th]], ignore_index=True)
 
         (
             scores_raw_teacher_strong, scores_postprocessed_teacher_strong,
@@ -679,18 +687,11 @@ class SEDTask4(pl.LightningModule):
             scores_postprocessed_teacher_strong
         )
         for th in self.test_psds_buffer_teacher.keys():
-            self.test_psds_buffer_teacher[th] = self.test_psds_buffer_teacher[
-                th
-            ].append(decoded_teacher_strong[th], ignore_index=True)
+            self.test_psds_buffer_teacher[th] = pd.concat([self.test_psds_buffer_teacher[th], decoded_teacher_strong[th]], ignore_index=True)
 
         # compute f1 score
-        self.decoded_student_05_buffer = self.decoded_student_05_buffer.append(
-            decoded_student_strong[0.5]
-        )
-
-        self.decoded_teacher_05_buffer = self.decoded_teacher_05_buffer.append(
-            decoded_teacher_strong[0.5]
-        )
+        self.decoded_student_05_buffer = pd.concat([self.decoded_student_05_buffer, decoded_student_strong[0.5]])
+        self.decoded_teacher_05_buffer = pd.concat([self.decoded_teacher_05_buffer, decoded_teacher_strong[0.5]])
 
     def on_test_epoch_end(self):
         # pub eval dataset
