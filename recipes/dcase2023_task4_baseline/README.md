@@ -109,12 +109,12 @@ For more information regarding the dataset, please refer to the [previous year D
 
 ## Training
 We provide **three** baselines for the task:
-- SED baseline
-- baseline using pre-trained embedding extractor DNN. 
+- baseline without external data
 - baseline using Audioset data (real-world strong-label data)
+- baseline using pre-trained embedding extractor DNN.
 
 ### How to run the Baseline systems
-The **SED baseline** can be run from scratch using the following command:
+The **baseline without external data** can be run from scratch using the following command:
 
 `python train_sed.py`
 
@@ -192,9 +192,25 @@ and baseline are computed on same hardware under similar loading.
 This year we are introducing a new metric, complementary to the energy consumption metric. 
 We are considering the Multiply–accumulate operations (MACs) for 10 seconds of audio prediction, so to have information regarding the computational complexity of the network in terms of multiply-accumulate (MAC) operations.
 
-We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as framework to compute the number of multiply-accumulate operations (MACs). For more information regarding how to install and use THOP, the reader is referred to [9]. 
+We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as framework to compute the number of multiply-accumulate operations (MACs). For more information regarding how to install and use THOP, the reader is referred to https://github.com/Lyken17/pytorch-OpCounter. 
 
-## Results:
+
+## (New) [sed_scores_eval][sed_scores_eval] based PSDS evaluation
+
+Recently, [10] has shown that the PSD-ROC [9] may be significantly underestimated if computed from a limited set of thresholds as done with [psds_eval][psds_eval].
+This year we therefore use [sed_scores_eval][sed_scores_eval] for evaluation which computes the PSDS accurately from sound event detection scores.
+Hence, we require participants to submit timestamped scores rather than detected events.
+See https://github.com/fgnt/sed_scores_eval for details.
+
+Note that this year's results can therefore not be directly compared with previous year's results as [sed_scores_eval][sed_scores_eval] does not underestimate the PSDS resulting in higher values (for the baseline ~1%).
+
+## (New) Post-processing-invariant evaluation
+In addition to their post-processed scores submission we kindly ask participants to additionally submit unprocessed scores as provided by the model, which enables us to run post-processing-invariant evaluation.
+
+## (New) Multi-runs evaluation
+Further we kindly ask participants to provide (post-processed and unprocessed) output scores from three independent model trainings with different initialization to be able to evaluate the model performance's standard deviation.
+
+## Baseline Results:
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1* 
 --------|--------------------|--------------------|-------------------------|-----------------
@@ -285,116 +301,7 @@ The results are computed from the **student** predictions.
 All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
 
 ## Baseline using pre-trained embeddings from models (SEC/Tagging) trained on Audioset
-Last year we added a second baseline which exploits pre-trained models such as [PANNs](https://arxiv.org/abs/1912.10211) and [AST](https://arxiv.org/abs/2104.01778) to increase the performance.
-
-
-In this baseline the frame-level or whole-clip level features are used in a late-fusion fashion 
-with the existing CRNN baseline classifier.
-See `desed_task/nnet/CRNN.py` for details. The whole-clip features are concatenated with CNN extracted features in the baseline
-CRNN classifier. 
-
-Regarding the frame-level features, since they have different sequence length w.r.t. CNN features 
-we use a trainable RNN-based encoder to encode those to a fixed dim output (obtaining again a whole-clip level embedding).
-This embedding is then concatenated in the same way as the whole-clip features.
-
-**We provide different ways to integrate such pre-trained models.**
-
-See the configuration file: `./confs/pretrained.yaml`:
-```yaml
-pretrained:
-  model: ast
-  e2e: False
-  freezed: True
-  url: https://zenodo.org/record/3987831/files/Cnn14_16k_mAP%3D0.438.pth?download=1
-  dest: ./pretrained_models/Cnn14_16k_mAP%3D0.438.pth
-  extracted_embeddings_dir: ./embeddings
- ```
-
-You can choose **ast** or **panns**. 
-You can choose whether to keep the pre-trained model **freezed** or train it along with the CRNN architecture. 
-If you want to keep it freezed, we already provide the pre-extracted embeddings for you. 
-This is useful if you want to train with a big batch size because you won't have to store the rather heavy 
-PANNs or AST models on your GPU. 
-
-Here are the links to the pre-extracted embeddings for AST and PANNs: 
-
-
-https://zenodo.org/record/6541454#.YnzHq2YzbDI (unalabeled ast)
-
-https://zenodo.org/record/6539466#.YnvtWmYzbAM (ast synth train, ast synth val,ast weak val)
-
-https://zenodo.org/record/6518380#.YnvWZGYzbAM (panns, ast weak train, ast devtest)
-
-You can download and unpack them in your preferred directory. 
-Do not forget then to set in the configuration
-above `extracted_embeddings_dir: YOUR_PATH`. 
-The script expects a folder structure like this:
-
-```
-YOUR_PATH |--- ast
-                  |----  devtest.hdf5    
-                  |----  synth_train.hdf5
-                  |----  unlabeled_train.hdf5
-                  |----  weak_train.hdf5
-                  |----  weak_val.hdf5
-                  |----  synth_val.hdf5   
-          |--- panns
-                  |----  devtest.hdf5    
-                  |----  synth_train.hdf5
-                  |----  unlabeled_train.hdf5
-                  |----  weak_train.hdf5
-                  |----  weak_val.hdf5
-                  |----  synth_val.hdf5 
-```
-
-You can also select if you want to do late fusion with global, whole-clip features from PANNs or 
-frame-level features in `./confs/pretrained.yaml`:
-```yaml
-  nb_filters: [ 16, 32, 64, 128, 128, 128, 128 ]
-  pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
-  dropout_recurrent: 0
-  use_embeddings: True
-  embedding_size: 768 # use 2048 for PANNs global and frame, 527 for AST global and 768 for AST frame
-  embedding_type: frame # or global
- ```
-
-**The training can be started simply with**
-
-`python train_pretrained.py`
-By default this uses AST with frame-level embeddings. The pre-trained model is freezed and expects the pre-extracted AST 
-embeddings in a local folder `./embeddings` as you can see from the details provided before about the YAML config. 
-Thus you would need to download the AST embeddings from the Zenodo links above, unless you set `freezed: False`. 
-However, the latter requires significant GPU memory.
-
-Also in this case, we provide a [pre-trained checkpoint][zenodo_pretrained_audioset_models]. The baseline can be tested on the development set of the dataset using the following command:
-
-`python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
-
-#### Results for best system, late fusion with AST frame:
-
-
-Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1*
---------|------------|--------------------|-------------------------|-----------------
-Dev-test| **32.24%**          |    **72.22%**       | **90.34**               |  **37.16**
-
-
-**Energy Consumption** (GPU: NVIDIA A100 40Gb)
-**Note we used pre-extracted embeddings, so the power consuption for the pre-trained model is not accounted for**
-
-Dataset | Training | Dev-Test |
---------|----------|--------------------
-**kWh** | **4.41** | **0.036**           
-
-Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
-
-The results are computed from the **teacher** predictions. 
-
-All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
-
-
-**Architecture**
-
-The architecture of the SED Audioset baseline is the same as the [SED baseline][sed_baseline]. 
+Will be released soon!
 
 
 [audioset]: https://research.google.com/audioset/
@@ -413,6 +320,8 @@ The architecture of the SED Audioset baseline is the same as the [SED baseline][
 [scaper]: https://github.com/justinsalamon/scaper
 [sed_baseline]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2022_task4_baseline#sed-baseline
 [THOP: PyTorch-OpCounter]: https://github.com/Lyken17/pytorch-OpCounter
+[psds_eval]: https://pypi.org/project/psds-eval/
+[sed_scores_eval]: https://github.com/fgnt/sed_scores_eval
 
 #### References
 [1] L. Delphin-Poulat & C. Plapous, technical report, dcase 2019.
@@ -427,9 +336,10 @@ The architecture of the SED Audioset baseline is the same as the [SED baseline][
 
 [6] Turpault, Nicolas, et al. "Improving sound event detection in domestic environments using sound separation." arXiv preprint arXiv:2007.03932 (2020).
 
-[7] Ronchini, Francesca, et al. "The impact of non-target events in synthetic soundscapes for sound event detection." arXiv preprint arXiv:2109.14061 (DCASE2021)
+[7] Ronchini, Francesca, et al. "The impact of non-target events in synthetic soundscapes for sound event detection." arXiv preprint arXiv:2109.14061 (DCASE 2021)
 
-[8] Ronchini, Francesca, et al. "A benchmark of state-of-the-art sound event detection systems evaluated on synthetic soundscapes." arXiv preprint arXiv:2202.01487 
+[8] Ronchini, Francesca, et al. "A benchmark of state-of-the-art sound event detection systems evaluated on synthetic soundscapes." arXiv preprint arXiv:2202.01487
 
-[9] https://github.com/Lyken17/pytorch-OpCounter
+[9] Bilen, Cagdas, et al. "A framework for the robust evaluation of sound event detection." arXiv preprint arXiv:1910.08440 (ICASSP 2020)
 
+[10] Ebbers, Janek, et al. "Threshold-independent evaluation of sound event detection scores." arXiv preprint arXiv:2201.13148 (ICASSP 2022)
