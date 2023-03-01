@@ -9,15 +9,6 @@ import torchaudio
 import multiprocessing as mp
 import tqdm
 from tqdm.contrib.concurrent import process_map  # or thread_map
-parser = argparse.ArgumentParser("Resample a folder recursively")
-parser.add_argument(
-    "--in_dir",
-    type=str,
-    default="/media/sam/bx500/DCASE_DATA/dataset/audio/validation/",
-)
-parser.add_argument("--out_dir", type=str, default="/tmp/val16k")
-parser.add_argument("--target_fs", default=16000)
-parser.add_argument("--regex", type=str, default="*.wav")
 
 
 def resample(audio, orig_fs, target_fs=16000):
@@ -42,19 +33,6 @@ def resample(audio, orig_fs, target_fs=16000):
     out = torch.stack(out)
     return out
 
-def resample_file(tuple_args, target_fs=16000):
-    (f, in_dir, out_dir) = tuple_args
-    audio, orig_fs = torchaudio.load(f)
-    audio = resample(audio, orig_fs, target_fs)
-    os.makedirs(
-        Path(os.path.join(out_dir, Path(f).relative_to(Path(in_dir)))).parent,
-        exist_ok=True,
-    )
-    torchaudio.save(
-        os.path.join(out_dir, Path(f).relative_to(Path(in_dir))),
-        audio,
-        target_fs,
-    )
 
 def resample_folder(in_dir, out_dir, target_fs=16000, regex="*.wav"):
     """
@@ -72,14 +50,38 @@ def resample_folder(in_dir, out_dir, target_fs=16000, regex="*.wav"):
         out_files = glob.glob(os.path.join(out_dir, regex))
         if len(files) == len(out_files):
             compute = False
-
+    
     if compute:
         # Packing resample_file arguments to the multiprocessing pool
-        list_args = [(f, in_dir, out_dir) for f in files]
+        workers_args = [(f, in_dir, out_dir, target_fs) for f in files]
         n_workers = min(10, mp.cpu_count())
-        process_map(resample_file, list_args, max_workers=n_workers, chunksize=1)
+        process_map(_worker_func, workers_args, max_workers=n_workers, chunksize=1)
     return compute
 
+def _worker_func(input_args):
+    """
+    Used internally by the pool of multiprocessing workers to resample a given audio file
+    """
+    f, in_dir, out_dir, target_fs = input_args
+    audio, orig_fs = torchaudio.load(f)
+    audio = resample(audio, orig_fs, target_fs)
+    os.makedirs(
+        Path(os.path.join(out_dir, Path(f).relative_to(Path(in_dir)))).parent,
+        exist_ok=True,
+    )
+    torchaudio.save(
+        os.path.join(out_dir, Path(f).relative_to(Path(in_dir))),
+        audio,
+        target_fs,
+    )
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser("Resample a folder recursively")
+    parser.add_argument("--in_dir", type=str)
+    parser.add_argument("--out_dir", type=str)
+    parser.add_argument("--target_fs", default=16000)
+    parser.add_argument("--regex", type=str, default="*.wav")
+
     args = parser.parse_args()
     resample_folder(args.in_dir, args.out_dir, int(args.target_fs), args.regex)
