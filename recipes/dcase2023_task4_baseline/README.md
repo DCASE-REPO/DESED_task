@@ -202,7 +202,7 @@ This year we therefore use [sed_scores_eval][sed_scores_eval] for evaluation whi
 Hence, we require participants to submit timestamped scores rather than detected events.
 See https://github.com/fgnt/sed_scores_eval for details.
 
-Note that this year's results can therefore not be directly compared with previous year's results as [sed_scores_eval][sed_scores_eval] does not underestimate the PSDS resulting in higher values (for the baseline ~1%).
+**Note that this year's results can therefore not be directly compared with previous year's results as [sed_scores_eval][sed_scores_eval] does not underestimate the PSDS resulting in higher values (for the baseline ~1%).**
 
 ## (New) Post-processing-invariant evaluation
 In addition to their post-processed scores submission we kindly ask participants to additionally submit unprocessed scores as provided by the model, which enables us to run post-processing-invariant evaluation.
