@@ -2,6 +2,7 @@ import numpy as np
 import torch
 
 # Copied from https://github.com/asteroid-team/asteroid/blob/master/asteroid/engine/schedulers.py
+# Copied since it is the last function we still use from asteroid (and avoid other dependencies)
 class BaseScheduler(object):
     '''Base class for the step-wise scheduler logic.
     Args:
