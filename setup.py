@@ -2,10 +2,9 @@ from setuptools import setup
 
 setup(
     name="desed_task",
-    version="0.1.0",
+    version="0.1.1",
     description="Sound Event Detection and Separation in Domestic Environments.",
-    author="DCASE2021 Task 4 Organizers",
-    author_email="cornellsamuele@gmail.com",
+    author="DCASE2023 Task 4 Organizers",
     license="MIT",
     packages=["desed_task"],
     python_requires=">=3.8",

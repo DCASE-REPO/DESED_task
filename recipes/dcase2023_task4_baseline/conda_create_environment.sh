@@ -6,5 +6,5 @@ pip install tensorboard
 pip install h5py
 pip install thop
 pip install codecarbon==1.2.0
-pip install -r ../../requirements.txt
+pip install -r requirements.txt
 pip install -e ../../.
