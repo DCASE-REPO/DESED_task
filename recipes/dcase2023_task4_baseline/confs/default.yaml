@@ -20,7 +20,7 @@ training:
   seed: 42
   precision: 32
   mixup: soft # Soft mixup gives the ratio of the mix to the labels, hard mixup gives a 1 to every label present.
-  obj_metric_synth_type: intersection
+  obj_metric_synth_type: psds
   precision: 32
   enable_progress_bar: True
 scaler:
