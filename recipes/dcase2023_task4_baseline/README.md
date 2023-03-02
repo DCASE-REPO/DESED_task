@@ -214,7 +214,7 @@ Further we kindly ask participants to provide (post-processed and unprocessed) o
 
 Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario1 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
 --------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
-Dev-test|  **0.347 +- 0.008** |        **0.356 +- 0.008**      |   **0.544 +- 0.006**  |       **0.561 +- 0.002**       |      64.8 +- 0.3 %      |  41.2 +- 1.3 %  |
+Dev-test|  **0.347 +- 0.008** |        **0.356 +- 0.008**      |   **0.544 +- 0.006**  |       **0.561 +- 0.002**       |      64.8 +- 0.3%      |  41.2 +- 1.3%  |
 
 **Energy Consumption** (GPU: NVIDIA A100 40Gb)
 
@@ -289,7 +289,7 @@ Also in this case, the pretrained checkpoint will be provided soon. The baseline
 
 Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**  | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* 
 --------|---------------------|--------------------------------|----------------------|--------------------------------|------------------------|-------------------|
-Dev-test| **0.341 +- 0.016** |        **0.347 +- 0.017**       |  **0.530 +- 0.037**  |       **0.541 +- 0.037**       |      63.1 +- 2.4 %     | 41.2 +- 1.6 % |
+Dev-test| **0.341 +- 0.016** |        **0.347 +- 0.017**       |  **0.530 +- 0.037**  |       **0.541 +- 0.037**       |      63.1 +- 2.4%     | 41.2 +- 1.6% |
 
 
 **Energy Consumption** (GPU: NVIDIA A100 40Gb)
