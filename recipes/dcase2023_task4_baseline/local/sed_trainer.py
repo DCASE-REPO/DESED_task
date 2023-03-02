@@ -39,8 +39,8 @@ class SEDTask4(pl.LightningModule):
         valid_data: torch.utils.data.Dataset subclass object, the validation data to be used.
         test_data: torch.utils.data.Dataset subclass object, the test data to be used.
         train_sampler: torch.utils.data.Sampler subclass object, the sampler to be used in the training dataloader.
-        scheduler: asteroid.engine.schedulers.BaseScheduler subclass object, the scheduler to be used. This is
-            used to apply ramp-up during training for example.
+        scheduler: BaseScheduler subclass object, the scheduler to be used.
+                   This is used to apply ramp-up during training for example.
         fast_dev_run: bool, whether to launch a run with only one batch for each set, this is for development purpose,
             to test the code runs.
     """
