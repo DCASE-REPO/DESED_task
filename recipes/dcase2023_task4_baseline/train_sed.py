@@ -8,14 +8,9 @@ import random
 import torch
 import yaml
 
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
-
 from local.utils import (
     calculate_macs
 )
-
 
 from desed_task.dataio import ConcatDatasetBatchSampler
 from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabeledSet, WeakSet
@@ -28,6 +23,9 @@ from local.sed_trainer import SEDTask4
 from local.resample_folder import resample_folder
 from local.utils import generate_tsv_wav_durations
 
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
 
 def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
     if not test_only:
@@ -39,7 +37,7 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
             "unlabeled_folder",
             "test_folder",
         ]
-    elif test_only:
+    elif not evaluation:
         dsets = ["test_folder"]
     else:
         dsets = ["eval_folder"]
@@ -64,7 +62,8 @@ def single_run(
     checkpoint_resume=None,
     test_state_dict=None,
     fast_dev_run=False,
-    evaluation=False
+    evaluation=False,
+    callbacks=None
 ):
     """
     Running sound event detection baselin
@@ -80,6 +79,11 @@ def single_run(
             for development purposes.
     """
     config.update({"log_dir": log_dir})
+
+    # handle seed
+    seed = config["training"]["seed"]
+    if seed:
+        pl.seed_everything(seed, workers=True)
 
     ##### data prep test ##########
     encoder = ManyHotEncoder(
@@ -110,10 +114,8 @@ def single_run(
 
     test_dataset = devtest_dataset
 
-
     ##### model definition  ############
-    sed_student = CRNN(**config["net"]) 
-
+    sed_student = CRNN(**config["net"])
     # calulate multiply–accumulate operation (MACs) 
     macs, _ = calculate_macs(sed_student, config) 
     print(f"---------------------------------------------------------------")
@@ -210,9 +212,11 @@ def single_run(
         logger = TensorBoardLogger(
             os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
         )
+        logger.log_hyperparams(config)
         print(f"experiment dir: {logger.log_dir}")
 
-        callbacks = [
+        if callbacks is None:
+            callbacks = [
             EarlyStopping(
                 monitor="val/obj_metric",
                 patience=config["training"]["early_stop_patience"],
@@ -257,7 +261,7 @@ def single_run(
         limit_train_batches = 2
         limit_val_batches = 2
         limit_test_batches = 2
-        n_epochs = 3 
+        n_epochs = 3
     else:
         flush_logs_every_n_steps = 100
         log_every_n_steps = 40
@@ -266,29 +270,34 @@ def single_run(
         limit_test_batches = 1.0
         n_epochs = config["training"]["n_epochs"]
 
-
-    if len(gpus.split(",")) > 1:
+    if gpus == "0":
+        accelerator = "cpu"
+        devices = 1
+    elif gpus == "1":
+        accelerator = "gpu"
+        devices = 1
+    else:
         raise NotImplementedError("Multiple GPUs are currently not supported")
 
     trainer = pl.Trainer(
         precision=config["training"]["precision"],
         max_epochs=n_epochs,
         callbacks=callbacks,
-        gpus=gpus,
+        accelerator=accelerator,
+        devices=devices,
         strategy=config["training"].get("backend"),
         accumulate_grad_batches=config["training"]["accumulate_batches"],
         logger=logger,
-        resume_from_checkpoint=checkpoint_resume,
         gradient_clip_val=config["training"]["gradient_clip"],
         check_val_every_n_epoch=config["training"]["validation_interval"],
         num_sanity_val_steps=0,
         log_every_n_steps=log_every_n_steps,
-        flush_logs_every_n_steps=flush_logs_every_n_steps,
         limit_train_batches=limit_train_batches,
         limit_val_batches=limit_val_batches,
         limit_test_batches=limit_test_batches,
+        deterministic=True,
+        enable_progress_bar=config["training"]["enable_progress_bar"],
     )
-
     if test_state_dict is None:
 
         # start tracking energy consumption
@@ -300,7 +309,7 @@ def single_run(
     desed_training.load_state_dict(test_state_dict)
     trainer.test(desed_training)
 
-if __name__ == "__main__":
+def prepare_run(argv=None):
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
     parser.add_argument(
         "--conf_file",
@@ -330,7 +339,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--gpus",
         default="1",
-        help="The number of GPUs to train on, or the gpu to use, default='0', "
+        help="The number of GPUs to train on, or the gpu to use, default='1', "
         "so uses one GPU",
     )
     parser.add_argument(
@@ -347,7 +356,7 @@ if __name__ == "__main__":
         help="Evaluate the model specified"
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     with open(args.conf_file, "r") as f:
         configs = yaml.safe_load(f)
@@ -372,16 +381,17 @@ if __name__ == "__main__":
 
     if evaluation:
         configs["training"]["batch_size_val"] = 1
-        
-    seed = configs["training"]["seed"]
-    if seed:
-        torch.random.manual_seed(seed)
-        np.random.seed(seed)
-        random.seed(seed)
-        pl.seed_everything(seed)
 
     test_only = test_from_checkpoint is not None
     resample_data_generate_durations(configs["data"], test_only, evaluation)
+    return configs, args, test_model_state_dict, evaluation
+
+if __name__ == "__main__":
+
+    # prepare run
+    configs, args, test_model_state_dict, evaluation = prepare_run()
+    
+    # launch run
     single_run(
         configs,
         args.log_dir,

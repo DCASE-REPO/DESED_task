@@ -9,5 +9,6 @@ conda install -y pytorch torchvision==0.9.0 torchaudio==0.8.0 cudatoolkit=10.1 -
 # conda install pytorch-cpu torchvision-cpu -c pytorch (cpu linux)
 conda install -y youtube-dl tqdm -c conda-forge
 
-pip install -r ../../requirements.txt
-pip install -e ../../.
+pip install -r requirements.txt
+# Install desed_task 0.1.0 from a previous commit (due to an update to desed_task 0.1.1 for the 2023 recipe)
+pip install git+https://github.com/DCASE-REPO/DESED_task@63d8b3b2bbf1444e99d5905079e0bfbe34ed7c0d
