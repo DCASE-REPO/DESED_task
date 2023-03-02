@@ -301,7 +301,7 @@ def single_run(
     if test_state_dict is None:
 
         # start tracking energy consumption
-        trainer.fit(desed_training, checkpoint_resume)
+        trainer.fit(desed_training, ckpt_path=checkpoint_resume)
         best_path = trainer.checkpoint_callback.best_model_path
         print(f"best model: {best_path}")
         test_state_dict = torch.load(best_path)["state_dict"]
