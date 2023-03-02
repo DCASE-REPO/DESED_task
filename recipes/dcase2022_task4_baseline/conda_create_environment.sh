@@ -11,6 +11,7 @@ conda install -y pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch # fo
 conda install -y youtube-dl tqdm -c conda-forge
 
 pip install codecarbon==1.2.0
-pip install -r ../../requirements.txt
+pip install -r requirements.txt
 pip install torchmetrics==0.7.3
-pip install -e ../../.
+# Install desed_task 0.1.0 from a previous commit (due to an update to desed_task 0.1.1 for the 2023 recipe)
+pip install git+https://github.com/DCASE-REPO/DESED_task@63d8b3b2bbf1444e99d5905079e0bfbe34ed7c0d

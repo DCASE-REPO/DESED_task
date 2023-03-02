@@ -1,0 +1,7 @@
+-r ../../lint-requirements.txt
+pre-commit>=2.3.0
+pytorch-lightning==1.5.1
+dcase_util==0.2.16
+desed==1.3.6
+psds_eval>=0.4.0
+sed_eval==0.2.1
