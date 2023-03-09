@@ -716,7 +716,7 @@ class SEDTask4(pl.LightningModule):
             print(f"\nPostprocessed scores for teacher saved in: {save_dir_teacher_postprocessed}")
 
             self.tracker_eval.stop()
-            eval_kwh = self.tracker_eval._total_energy.kwh
+            eval_kwh = self.tracker_eval._total_energy.kWh
             results = {"/eval/tot_energy_kWh": torch.tensor(float(eval_kwh))}
             with open(os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
                 f.write(str(eval_kwh))
@@ -877,7 +877,7 @@ class SEDTask4(pl.LightningModule):
                 "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher,
             }
             self.tracker_devtest.stop()
-            eval_kwh = self.tracker_devtest._total_energy.kwh
+            eval_kwh = self.tracker_devtest._total_energy.kWh
             results.update({"/test/tot_energy_kWh": torch.tensor(float(eval_kwh))})
             with open(os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"), "w") as f:
                 f.write(str(eval_kwh))
@@ -925,7 +925,7 @@ class SEDTask4(pl.LightningModule):
     def on_train_end(self) -> None:
         # dump consumption
         self.tracker_train.stop()
-        training_kwh = self.tracker_train._total_energy.kwh
+        training_kwh = self.tracker_train._total_energy.kWh
         self.logger.log_metrics({"/train/tot_energy_kWh": torch.tensor(float(training_kwh))})
         with open(os.path.join(self.exp_dir, "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
             f.write(str(training_kwh))
