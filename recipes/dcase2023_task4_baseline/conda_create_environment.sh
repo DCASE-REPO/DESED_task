@@ -5,6 +5,6 @@ conda install -y librosa ffmpeg sox pandas numba scipy torchmetrics youtube-dl t
 pip install tensorboard
 pip install h5py
 pip install thop
-pip install codecarbon==1.2.0
+pip install codecarbon==2.1.4
 pip install -r requirements.txt
 pip install -e ../../.
