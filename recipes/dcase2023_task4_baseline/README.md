@@ -212,11 +212,11 @@ Further we kindly ask participants to provide (post-processed and unprocessed) o
 
 ## Baseline Results:
 
-Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario1 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
+Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
 --------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
 Dev-test|  **0.347 +- 0.008** |        **0.356 +- 0.008**      |   **0.544 +- 0.006**  |       **0.561 +- 0.002**       |      64.8 +- 0.3%      |  41.2 +- 1.3%  |
 
-**Energy Consumption** (GPU: NVIDIA A100 80Gb)
+**Energy Consumption** (GPU: NVIDIA V100 32Gb)
 
 Dataset |     Training       |      Dev-Test      |
 --------|--------------------|--------------------|
@@ -287,7 +287,7 @@ Also in this case, the pretrained checkpoint will be provided soon. The baseline
 
 #### Results:
 
-Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario1 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
+Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
 --------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
 Dev-test|  **0.360 +- 0.008** |        **0.367 +- 0.008**      |   **0.559 +- 0.004**  |       **0.571 +- 0.004**       |      66.9 +- 0.9%      |  44.1 +- 0.9%  |
 
