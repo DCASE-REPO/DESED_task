@@ -50,6 +50,7 @@ class SEDTask4(pl.LightningModule):
         hparams,
         encoder,
         sed_student,
+        pretrained_model,
         opt=None,
         train_data=None,
         valid_data=None,
@@ -65,6 +66,11 @@ class SEDTask4(pl.LightningModule):
 
         self.encoder = encoder
         self.sed_student = sed_student
+
+        if self.hparams["pretrained"]["e2e"]:
+            self.pretrained_model = pretrained_model
+        # else we use pre-computed embeddings from hdf5
+
         if sed_teacher is None:
             self.sed_teacher = deepcopy(sed_student)
         else:
@@ -265,8 +271,11 @@ class SEDTask4(pl.LightningModule):
         amp_to_db.amin = 1e-5  # amin= 1e-5 as in librosa
         return amp_to_db(mels).clamp(min=-50, max=80)  # clamp to reproduce old code
 
-    def detect(self, mel_feats, model):
-        return model(self.scaler(self.take_log(mel_feats)))
+    def detect(self, mel_feats, model, embeddings=None):
+        if embeddings is None:
+            return model(self.scaler(self.take_log(mel_feats)))
+        else:
+            return model(self.scaler(self.take_log(mel_feats)), embeddings=embeddings)
 
     def training_step(self, batch, batch_indx):
         """ Apply the training for one batch (a step). Used during trainer.fit
@@ -279,9 +288,26 @@ class SEDTask4(pl.LightningModule):
            torch.Tensor, the loss to take into account.
         """
 
-        audio, labels, padded_indxs = batch
+        if not self.hparams["pretrained"]["e2e"]:
+            audio, labels, padded_indxs, embeddings = batch
+        else:
+            # we train e2e
+            if len(batch) > 3:
+                audio, labels, padded_indxs, ast_feats = batch
+                pretrained_input = ast_feats
+            else:
+                audio, labels, padded_indxs = batch
+                pretrained_input = audio
+
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
         features = self.mel_spec(audio)
+
+        if self.hparams["pretrained"]["e2e"]:
+            # extract embeddings here
+            if self.pretrained_model.training and self.hparams["pretrained"]["freezed"]:
+                # check that is freezed
+                self.pretrained_model.eval()
+            embeddings = self.pretrained_model(pretrained_input)[self.hparams["net"]["embedding_type"]]
 
         batch_num = features.shape[0]
         # deriving masks for each dataset
@@ -304,7 +330,7 @@ class SEDTask4(pl.LightningModule):
 
         # sed student forward
         strong_preds_student, weak_preds_student = self.detect(
-            features, self.sed_student
+            features, self.sed_student, embeddings
         )
 
         # supervised loss on strong labels
@@ -318,7 +344,7 @@ class SEDTask4(pl.LightningModule):
 
         with torch.no_grad():
             strong_preds_teacher, weak_preds_teacher = self.detect(
-                features, self.sed_teacher
+                features, self.sed_teacher, embeddings
             )
             loss_strong_teacher = self.supervised_loss(
                 strong_preds_teacher[strong_mask], labels[strong_mask]
@@ -374,15 +400,29 @@ class SEDTask4(pl.LightningModule):
             batch_indx: torch.Tensor, 1D tensor of indexes to know which data are present in each batch.
         Returns:
         """
+        if not self.hparams["pretrained"]["e2e"]:
+            audio, labels, padded_indxs, filenames, embeddings = batch
+        else:
+            # we train e2e
+            if len(batch) > 4:
+                audio, labels, padded_indxs, ast_feats, filenames = batch
+                pretrained_input = ast_feats
+            else:
+                audio, labels, padded_indxs, filenames = batch
+                pretrained_input = audio
 
-        audio, labels, padded_indxs, filenames = batch
-
+        if self.hparams["pretrained"]["e2e"]:
+            # extract embeddings here
+            if self.pretrained_model.training and self.hparams["pretrained"]["freezed"]:
+                # check that is freezed
+                self.pretrained_model.eval()
+            embeddings = self.pretrained_model(pretrained_input)[self.hparams["net"]["embedding_type"]]
 
         # prediction for student
         mels = self.mel_spec(audio)
-        strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student)
+        strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student, embeddings)
         # prediction for teacher
-        strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher)
+        strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher, embeddings)
 
         # we derive masks for each dataset based on folders of filenames
         mask_weak = (
@@ -602,15 +642,32 @@ class SEDTask4(pl.LightningModule):
             batch_indx: torch.Tensor, 1D tensor of indexes to know which data are present in each batch.
         Returns:
         """
-        
-        audio, labels, padded_indxs, filenames = batch        
-        
+
+        if not self.hparams["pretrained"]["e2e"]:
+            audio, labels, padded_indxs, filenames, embeddings = batch
+        else:
+            # we train e2e
+            if len(batch) > 4:
+                audio, labels, padded_indxs, ast_feats, filenames = batch
+                pretrained_input = ast_feats
+            else:
+                audio, labels, padded_indxs, filenames = batch
+                pretrained_input = audio
+
+
+        if self.hparams["pretrained"]["e2e"]:
+            # extract embeddings here
+            if self.pretrained_model.training and self.hparams["pretrained"]["freezed"]:
+                # check that is freezed
+                self.pretrained_model.eval()
+            embeddings = self.pretrained_model(pretrained_input)[self.hparams["net"]["embedding_type"]]
+
         # prediction for student
         mels = self.mel_spec(audio)
-        strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student)
+        strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student, embeddings)
         # prediction for teacher
-        strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher)
-        
+        strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher, embeddings)
+
         if not self.evaluation:
             loss_strong_student = self.supervised_loss(strong_preds_student, labels)
             loss_strong_teacher = self.supervised_loss(strong_preds_teacher, labels)

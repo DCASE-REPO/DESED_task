@@ -141,8 +141,8 @@ class StronglyAnnotatedSet(Dataset):
             # fetch dict of positions for each example
             self.ex2emb_idx = {}
             f = h5py.File(self.embeddings_hdf5_file, "r")
-            for k, v in f["frame_embeddings"].attrs.items():
-                self.ex2emb_idx[k] = v
+            for i, fname in enumerate(f["filenames"]):
+                self.ex2emb_idx[fname.decode('UTF-8')] = i
         self._opened_hdf5 = None
 
     def __len__(self):
@@ -186,15 +186,14 @@ class StronglyAnnotatedSet(Dataset):
             out_args.append(c_ex["mixture"])
 
         if self.embeddings_hdf5_file is not None:
-            name = Path(c_ex["mixture"]).stem
+            
+            name = Path(c_ex["mixture"]).stem      
             index = self.ex2emb_idx[name]
 
-            global_embeddings = torch.from_numpy(self.hdf5_file["global_embeddings"][index]).float()
-            frame_embeddings = torch.from_numpy(np.stack(self.hdf5_file["frame_embeddings"][index])).float()
             if self.embedding_type == "global":
-                embeddings = global_embeddings
+                embeddings = torch.from_numpy(self.hdf5_file["global_embeddings"][index]).float()
             elif self.embedding_type == "frame":
-                embeddings = frame_embeddings
+                embeddings = torch.from_numpy(np.stack(self.hdf5_file["frame_embeddings"][index])).float()
             else:
                 raise NotImplementedError
 
@@ -251,8 +250,8 @@ class WeakSet(Dataset):
             # fetch dict of positions for each example
             self.ex2emb_idx = {}
             f = h5py.File(self.embeddings_hdf5_file, "r")
-            for k, v in f["frame_embeddings"].attrs.items():
-                self.ex2emb_idx[k] = v
+            for i, fname in enumerate(f["filenames"]):
+                self.ex2emb_idx[fname.decode('UTF-8')] = i
         self._opened_hdf5 = None
 
     def __len__(self):
@@ -294,12 +293,10 @@ class WeakSet(Dataset):
             name = Path(c_ex["mixture"]).stem
             index = self.ex2emb_idx[name]
 
-            global_embeddings = torch.from_numpy(self.hdf5_file["global_embeddings"][index]).float()
-            frame_embeddings = torch.from_numpy(np.stack(self.hdf5_file["frame_embeddings"][index])).float()
             if self.embedding_type == "global":
-                embeddings = global_embeddings
+                embeddings = torch.from_numpy(self.hdf5_file["global_embeddings"][index]).float()
             elif self.embedding_type == "frame":
-                embeddings = frame_embeddings
+                embeddings = torch.from_numpy(np.stack(self.hdf5_file["frame_embeddings"][index])).float()
             else:
                 raise NotImplementedError
 
@@ -343,8 +340,8 @@ class UnlabeledSet(Dataset):
             # fetch dict of positions for each example
             self.ex2emb_idx = {}
             f = h5py.File(self.embeddings_hdf5_file, "r")
-            for k, v in f["frame_embeddings"].attrs.items():
-                self.ex2emb_idx[k] = v
+            for i, fname in enumerate(f["filenames"]):
+                self.ex2emb_idx[fname.decode('UTF-8')] = i
         self._opened_hdf5 = None
 
     def __len__(self):
@@ -377,12 +374,10 @@ class UnlabeledSet(Dataset):
             name = Path(c_ex).stem
             index = self.ex2emb_idx[name]
 
-            global_embeddings = torch.from_numpy(self.hdf5_file["global_embeddings"][index]).float()
-            frame_embeddings = torch.from_numpy(np.stack(self.hdf5_file["frame_embeddings"][index])).float()
             if self.embedding_type == "global":
-                embeddings = global_embeddings
+                embeddings = torch.from_numpy(self.hdf5_file["global_embeddings"][index]).float()
             elif self.embedding_type == "frame":
-                embeddings = frame_embeddings
+                embeddings = torch.from_numpy(np.stack(self.hdf5_file["frame_embeddings"][index])).float()
             else:
                 raise NotImplementedError
 
