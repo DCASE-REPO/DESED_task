@@ -81,3 +81,4 @@ net:
   nb_filters: [ 16, 32, 64, 128, 128, 128, 128 ]
   pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
   dropout_recurrent: 0
+  use_embeddings: False

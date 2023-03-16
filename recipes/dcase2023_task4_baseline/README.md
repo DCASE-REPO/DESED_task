@@ -214,13 +214,13 @@ Further we kindly ask participants to provide (post-processed and unprocessed) o
 
 Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
 --------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
-Dev-test|  **0.347 +- 0.008** |        **0.356 +- 0.008**      |   **0.544 +- 0.006**  |       **0.561 +- 0.002**       |      64.8 +- 0.3%      |  41.2 +- 1.3%  |
+Dev-test|  **0.349 +- 0.007** |        **0.359 +- 0.006**      |   **0.544 +- 0.016**  |       **0.562 +- 0.012**       |      64.2 +- 0.8%      |  40.7 +- 0.6%  |
 
-**Energy Consumption** (GPU: NVIDIA V100 32Gb)
+**Energy Consumption** (GPU: NVIDIA A100 80Gb)
 
 Dataset |     Training       |      Dev-Test      |
 --------|--------------------|--------------------|
-**kWh** | **0.471 +- 0.014** | **0.005 +- 0.000** |          
+**kWh** | **1.390 +- 0.019** | **0.019 +- 0.001** |          
 
 **Total number of multiply–accumulate operation (MACs):** 44.683 G
 
@@ -289,13 +289,13 @@ Also in this case, the pretrained checkpoint will be provided soon. The baseline
 
 Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
 --------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
-Dev-test|  **0.360 +- 0.008** |        **0.367 +- 0.008**      |   **0.559 +- 0.004**  |       **0.571 +- 0.004**       |      66.9 +- 0.9%      |  44.1 +- 0.9%  |
+Dev-test|  **0.358 +- 0.005** |        **0.364 +- 0.005**      |   **0.564 +- 0.011**  |       **0.576 +- 0.011**       |      65.5 +- 1.3%      |  43.3 +- 1.4%  |
 
 **Energy Consumption** (GPU: NVIDIA A100 80Gb)
 
 Dataset |     Training       |      Dev-Test      |
 --------|--------------------|--------------------|
-**kWh** | **1.383 +- 0.012** | **0.018 +- 0.001** | 
+**kWh** | **1.418 +- 0.016** | **0.020 +- 0.001** | 
          
 
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
@@ -305,8 +305,68 @@ The results are computed from the **student** predictions.
 All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
 
 ## Baseline using pre-trained embeddings from models (SEC/Tagging) trained on Audioset
-Will be released soon!
 
+We added a baseline which exploits the pre-trained model [BEATs](https://arxiv.org/abs/2212.09058) to increase the performance.
+
+In this baseline, the frame-level embeddings are used in a late-fusion fashin with the existing CRNN baseline classifier. The temporal resolution of the embedding is matched to that of the CNN using Adaptative Average Pooling, and then both embeddings concatenated. See 'desed_tasl/nnet/CRNN.py' for details. 
+
+See the configuration file: `./confs/pretrained.yaml`:
+```yaml
+pretrained:
+  pretrained:
+  model: beats
+  e2e: False
+  freezed: True
+  extracted_embeddings_dir: ./embeddings
+net:
+  use_embeddings: True
+  embedding_size: 768
+  embedding_type: frame
+  aggregation_type: pool1d
+ ```
+
+The embeddings can be integrated using several aggregation methods : **frame** (last state of a RNN), **interpolate** (nearest embedding interpolation) and **pool1d** (adaptative average pooling).
+
+Pretrained checkpoints will be provided soon. The baseline can be tested on the development set of the dataset using the following command:
+`python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
+
+To train reproduce the results, you first need to compute pre-compute the embeddings on used datasets using the command:
+`python3 extract_embeddings.py --output_dir ./embeddings --pretrained_model "beats" --use_gpu=1 --batch_size 1024`
+Then, you need to train the baseline on these embeddings using the command:
+`python train_pretrained.py`
+
+#### Results:
+
+Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
+--------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
+Dev-test|  **0.480 +- 0.004** |        **0.500 +- 0.004**      |   **0.727 +- 0.006**  |       **0.762 +- 0.008**       |      80.7 +- 0.4%      |  57.1 +- 1.3%  |
+
+**Energy Consumption** (GPU: NVIDIA A100 80Gb)
+
+Dataset |     Training       |      Dev-Test      |
+--------|--------------------|--------------------|
+**kWh** | **1.821 +- 0.457** | **0.022 +- 0.003** | 
+
+
+We also trained the models using the strongly annotated part of Audioset.
+
+
+Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
+--------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
+Dev-test|  **0.480 +- 0.003** |        **0.491 +- 0.003**      |   **0.765 +- 0.002**  |       **0.787 +- 0.007**       |      79.9 +- 0.8%      |  57.6 +- 0.7%  |
+
+**Energy Consumption** (GPU: NVIDIA A100 80Gb)
+
+Dataset |     Training       |      Dev-Test      |
+--------|--------------------|--------------------|
+**kWh** | **1.742 +- 0.416** | **0.020 +- 0.003** | 
+
+
+Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
+
+The results are computed from the **teacher** predictions. 
+
+All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
 
 [audioset]: https://research.google.com/audioset/
 [dcase22_webpage]: https://dcase.community/challenge2022/task-sound-event-detection-in-domestic-environments

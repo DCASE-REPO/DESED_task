@@ -2,9 +2,7 @@ pretrained:
   model: beats
   e2e: False
   freezed: True
-  #url: None
-  #dest: None
-  extracted_embeddings_dir: ./embeddings/beats
+  extracted_embeddings_dir: ./embeddings
 training:
   #batch size: [synth, weak, unlabel]
   batch_size: [24, 24, 48]

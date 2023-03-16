@@ -26,7 +26,6 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from loguru import logger as lg
 
 def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
     if not test_only:
@@ -55,7 +54,7 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
                     config_data[base_set + "_folder"], config_data[base_set + "_dur"]
                 )
 
-@lg.catch
+
 def single_run(
     config,
     log_dir,
@@ -415,7 +414,7 @@ def prepare_run(argv=None):
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
     parser.add_argument(
         "--conf_file",
-        default="./confs/beats.yaml",
+        default="./confs/pretrained.yaml",
         help="The configuration file with all the experiment parameters.",
     )
     parser.add_argument(
