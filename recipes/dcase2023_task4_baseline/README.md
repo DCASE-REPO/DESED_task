@@ -306,7 +306,7 @@ All the comments related to the possibility of resuming the training and the fas
 
 ## Baseline using pre-trained embeddings from models (SEC/Tagging) trained on Audioset
 
-We added a baseline which exploits the pre-trained model [BEATs](https://arxiv.org/abs/2212.09058) to increase the performance.
+We added a baseline which exploits the pre-trained model [BEATs](https://arxiv.org/abs/2212.09058),  the current state-of-the-art (as of March 2023) on the [Audioset classification task](https://paperswithcode.com/sota/audio-classification-on-audioset).
 
 In this baseline, the frame-level embeddings are used in a late-fusion fashin with the existing CRNN baseline classifier. The temporal resolution of the embedding is matched to that of the CNN using Adaptative Average Pooling, and then both embeddings concatenated. See 'desed_tasl/nnet/CRNN.py' for details. 
 
