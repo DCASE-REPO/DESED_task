@@ -330,7 +330,7 @@ The embeddings can be integrated using several aggregation methods : **frame** (
 Pretrained checkpoints will be provided soon. The baseline can be tested on the development set of the dataset using the following command:
 `python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
-To train reproduce the results, you first need to compute pre-compute the embeddings on used datasets using the command:
+To reproduce our results, you first need to pre-compute the embeddings using the following command:
 `python3 extract_embeddings.py --output_dir ./embeddings --pretrained_model "beats" --use_gpu=1 --batch_size 1024`
 Then, you need to train the baseline on these embeddings using the command:
 `python train_pretrained.py`
