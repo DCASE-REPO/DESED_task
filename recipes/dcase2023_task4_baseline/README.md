@@ -229,7 +229,7 @@ Collar-based = event-based. More information about the metrics in the DCASE Chal
 The results are from the **student** predictions. 
 
 
-A pretrained checkpoint will be provided soon. The baseline can be tested on the development set of the dataset using the following command:
+We provide a [pretrained checkpoint](https://zenodo.org/record/7757064). The baseline can be tested on the development set of the dataset using the following command:
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 **NOTES**:
@@ -281,7 +281,7 @@ The SED baseline using the strongly annotated part of Audioset can be run from s
 
 The command will automatically considered the strong labels recorded data coming from Audioset in the training process.
 
-Also in this case, the pretrained checkpoint will be provided soon. The baseline can be tested on the development set of the dataset using the following command:
+We provide a [pretrained checkpoint](https://zenodo.org/record/7757064). The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
@@ -327,7 +327,7 @@ net:
 
 The embeddings can be integrated using several aggregation methods : **frame** (method from last year : taking the last state of an RNN fed with the embeddings sequence), **interpolate** (nearest-neighbour interpolation to adapt the temporal resolution) and **pool1d** (adaptative average pooling as described before).
 
-Pretrained checkpoints will be provided soon. The baseline can be tested on the development set of the dataset using the following command:
+We provide [pretrained checkpoints](https://zenodo.org/record/7757064). The baseline can be tested on the development set of the dataset using the following command:
 `python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 To reproduce our results, you first need to pre-compute the embeddings using the following command:
