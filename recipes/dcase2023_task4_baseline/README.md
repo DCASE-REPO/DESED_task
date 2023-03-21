@@ -331,7 +331,7 @@ Pretrained checkpoints will be provided soon. The baseline can be tested on the 
 `python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 To reproduce our results, you first need to pre-compute the embeddings using the following command:
-`python3 extract_embeddings.py --output_dir ./embeddings --pretrained_model "beats"
+`python extract_embeddings.py --output_dir ./embeddings --pretrained_model "beats"
 Then, you need to train the baseline using the following command:
 `python train_pretrained.py`
 
