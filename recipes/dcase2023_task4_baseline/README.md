@@ -366,7 +366,7 @@ Collar-based = event-based. More information about the metrics in the DCASE Chal
 
 The results are computed from the **teacher** predictions. 
 
-All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
+As in the [SED baseline][sed_baseline], resuming training, testing from checkpoint and running in fast development mode are possible with the same optional arguments.
 
 [audioset]: https://research.google.com/audioset/
 [dcase22_webpage]: https://dcase.community/challenge2022/task-sound-event-detection-in-domestic-environments
