@@ -325,7 +325,7 @@ net:
   aggregation_type: pool1d
  ```
 
-The embeddings can be integrated using several aggregation methods : **frame** (last state of a RNN), **interpolate** (nearest embedding interpolation) and **pool1d** (adaptative average pooling).
+The embeddings can be integrated using several aggregation methods : **frame** (method from last year : taking the last state of an RNN fed with the embeddings sequence), **interpolate** (nearest-neighbour interpolation to adapt the temporal resolution) and **pool1d** (adaptative average pooling as described before).
 
 Pretrained checkpoints will be provided soon. The baseline can be tested on the development set of the dataset using the following command:
 `python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
