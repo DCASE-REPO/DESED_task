@@ -308,7 +308,7 @@ All the comments related to the possibility of resuming the training and the fas
 
 We added a baseline which exploits the pre-trained model [BEATs](https://arxiv.org/abs/2212.09058),  the current state-of-the-art (as of March 2023) on the [Audioset classification task](https://paperswithcode.com/sota/audio-classification-on-audioset).
 
-In this baseline, the frame-level embeddings are used in a late-fusion fashin with the existing CRNN baseline classifier. The temporal resolution of the embedding is matched to that of the CNN using Adaptative Average Pooling, and then both embeddings concatenated. See 'desed_tasl/nnet/CRNN.py' for details. 
+In the proposed baseline, the frame-level embeddings are used in a late-fusion fashion with the existing CRNN baseline classifier. The temporal resolution of the frame-level embeddings is matched to that of the CNN output using Adaptative Average Pooling. We then feed their frame-level concatenation to the RNN + MLP classifier. See 'desed_tasl/nnet/CRNN.py' for details. 
 
 See the configuration file: `./confs/pretrained.yaml`:
 ```yaml
