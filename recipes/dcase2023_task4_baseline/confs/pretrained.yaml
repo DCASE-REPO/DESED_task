@@ -1,7 +1,12 @@
+pretrained:
+  model: beats
+  e2e: False
+  freezed: True
+  extracted_embeddings_dir: ./embeddings
 training:
   #batch size: [synth, weak, unlabel]
-  batch_size: [12, 12, 24]
-  batch_size_val: 24
+  batch_size: [24, 24, 48]
+  batch_size_val: 48
   const_max: 2 # max weight used for self supervised loss
   n_epochs_warmup: 50 # num epochs used for exponential warmup
   num_workers: 6 # change according to your cpu
@@ -81,4 +86,7 @@ net:
   nb_filters: [ 16, 32, 64, 128, 128, 128, 128 ]
   pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
   dropout_recurrent: 0
-  use_embeddings: False
+  use_embeddings: True
+  embedding_size: 768
+  embedding_type: frame
+  aggregation_type: pool1d

@@ -108,10 +108,11 @@ For more information regarding the dataset, please refer to the [previous year D
 
 
 ## Training
-We provide **three** baselines for the task:
+We provide **four** baselines for the task:
 - baseline without external data
 - baseline using Audioset data (real-world strong-label data)
-- baseline using pre-trained embedding extractor DNN.
+- baseline using pre-trained embedding extractor DNN
+- baseline using pre-trained embeddings and Audioset data.
 
 ### How to run the Baseline systems
 The **baseline without external data** can be run from scratch using the following command:
@@ -142,7 +143,7 @@ Please install the correct version from https://pytorch.org/
 ---
 
 Note that the default training config will use GPU 0. 
-Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs. The baseline can be tested on the development set of the dataset using the following command:
+Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models]. The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
@@ -212,21 +213,25 @@ Further we kindly ask participants to provide (post-processed and unprocessed) o
 
 ## Baseline Results:
 
-Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1* 
---------|--------------------|--------------------|-------------------------|-----------------
-Dev-test| **0.336**          | **0.536**          | 64.1%                   | 40.1%
+Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
+--------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
+Dev-test|  **0.349 +- 0.007** |        **0.359 +- 0.006**      |   **0.544 +- 0.016**  |       **0.562 +- 0.012**       |      64.2 +- 0.8%      |  40.7 +- 0.6%  |
 
-**Energy Consumption** (GPU: NVIDIA A100 40Gb)
+**Energy Consumption** (GPU: NVIDIA A100 80Gb)
 
-Dataset | Training  | Dev-Test |
---------|-----------|--------------------
-**kWh** | **1.717** | **0.030**           
+Dataset |     Training       |      Dev-Test      |
+--------|--------------------|--------------------|
+**kWh** | **1.390 +- 0.019** | **0.019 +- 0.001** |          
 
 **Total number of multiply–accumulate operation (MACs):** 44.683 G
 
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
 The results are from the **student** predictions. 
+
+
+We provide a [pretrained checkpoint][zenodo_pretrained_models]. The baseline can be tested on the development set of the dataset using the following command:
+`python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 **NOTES**:
 
@@ -277,22 +282,22 @@ The SED baseline using the strongly annotated part of Audioset can be run from s
 
 The command will automatically considered the strong labels recorded data coming from Audioset in the training process.
 
-Alternatively, also in this case, we provide a [pre-trained checkpoint][zenodo_pretrained_audioset_models]. The baseline can be tested on the development set of the dataset using the following command:
+We provide a [pretrained checkpoint][zenodo_pretrained_models]. The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 #### Results:
 
-Dataset | **PSDS-scenario1** | **PSDS-scenario2** | *Intersection-based F1* | *Collar-based F1*
---------|--------------------|--------------------|-------------------------|-----------------
-Dev-test| **0.351**          | **0.552**          | 64.3%                   | 42.9%
+Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
+--------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
+Dev-test|  **0.358 +- 0.005** |        **0.364 +- 0.005**      |   **0.564 +- 0.011**  |       **0.576 +- 0.011**       |      65.5 +- 1.3%      |  43.3 +- 1.4%  |
 
+**Energy Consumption** (GPU: NVIDIA A100 80Gb)
 
-**Energy Consumption** (GPU: NVIDIA A100 40Gb)
-
-Dataset | Training  | Dev-Test |
---------|-----------|--------------------
-**kWh** | **2.418** | **0.027**           
+Dataset |     Training       |      Dev-Test      |
+--------|--------------------|--------------------|
+**kWh** | **1.418 +- 0.016** | **0.020 +- 0.001** | 
+         
 
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
@@ -301,8 +306,68 @@ The results are computed from the **student** predictions.
 All the comments related to the possibility of resuming the training and the fast development run in the [SED baseline][sed_baseline] are valid also in this case.
 
 ## Baseline using pre-trained embeddings from models (SEC/Tagging) trained on Audioset
-Will be released soon!
 
+We added a baseline which exploits the pre-trained model [BEATs](https://arxiv.org/abs/2212.09058),  the current state-of-the-art (as of March 2023) on the [Audioset classification task](https://paperswithcode.com/sota/audio-classification-on-audioset).
+
+In the proposed baseline, the frame-level embeddings are used in a late-fusion fashion with the existing CRNN baseline classifier. The temporal resolution of the frame-level embeddings is matched to that of the CNN output using Adaptative Average Pooling. We then feed their frame-level concatenation to the RNN + MLP classifier. See 'desed_tasl/nnet/CRNN.py' for details. 
+
+See the configuration file: `./confs/pretrained.yaml`:
+```yaml
+pretrained:
+  pretrained:
+  model: beats
+  e2e: False
+  freezed: True
+  extracted_embeddings_dir: ./embeddings
+net:
+  use_embeddings: True
+  embedding_size: 768
+  embedding_type: frame
+  aggregation_type: pool1d
+ ```
+
+The embeddings can be integrated using several aggregation methods : **frame** (method from last year : taking the last state of an RNN fed with the embeddings sequence), **interpolate** (nearest-neighbour interpolation to adapt the temporal resolution) and **pool1d** (adaptative average pooling as described before).
+
+We provide [pretrained checkpoints][zenodo_pretrained_models]. The baseline can be tested on the development set of the dataset using the following command:
+`python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
+
+To reproduce our results, you first need to pre-compute the embeddings using the following command:
+`python extract_embeddings.py --output_dir ./embeddings --pretrained_model "beats"
+Then, you need to train the baseline using the following command:
+`python train_pretrained.py`
+
+#### Results:
+
+Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
+--------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
+Dev-test|  **0.480 +- 0.004** |        **0.500 +- 0.004**      |   **0.727 +- 0.006**  |       **0.762 +- 0.008**       |      80.7 +- 0.4%      |  57.1 +- 1.3%  |
+
+**Energy Consumption** (GPU: NVIDIA A100 80Gb)
+
+Dataset |     Training       |      Dev-Test      |
+--------|--------------------|--------------------|
+**kWh** | **1.821 +- 0.457** | **0.022 +- 0.003** | 
+
+
+We also trained the models using the strongly annotated part of Audioset.
+
+
+Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
+--------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
+Dev-test|  **0.480 +- 0.003** |        **0.491 +- 0.003**      |   **0.765 +- 0.002**  |       **0.787 +- 0.007**       |      79.9 +- 0.8%      |  57.6 +- 0.7%  |
+
+**Energy Consumption** (GPU: NVIDIA A100 80Gb)
+
+Dataset |     Training       |      Dev-Test      |
+--------|--------------------|--------------------|
+**kWh** | **1.742 +- 0.416** | **0.020 +- 0.003** | 
+
+
+Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
+
+The results are computed from the **teacher** predictions. 
+
+As in the [SED baseline][sed_baseline], resuming training, testing from checkpoint and running in fast development mode are possible with the same optional arguments.
 
 [audioset]: https://research.google.com/audioset/
 [dcase22_webpage]: https://dcase.community/challenge2022/task-sound-event-detection-in-domestic-environments
@@ -311,7 +376,7 @@ Will be released soon!
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
-[zenodo_pretrained_models]: https://zenodo.org/record/4639817
+[zenodo_pretrained_models]: https://zenodo.org/record/7759146
 [zenodo_pretrained_audioset_models]: https://zenodo.org/record/6447197
 [zenodo_pretrained_ast_embedding_model]: https://zenodo.org/record/6539466
 [google_sourcesep_repo]: https://github.com/google-research/sound-separation/tree/master/datasets/yfcc100m

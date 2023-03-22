@@ -203,21 +203,28 @@ def generate_tsv_wav_durations(audio_dir, out_tsv):
     return meta_df
 
 
-def calculate_macs(model, config):
+def calculate_macs(model, config, dataset=None):
     """
     The function calculate the multiply–accumulate operation (MACs) of the model given as input. 
 
     Args:
         model: deep learning model to calculate the macs for
-        input: input size of the input features (not considering the channels)
+        config: config used to train the model
+        dataset: dataset used to train the model
 
     Returns:
 
     """
     n_frames = int(((config["feats"]["sample_rate"] * config["data"]["audio_max_len"]) / config["feats"]["hop_length"])+1)
-    input_size = (sum(config["training"]["batch_size"]), config["feats"]["n_mels"], n_frames)
+    input_size = [sum(config["training"]["batch_size"]), config["feats"]["n_mels"], n_frames]
+    input = torch.randn(input_size)
+
+    if "use_embeddings" in config["net"] and  config["net"]["use_embeddings"]:
+        audio, label, padded_indxs, path, embeddings = dataset[0]
+        embeddings = embeddings.repeat((sum(config["training"]["batch_size"])), 1, 1)
+        macs, params = profile(model, inputs=(input, None, embeddings))
+    else:
+        macs, params = profile(model, inputs=(input,))
     
-    input = torch.randn(input_size)  
-    macs, params = profile(model, inputs=(input,))
     macs, params = clever_format([macs, params], "%.3f")
     return macs, params
