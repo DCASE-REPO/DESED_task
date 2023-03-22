@@ -108,10 +108,11 @@ For more information regarding the dataset, please refer to the [previous year D
 
 
 ## Training
-We provide **three** baselines for the task:
+We provide **four** baselines for the task:
 - baseline without external data
 - baseline using Audioset data (real-world strong-label data)
-- baseline using pre-trained embedding extractor DNN.
+- baseline using pre-trained embedding extractor DNN
+- baseline using pre-trained embeddings and Audioset data.
 
 ### How to run the Baseline systems
 The **baseline without external data** can be run from scratch using the following command:
@@ -142,7 +143,7 @@ Please install the correct version from https://pytorch.org/
 ---
 
 Note that the default training config will use GPU 0. 
-Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models] along with tensorboard logs. The baseline can be tested on the development set of the dataset using the following command:
+Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models]. The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
@@ -229,7 +230,7 @@ Collar-based = event-based. More information about the metrics in the DCASE Chal
 The results are from the **student** predictions. 
 
 
-We provide a [pretrained checkpoint](https://zenodo.org/record/7757064). The baseline can be tested on the development set of the dataset using the following command:
+We provide a [pretrained checkpoint][zenodo_pretrained_models]. The baseline can be tested on the development set of the dataset using the following command:
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 **NOTES**:
@@ -281,7 +282,7 @@ The SED baseline using the strongly annotated part of Audioset can be run from s
 
 The command will automatically considered the strong labels recorded data coming from Audioset in the training process.
 
-We provide a [pretrained checkpoint](https://zenodo.org/record/7757064). The baseline can be tested on the development set of the dataset using the following command:
+We provide a [pretrained checkpoint][zenodo_pretrained_models]. The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
@@ -327,7 +328,7 @@ net:
 
 The embeddings can be integrated using several aggregation methods : **frame** (method from last year : taking the last state of an RNN fed with the embeddings sequence), **interpolate** (nearest-neighbour interpolation to adapt the temporal resolution) and **pool1d** (adaptative average pooling as described before).
 
-We provide [pretrained checkpoints](https://zenodo.org/record/7757064). The baseline can be tested on the development set of the dataset using the following command:
+We provide [pretrained checkpoints][zenodo_pretrained_models]. The baseline can be tested on the development set of the dataset using the following command:
 `python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 To reproduce our results, you first need to pre-compute the embeddings using the following command:
@@ -375,7 +376,7 @@ As in the [SED baseline][sed_baseline], resuming training, testing from checkpoi
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
-[zenodo_pretrained_models]: https://zenodo.org/record/4639817
+[zenodo_pretrained_models]: https://zenodo.org/record/7759146
 [zenodo_pretrained_audioset_models]: https://zenodo.org/record/6447197
 [zenodo_pretrained_ast_embedding_model]: https://zenodo.org/record/6539466
 [google_sourcesep_repo]: https://github.com/google-research/sound-separation/tree/master/datasets/yfcc100m
