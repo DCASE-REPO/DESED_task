@@ -24,7 +24,7 @@ from desed_task.evaluation.evaluation_measures import (
     compute_psds_from_scores
 )
 
-from codecarbon import EmissionsTracker
+from codecarbon import OfflineEmissionsTracker
 import sed_scores_eval
 
 
@@ -171,9 +171,12 @@ class SEDTask4(pl.LightningModule):
     def on_train_start(self) -> None:
 
         os.makedirs(os.path.join(self.exp_dir, "training_codecarbon"), exist_ok=True)
-        self.tracker_train = EmissionsTracker("DCASE Task 4 SED TRAINING",
-                                        output_dir=os.path.join(self.exp_dir,
-                                                                "training_codecarbon"))
+        self.tracker_train = OfflineEmissionsTracker(
+            "DCASE Task 4 SED TRAINING",
+            output_dir=os.path.join(self.exp_dir, "training_codecarbon"),
+            log_level="warning",
+            country_iso_code="FRA",
+        )
         self.tracker_train.start()
 
         # Remove for debugging. Those warnings can be ignored during training otherwise.
@@ -682,7 +685,7 @@ class SEDTask4(pl.LightningModule):
             print(f"\nPostprocessed scores for teacher saved in: {save_dir_teacher_postprocessed}")
 
             self.tracker_eval.stop()
-            eval_kwh = self.tracker_eval._total_energy.kwh
+            eval_kwh = self.tracker_eval._total_energy.kWh
             results = {"/eval/tot_energy_kWh": torch.tensor(float(eval_kwh))}
             with open(os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
                 f.write(str(eval_kwh))
@@ -843,7 +846,7 @@ class SEDTask4(pl.LightningModule):
                 "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher,
             }
             self.tracker_devtest.stop()
-            eval_kwh = self.tracker_devtest._total_energy.kwh
+            eval_kwh = self.tracker_devtest._total_energy.kWh
             results.update({"/test/tot_energy_kWh": torch.tensor(float(eval_kwh))})
             with open(os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"), "w") as f:
                 f.write(str(eval_kwh))
@@ -892,22 +895,35 @@ class SEDTask4(pl.LightningModule):
     def on_train_end(self) -> None:
         # dump consumption
         self.tracker_train.stop()
-        training_kwh = self.tracker_train._total_energy.kwh
-        self.logger.log_metrics({"/train/tot_energy_kWh": torch.tensor(float(training_kwh))})
-        with open(os.path.join(self.exp_dir, "training_codecarbon", "training_tot_kwh.txt"), "w") as f:
+        training_kwh = self.tracker_train._total_energy.kWh
+        self.logger.log_metrics(
+            {"/train/tot_energy_kWh": torch.tensor(float(training_kwh))}
+        )
+        with open(
+            os.path.join(self.exp_dir, "training_codecarbon", "training_tot_kwh.txt"),
+            "w",
+        ) as f:
             f.write(str(training_kwh))
 
     def on_test_start(self) -> None:
 
         if self.evaluation:
-            os.makedirs(os.path.join(self.exp_dir, "evaluation_codecarbon"), exist_ok=True)
-            self.tracker_eval = EmissionsTracker("DCASE Task 4 SED EVALUATION",
-                                                 output_dir=os.path.join(self.exp_dir,
-                                                                         "evaluation_codecarbon"))
+            os.makedirs(
+                os.path.join(self.exp_dir, "evaluation_codecarbon"), exist_ok=True
+            )
+            self.tracker_eval = OfflineEmissionsTracker(
+                "DCASE Task 4 SED EVALUATION",
+                output_dir=os.path.join(self.exp_dir, "evaluation_codecarbon"),
+                log_level="warning",
+                country_iso_code="FRA",
+            )
             self.tracker_eval.start()
         else:
             os.makedirs(os.path.join(self.exp_dir, "devtest_codecarbon"), exist_ok=True)
-            self.tracker_devtest = EmissionsTracker("DCASE Task 4 SED DEVTEST",
-                                                 output_dir=os.path.join(self.exp_dir,
-                                                                         "devtest_codecarbon"))
+            self.tracker_devtest = OfflineEmissionsTracker(
+                "DCASE Task 4 SED DEVTEST",
+                output_dir=os.path.join(self.exp_dir, "devtest_codecarbon"),
+                log_level="warning",
+                country_iso_code="FRA",
+            )
             self.tracker_devtest.start()
