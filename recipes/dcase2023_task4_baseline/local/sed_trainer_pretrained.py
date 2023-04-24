@@ -848,7 +848,7 @@ class SEDTask4(pl.LightningModule):
                 save_dir=os.path.join(save_dir, "teacher", "scenario2"),
             )
             psds2_teacher_sed_scores_eval = compute_psds_from_scores(
-                self.test_scores_postprocessed_buffer_student,
+                self.test_scores_postprocessed_buffer_teacher,
                 ground_truth,
                 audio_durations,
                 dtc_threshold=0.1,
