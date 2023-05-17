@@ -223,7 +223,7 @@ Dataset |     Training       |      Dev-Test      |
 --------|--------------------|--------------------|
 **kWh** | **1.390 +- 0.019** | **0.019 +- 0.001** |          
 
-**Total number of multiply–accumulate operation (MACs):** 44.683 G
+**Total number of multiply–accumulate operation (MACs) for 10 seconds of audio prediction.:** 930.902 M
 
 Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
 
