@@ -216,7 +216,7 @@ def calculate_macs(model, config, dataset=None):
 
     """
     n_frames = int(((config["feats"]["sample_rate"] * config["data"]["audio_max_len"]) / config["feats"]["hop_length"])+1)
-    input_size = [sum(config["training"]["batch_size"]), config["feats"]["n_mels"], n_frames]
+    input_size = [1, config["feats"]["n_mels"], n_frames]
     input = torch.randn(input_size)
 
     if "use_embeddings" in config["net"] and  config["net"]["use_embeddings"]:
