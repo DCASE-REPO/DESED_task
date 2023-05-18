@@ -221,7 +221,7 @@ def calculate_macs(model, config, dataset=None):
 
     if "use_embeddings" in config["net"] and  config["net"]["use_embeddings"]:
         audio, label, padded_indxs, path, embeddings = dataset[0]
-        embeddings = embeddings.repeat((sum(config["training"]["batch_size"])), 1, 1)
+        embeddings = embeddings.repeat(1, 1, 1)
         macs, params = profile(model, inputs=(input, None, embeddings))
     else:
         macs, params = profile(model, inputs=(input,))
