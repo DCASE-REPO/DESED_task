@@ -152,7 +152,7 @@ The tensorboard logs can be tested using the command `tensorboard --logdir="path
 
 ## Energy Consumption
 
-From this year, the energy consumption (kWh) is going to be considered as additional metric to rank the submitted systems, therefore it is mandatory to report the energy consumption of the submitted models.
+From this year, the energy consumption (kWh) is going to be considered as additional metric to rank the submitted systems, therefore it is mandatory to report the energy consumption of the submitted models [11]. 
 
 Participants need to provide, for each submitted system (or at least the best one), the following energy consumption figures in kWh using [CodeCarbon](https://github.com/mlco2/codecarbon):
 
@@ -408,3 +408,5 @@ As in the [SED baseline][sed_baseline], resuming training, testing from checkpoi
 [9] Bilen, Cagdas, et al. "A framework for the robust evaluation of sound event detection." arXiv preprint arXiv:1910.08440 (ICASSP 2020)
 
 [10] Ebbers, Janek, et al. "Threshold-independent evaluation of sound event detection scores." arXiv preprint arXiv:2201.13148 (ICASSP 2022)
+
+[11] Ronchini, Francesca, et al. "Description and analysis of novelties introduced in DCASE Task 4 2022 on the baseline system." arXiv preprint arXiv:2210.07856 (2022).
