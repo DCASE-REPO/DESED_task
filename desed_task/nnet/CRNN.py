@@ -126,7 +126,8 @@ class CRNN(nn.Module):
             else:
                 self.cat_tf = torch.nn.Linear(2*nb_in, nb_in)
 
-    def _get_logits_one_head(self, x, pad_mask, dense, dense_softmax):
+    def _get_logits_one_head(self, x, pad_mask, dense, dense_softmax, output_mask=None):
+
         strong = dense(x)  # [bs, frames, nclass]
         strong = self.sigmoid(strong)
         if self.attention:
@@ -134,6 +135,11 @@ class CRNN(nn.Module):
             if not pad_mask is None:
                 sof = sof.masked_fill(pad_mask.transpose(1, 2),
                                       -1e30)  # mask attention
+
+            if output_mask is not None:
+                output_mask = output_mask.expand_as(sof)
+                # mask the invalid classes, cannot attend to these
+                sof = sof.masked_fill(~output_mask, -1e30)
             sof = self.softmax(sof)
             sof = torch.clamp(sof, min=1e-7, max=1)
             weak = (strong * sof).sum(1) / sof.sum(1)  # [bs, nclass]
@@ -142,17 +148,17 @@ class CRNN(nn.Module):
 
         return strong.transpose(1, 2), weak
 
-    def _get_logits(self, x, pad_mask):
+    def _get_logits(self, x, pad_mask, output_mask=None):
 
         out_strong = []
         out_weak = []
         if isinstance(self.nclass, (tuple, list)):
-            # multiple heads, why we do this ?
-            # we don't know if the classes are mutually exclusive
-            # the softmax makes them mutually exclusive
+            # instead of masking the softmax we can have multiple heads for each dataset:
+            # maestro_synth, maestro_real and desed.
+            # not sure which approach is better. We must try.
             for indx, c_classes in enumerate(self.nclass):
                 c_strong, c_weak = self._get_logits_one_head(x, pad_mask, self.dense[indx],
-                                                             self.dense_softmax[indx])
+                                                             self.dense_softmax[indx], output_mask)
                 out_strong.append(c_strong)
                 out_weak.append(c_weak)
 
@@ -161,8 +167,8 @@ class CRNN(nn.Module):
         else:
             return self._get_logits_one_head(x, pad_mask,
                                              self.dense,
-                                             self.dense_softmax)
-    def forward(self, x, pad_mask=None, embeddings=None):
+                                             self.dense_softmax, output_mask)
+    def forward(self, x, pad_mask=None, embeddings=None, output_mask=None):
 
         x = x.transpose(1, 2).unsqueeze(1)
 
@@ -210,7 +216,7 @@ class CRNN(nn.Module):
         x = self.rnn(x)
         x = self.dropout(x)
 
-        return self._get_logits(x, pad_mask)
+        return self._get_logits(x, pad_mask, output_mask)
 
     def train(self, mode=True):
         """

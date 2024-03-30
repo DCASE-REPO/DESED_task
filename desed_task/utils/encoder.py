@@ -1,6 +1,15 @@
 import numpy as np
 import pandas as pd
 from dcase_util.data import DecisionEncoder
+from collections import OrderedDict
+
+
+
+
+    # wrapper around manyhotencoder to handle multiple heterogeneous class
+    # dsets
+
+
 
 
 class ManyHotEncoder:
@@ -211,3 +220,33 @@ class ManyHotEncoder:
         net_pooling = state_dict["net_pooling"]
         fs = state_dict["fs"]
         return cls(labels, audio_len, frame_len, frame_hop, net_pooling, fs)
+
+
+class CatManyHotEncoder(ManyHotEncoder):
+    """
+    Concatenate many ManyHotEncoders.
+    """
+    def __init__(self, encoders: list,
+                 allow_same_classes=False):
+
+        total_labels = []
+        assert len(encoders) == 1, "encoders list must not be empty."
+        for enc in encoders:
+            for attr in ["audio_len", "frame_len", "frame_hop", "net_pooling", "fs"]:
+                assert getattr(encoders[0], attr) == getattr(enc[0], attr), \
+                    ("Encoders must have the same args (e.g. same fs and so on) "
+                     "except for the classes.")
+            total_labels.extend(enc.labels)
+
+        if not allow_same_classes and len(total_labels) != len(
+                set(total_labels)):
+            # we might test for this
+            raise RuntimeError(f"Encoders must not have classes in common. "
+                               f"But you have {total_labels} while the unique labels are: {set(total_labels)}")
+
+        total_labels = OrderedDict(
+            {x: indx for indx, x in enumerate(total_labels)})
+
+        # instantiate only one manyhotencoder
+        super(ManyHotEncoder, self).__init__(total_labels, encoders[0].audio_len,
+                       encoders[0].frame_len, encoders[0].frame_hop, encoders[0].net_pooling, encoders[0].fs)
