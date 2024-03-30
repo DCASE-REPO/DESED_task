@@ -54,6 +54,7 @@ class CRNN(nn.Module):
         self.use_embeddings = use_embeddings
         self.embedding_type = embedding_type
         self.aggregation_type = aggregation_type
+        self.nclass = nclass
 
         n_in_cnn = n_in_channel
 
@@ -84,12 +85,26 @@ class CRNN(nn.Module):
             NotImplementedError("Only BGRU supported for CRNN for now")
 
         self.dropout = nn.Dropout(dropout)
-        self.dense = nn.Linear(n_RNN_cell * 2, nclass)
-        self.sigmoid = nn.Sigmoid()
 
-        if self.attention:
-            self.dense_softmax = nn.Linear(n_RNN_cell * 2, nclass)
+        if isinstance(self.nclass, (tuple, list)) and len(self.nclass) > 1:
+            # multiple heads
+            self.dense = torch.nn.ModuleList([])
+            self.sigmoid = nn.Sigmoid()
             self.softmax = nn.Softmax(dim=-1)
+            for current_classes in self.nclass:
+                self.dense.append(nn.Linear(n_RNN_cell * 2, current_classes))
+                if self.attention:
+                    self.dense_softmax.append(nn.Linear(n_RNN_cell * 2, current_classes))
+
+        else:
+            if isinstance(self.nclass, (tuple, list)):
+                self.nclass = self.nclass[0]
+            self.dense = nn.Linear(n_RNN_cell * 2, self.nclass)
+            self.sigmoid = nn.Sigmoid()
+
+            if self.attention:
+                self.dense_softmax = nn.Linear(n_RNN_cell * 2, self.nclass)
+                self.softmax = nn.Softmax(dim=-1)
 
 
         if self.use_embeddings:
@@ -111,7 +126,42 @@ class CRNN(nn.Module):
             else:
                 self.cat_tf = torch.nn.Linear(2*nb_in, nb_in)
 
-        
+    def _get_logits_one_head(self, x, pad_mask, dense, dense_softmax):
+        strong = dense(x)  # [bs, frames, nclass]
+        strong = self.sigmoid(strong)
+        if self.attention:
+            sof = dense_softmax(x)  # [bs, frames, nclass]
+            if not pad_mask is None:
+                sof = sof.masked_fill(pad_mask.transpose(1, 2),
+                                      -1e30)  # mask attention
+            sof = self.softmax(sof)
+            sof = torch.clamp(sof, min=1e-7, max=1)
+            weak = (strong * sof).sum(1) / sof.sum(1)  # [bs, nclass]
+        else:
+            weak = strong.mean(1)
+
+        return strong.transpose(1, 2), weak
+
+    def _get_logits(self, x, pad_mask):
+
+        out_strong = []
+        out_weak = []
+        if isinstance(self.nclass, (tuple, list)):
+            # multiple heads, why we do this ?
+            # we don't know if the classes are mutually exclusive
+            # the softmax makes them mutually exclusive
+            for indx, c_classes in enumerate(self.nclass):
+                c_strong, c_weak = self._get_logits_one_head(x, pad_mask, self.dense[indx],
+                                                             self.dense_softmax[indx])
+                out_strong.append(c_strong)
+                out_weak.append(c_weak)
+
+            # concatenate over class dimension
+            return torch.cat(out_strong, 1), torch.cat(out_weak, 1)
+        else:
+            return self._get_logits_one_head(x, pad_mask,
+                                             self.dense,
+                                             self.dense_softmax)
     def forward(self, x, pad_mask=None, embeddings=None):
 
         x = x.transpose(1, 2).unsqueeze(1)
@@ -159,18 +209,8 @@ class CRNN(nn.Module):
 
         x = self.rnn(x)
         x = self.dropout(x)
-        strong = self.dense(x)  # [bs, frames, nclass]
-        strong = self.sigmoid(strong)
-        if self.attention:
-            sof = self.dense_softmax(x)  # [bs, frames, nclass]
-            if not pad_mask is None:
-                sof = sof.masked_fill(pad_mask.transpose(1, 2), -1e30)  # mask attention
-            sof = self.softmax(sof)
-            sof = torch.clamp(sof, min=1e-7, max=1)
-            weak = (strong * sof).sum(1) / sof.sum(1)  # [bs, nclass]
-        else:
-            weak = strong.mean(1)
-        return strong.transpose(1, 2), weak
+
+        return self._get_logits(x, pad_mask)
 
     def train(self, mode=True):
         """
