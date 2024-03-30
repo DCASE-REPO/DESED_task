@@ -1,6 +1,7 @@
+import random
+
 import numpy as np
 import torch
-import random
 
 
 def frame_shift(mels, labels, net_pooling=4):
@@ -16,7 +17,7 @@ def frame_shift(mels, labels, net_pooling=4):
 
 
 def mixup(data, target=None, alpha=0.2, beta=0.2, mixup_label_type="soft"):
-    """Mixup data augmentation by permuting the data
+    """Mixup data augmentation by permuting the data.
 
     Args:
         data: input tensor, must be a batch so data can be permuted and mixed.
@@ -53,7 +54,7 @@ def mixup(data, target=None, alpha=0.2, beta=0.2, mixup_label_type="soft"):
 
 
 def add_noise(mels, snrs=(6, 30), dims=(1, 2)):
-    """ Add white noise to mels spectrograms
+    """Add white noise to mels spectrograms
     Args:
         mels: torch.tensor, mels spectrograms to apply the white noise to.
         snrs: int or tuple, the range of snrs to choose from if tuple (uniform)
