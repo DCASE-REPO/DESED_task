@@ -1,19 +1,15 @@
+from collections import OrderedDict
+
 import numpy as np
 import pandas as pd
 from dcase_util.data import DecisionEncoder
-from collections import OrderedDict
 
-
-
-
-    # wrapper around manyhotencoder to handle multiple heterogeneous class
-    # dsets
-
-
+# wrapper around manyhotencoder to handle multiple heterogeneous class
+# dsets
 
 
 class ManyHotEncoder:
-    """"
+    """ "
         Adapted after DecisionEncoder.find_contiguous_regions method in
         https://github.com/DCASE-REPO/dcase_util/blob/master/dcase_util/data/decisions.py
 
@@ -45,7 +41,7 @@ class ManyHotEncoder:
         self.n_frames = int(int((n_frames / self.frame_hop)) / self.net_pooling)
 
     def encode_weak(self, labels):
-        """ Encode a list of weak labels into a numpy array
+        """Encode a list of weak labels into a numpy array
 
         Args:
             labels: list, list of labels to encode (to a vector of 0 and 1)
@@ -162,7 +158,7 @@ class ManyHotEncoder:
         return y
 
     def decode_weak(self, labels):
-        """ Decode the encoded weak labels
+        """Decode the encoded weak labels
         Args:
             labels: numpy.array, the encoded labels to be decoded
 
@@ -178,7 +174,7 @@ class ManyHotEncoder:
         return result_labels
 
     def decode_strong(self, labels):
-        """ Decode the encoded strong labels
+        """Decode the encoded strong labels
         Args:
             labels: numpy.array, the encoded labels to be decoded
         Returns:
@@ -226,27 +222,35 @@ class CatManyHotEncoder(ManyHotEncoder):
     """
     Concatenate many ManyHotEncoders.
     """
-    def __init__(self, encoders: list,
-                 allow_same_classes=False):
+
+    def __init__(self, encoders: list, allow_same_classes=True):
+
 
         total_labels = []
         assert len(encoders) == 1, "encoders list must not be empty."
         for enc in encoders:
             for attr in ["audio_len", "frame_len", "frame_hop", "net_pooling", "fs"]:
-                assert getattr(encoders[0], attr) == getattr(enc[0], attr), \
-                    ("Encoders must have the same args (e.g. same fs and so on) "
-                     "except for the classes.")
+                assert getattr(encoders[0], attr) == getattr(enc[0], attr), (
+                    "Encoders must have the same args (e.g. same fs and so on) "
+                    "except for the classes."
+                )
             total_labels.extend(enc.labels)
 
-        if not allow_same_classes and len(total_labels) != len(
-                set(total_labels)):
+        if not allow_same_classes and len(total_labels) != len(set(total_labels)):
             # we might test for this
-            raise RuntimeError(f"Encoders must not have classes in common. "
-                               f"But you have {total_labels} while the unique labels are: {set(total_labels)}")
+            raise RuntimeError(
+                f"Encoders must not have classes in common. "
+                f"But you have {total_labels} while the unique labels are: {set(total_labels)}"
+            )
 
-        total_labels = OrderedDict(
-            {x: indx for indx, x in enumerate(total_labels)})
+        total_labels = OrderedDict({x: indx for indx, x in enumerate(total_labels)})
 
         # instantiate only one manyhotencoder
-        super(ManyHotEncoder, self).__init__(total_labels, encoders[0].audio_len,
-                       encoders[0].frame_len, encoders[0].frame_hop, encoders[0].net_pooling, encoders[0].fs)
+        super(ManyHotEncoder, self).__init__(
+            total_labels,
+            encoders[0].audio_len,
+            encoders[0].frame_len,
+            encoders[0].frame_hop,
+            encoders[0].net_pooling,
+            encoders[0].fs,
+        )
