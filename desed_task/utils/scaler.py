@@ -1,5 +1,5 @@
-import tqdm
 import torch
+import tqdm
 
 
 class TorchScaler(torch.nn.Module):
@@ -68,17 +68,16 @@ class TorchScaler(torch.nn.Module):
         """
         indx = 0
         for batch in tqdm.tqdm(dataloader):
-
             feats = transform_func(batch)
             if indx == 0:
                 mean = torch.mean(feats, self.dims, keepdim=True).mean(0).unsqueeze(0)
                 mean_squared = (
-                    torch.mean(feats ** 2, self.dims, keepdim=True).mean(0).unsqueeze(0)
+                    torch.mean(feats**2, self.dims, keepdim=True).mean(0).unsqueeze(0)
                 )
             else:
                 mean += torch.mean(feats, self.dims, keepdim=True).mean(0).unsqueeze(0)
                 mean_squared += (
-                    torch.mean(feats ** 2, self.dims, keepdim=True).mean(0).unsqueeze(0)
+                    torch.mean(feats**2, self.dims, keepdim=True).mean(0).unsqueeze(0)
                 )
             indx += 1
 
@@ -89,7 +88,6 @@ class TorchScaler(torch.nn.Module):
         self.register_buffer("mean_squared", mean_squared)
 
     def forward(self, tensor):
-
         if self.statistic is None or self.normtype is None:
             return tensor
 
@@ -101,7 +99,7 @@ class TorchScaler(torch.nn.Module):
             if self.normtype == "mean":
                 return tensor - self.mean
             elif self.normtype == "standard":
-                std = torch.sqrt(self.mean_squared - self.mean ** 2)
+                std = torch.sqrt(self.mean_squared - self.mean**2)
                 return (tensor - self.mean) / (std + self.eps)
             else:
                 raise NotImplementedError

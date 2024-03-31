@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import psds_eval
 import sed_eval
-from psds_eval import PSDSEval, plot_psd_roc
 import sed_scores_eval
+from psds_eval import PSDSEval, plot_psd_roc
 
 
 def get_event_list_current_file(df, fname):
@@ -30,7 +30,7 @@ def get_event_list_current_file(df, fname):
 
 
 def psds_results(psds_obj):
-    """ Compute psds scores
+    """Compute psds scores
     Args:
         psds_obj: psds_eval.PSDSEval object with operating points.
     Returns:
@@ -50,7 +50,7 @@ def psds_results(psds_obj):
 def event_based_evaluation_df(
     reference, estimated, t_collar=0.200, percentage_of_length=0.2
 ):
-    """ Calculate EventBasedMetric given a reference and estimated dataframe
+    """Calculate EventBasedMetric given a reference and estimated dataframe
 
     Args:
         reference: pd.DataFrame containing "filename" "onset" "offset" and "event_label" columns which describe the
@@ -94,17 +94,17 @@ def event_based_evaluation_df(
 
 
 def segment_based_evaluation_df(reference, estimated, time_resolution=1.0):
-    """ Calculate SegmentBasedMetrics given a reference and estimated dataframe
+    """Calculate SegmentBasedMetrics given a reference and estimated dataframe
 
-        Args:
-            reference: pd.DataFrame containing "filename" "onset" "offset" and "event_label" columns which describe the
-                reference events
-            estimated: pd.DataFrame containing "filename" "onset" "offset" and "event_label" columns which describe the
-                estimated events to be compared with reference
-            time_resolution: float, the time resolution of the segment based metric
-        Returns:
-             sed_eval.sound_event.SegmentBasedMetrics with the scores
-        """
+    Args:
+        reference: pd.DataFrame containing "filename" "onset" "offset" and "event_label" columns which describe the
+            reference events
+        estimated: pd.DataFrame containing "filename" "onset" "offset" and "event_label" columns which describe the
+            estimated events to be compared with reference
+        time_resolution: float, the time resolution of the segment based metric
+    Returns:
+         sed_eval.sound_event.SegmentBasedMetrics with the scores
+    """
     evaluated_files = reference["filename"].unique()
 
     classes = []
@@ -133,7 +133,7 @@ def segment_based_evaluation_df(reference, estimated, time_resolution=1.0):
 
 
 def compute_sed_eval_metrics(predictions, groundtruth):
-    """ Compute sed_eval metrics event based and segment based with default parameters used in the task.
+    """Compute sed_eval metrics event based and segment based with default parameters used in the task.
     Args:
         predictions: pd.DataFrame, predictions dataframe
         groundtruth: pd.DataFrame, groundtruth dataframe
@@ -158,7 +158,7 @@ def compute_per_intersection_macro_f1(
     gtc_threshold=0.5,
     cttc_threshold=0.3,
 ):
-    """ Compute F1-score per intersection, using the defautl
+    """Compute F1-score per intersection, using the defautl
     Args:
         prediction_dfs: dict, a dictionary with thresholds keys and predictions dataframe
         ground_truth_file: pd.DataFrame, the groundtruth dataframe
@@ -207,7 +207,6 @@ def compute_psds_from_operating_points(
     max_efpr=100,
     save_dir=None,
 ):
-
     gt = pd.read_csv(ground_truth_file, sep="\t")
     durations = pd.read_csv(durations_file, sep="\t")
     psds_eval = PSDSEval(
@@ -270,11 +269,16 @@ def compute_psds_from_scores(
     save_dir=None,
 ):
     psds, psd_roc, single_class_rocs, *_ = sed_scores_eval.intersection_based.psds(
-        scores=scores, ground_truth=ground_truth_file,
+        scores=scores,
+        ground_truth=ground_truth_file,
         audio_durations=durations_file,
-        dtc_threshold=dtc_threshold, gtc_threshold=gtc_threshold,
-        cttc_threshold=cttc_threshold, alpha_ct=alpha_ct, alpha_st=alpha_st,
-        max_efpr=max_efpr, num_jobs=num_jobs,
+        dtc_threshold=dtc_threshold,
+        gtc_threshold=gtc_threshold,
+        cttc_threshold=cttc_threshold,
+        alpha_ct=alpha_ct,
+        alpha_st=alpha_st,
+        max_efpr=max_efpr,
+        num_jobs=num_jobs,
     )
     if save_dir is not None:
         scores_dir = os.path.join(save_dir, "scores")
@@ -286,9 +290,13 @@ def compute_psds_from_scores(
         sed_scores_eval.utils.visualization.plot_psd_roc(
             psd_roc,
             filename=os.path.join(save_dir, filename),
-            dtc_threshold=dtc_threshold, gtc_threshold=gtc_threshold,
-            cttc_threshold=cttc_threshold, alpha_ct=alpha_ct,
-            alpha_st=alpha_st, unit_of_time='hour',  max_efpr=max_efpr,
+            dtc_threshold=dtc_threshold,
+            gtc_threshold=gtc_threshold,
+            cttc_threshold=cttc_threshold,
+            alpha_ct=alpha_ct,
+            alpha_st=alpha_st,
+            unit_of_time="hour",
+            max_efpr=max_efpr,
             psds=psds,
         )
     return psds

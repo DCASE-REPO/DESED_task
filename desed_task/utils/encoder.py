@@ -107,7 +107,10 @@ class ManyHotEncoder:
                         i = self.labels.index(row["event_label"])
                         onset = int(self._time_to_frame(row["onset"]))
                         offset = int(np.ceil(self._time_to_frame(row["offset"])))
-                        y[
+                        if "confidence" in label_df.columns:
+                            y[onset:offset, i] = row["confidence"] # support confidence
+                        else:
+                            y[
                             onset:offset, i
                         ] = 1  # means offset not included (hypothesis of overlapping frames, so ok)
 
@@ -124,7 +127,11 @@ class ManyHotEncoder:
                         i = self.labels.index(label_df["event_label"])
                         onset = int(self._time_to_frame(label_df["onset"]))
                         offset = int(np.ceil(self._time_to_frame(label_df["offset"])))
-                        y[onset:offset, i] = 1
+
+                        if "confidence" in label_df.columns:
+                            y[onset:offset, i] = label_df["confidence"]
+                        else:
+                            y[onset:offset, i] = 1
                     return y
 
             for event_label in label_df:
@@ -141,6 +148,13 @@ class ManyHotEncoder:
                         onset = int(self._time_to_frame(event_label[1]))
                         offset = int(np.ceil(self._time_to_frame(event_label[2])))
                         y[onset:offset, i] = 1
+                # List of list, with [label, onset, offset, confidence]
+                elif len(event_label) == 4:
+                    if event_label[0] != "":
+                        i = self.labels.index(event_label[0])
+                        onset = int(self._time_to_frame(event_label[1]))
+                        offset = int(np.ceil(self._time_to_frame(event_label[2])))
+                        y[onset:offset, i] = event_label[3]
 
                 else:
                     raise NotImplementedError(
