@@ -237,14 +237,14 @@ class CatManyHotEncoder(ManyHotEncoder):
     Concatenate many ManyHotEncoders.
     """
 
-    def __init__(self, encoders: list, allow_same_classes=True):
+    def __init__(self, encoders, allow_same_classes=True):
 
 
         total_labels = []
-        assert len(encoders) == 1, "encoders list must not be empty."
+        assert len(encoders) > 0, "encoders list must not be empty."
         for enc in encoders:
             for attr in ["audio_len", "frame_len", "frame_hop", "net_pooling", "fs"]:
-                assert getattr(encoders[0], attr) == getattr(enc[0], attr), (
+                assert getattr(encoders[0], attr) == getattr(enc, attr), (
                     "Encoders must have the same args (e.g. same fs and so on) "
                     "except for the classes."
                 )
@@ -257,10 +257,12 @@ class CatManyHotEncoder(ManyHotEncoder):
                 f"But you have {total_labels} while the unique labels are: {set(total_labels)}"
             )
 
+        total_labels = list(set(total_labels))
+
         total_labels = OrderedDict({x: indx for indx, x in enumerate(total_labels)})
 
         # instantiate only one manyhotencoder
-        super(ManyHotEncoder, self).__init__(
+        super().__init__(
             total_labels,
             encoders[0].audio_len,
             encoders[0].frame_len,
