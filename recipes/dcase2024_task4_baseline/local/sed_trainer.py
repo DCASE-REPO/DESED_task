@@ -289,16 +289,16 @@ class SEDTask4(pl.LightningModule):
 
         audio, labels, padded_indxs, valid_class_mask = batch
 
-        _, indx_strong, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
+        indx_maestro, indx_synth, indx_strong, indx_weak, indx_unlabelled = (
+            np.cumsum(self.hparams["training"]["batch_size"]))
 
         features = self.mel_spec(audio)
-
         batch_num = features.shape[0]
         # deriving masks for each dataset
         strong_mask = torch.zeros(batch_num).to(features).bool()
         weak_mask = torch.zeros(batch_num).to(features).bool()
         strong_mask[:indx_strong] = 1
-        weak_mask[indx_strong : indx_weak + indx_strong] = 1
+        weak_mask[indx_strong:indx_weak] = 1 #NOTE: we use cumsum now !
 
         # deriving weak labels
         labels_weak = (torch.sum(labels[weak_mask], -1) > 0).float()
@@ -308,19 +308,18 @@ class SEDTask4(pl.LightningModule):
             mixup_type is not None
             and self.hparams["training"]["mixup_prob"] > random.random()
         ):
-            features[weak_mask], labels_weak = mixup(
-                features[weak_mask], labels_weak,
-                mixup_label_type=mixup_type
-            )
-            features[strong_mask], labels[strong_mask] = mixup(
-                features[strong_mask], labels[strong_mask],
-                mixup_label_type=mixup_type
-            )
+            # NOTE: mix only within same dataset !
+            features, labels = self.apply_mixup(features, labels,
+                                                indx_strong, indx_weak)
+            features, labels = self.apply_mixup(features, labels, indx_maestro,
+                                                indx_strong)
+            features, labels = self.apply_mixup(features, labels, 0,
+                                                indx_maestro)
 
-        # mask labels for invalid classes after mixup. This is sub-optimal
+        # mask labels for invalid datasets classes after mixup.
         labels = labels.masked_fill(~valid_class_mask[:, :, None].expand_as(labels), 0.0)
         labels_weak = labels_weak.masked_fill(
-            ~valid_class_mask[indx_strong : indx_weak + indx_strong], 0.0)
+            ~valid_class_mask[weak_mask], 0.0)
 
         # sed student forward
         strong_preds_student, weak_preds_student = self.detect(

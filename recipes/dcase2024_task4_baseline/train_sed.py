@@ -125,7 +125,8 @@ def single_run(
 
     mask_events_desed = set(classes_labels_desed.keys())
     mask_events_maestro_synth = set(classes_labels_maestro_synth.keys())
-    mask_events_maestro_real = set(classes_labels_maestro_real.keys())
+    # we add also alias desed classes
+    mask_events_maestro_real = (set(classes_labels_maestro_real.keys()).union(set(["Speech", "Dog", "Dishes"])))
 
     if not evaluation:
         devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
@@ -204,9 +205,12 @@ def single_run(
         )
         maestro_real_valid = maestro_real_train.drop(maestro_real_valid.index).reset_index(drop=True)
         maestro_real_train = maestro_real_train.reset_index(drop=True)
-        # augment with alias
+        # augment with alias, adding Speech, Dog and Dishes.
+        # can we do the opposite ? augment desed with maestro classes ?
+        # not sure.
         maestro_real_train = process_tsvs(maestro_real_train,
                                           alias_map=maestro_desed_alias)
+
         maestro_real_train = StronglyAnnotatedSet(
             config["data"]["real_maestro_train"],
             maestro_real_train,
@@ -277,7 +281,7 @@ def single_run(
 
         # maestro_synth will be added to synth set.
         # maestro real to strong set.
-        tot_train_data = [synth_set, strong_set, weak_set,
+        tot_train_data = [maestro_real_train, synth_set, strong_set, weak_set,
                           unlabeled_set]
         train_dataset = torch.utils.data.ConcatDataset(tot_train_data)
 
