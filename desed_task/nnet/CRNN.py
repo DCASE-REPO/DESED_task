@@ -83,17 +83,6 @@ class CRNN(nn.Module):
                 dropout=dropout_recurrent,
                 num_layers=n_layers_RNN,
             )
-        elif rnn_type == "mamba":
-            from mamba_ssm import Mamba
-            nb_in = self.cnn.nb_filters[-1]
-            self.rnn = Mamba(
-                d_model=nb_in,  # Model dimension d_model
-                d_state=64,  # SSM state expansion factor
-                d_conv=8,  # Local convolution width
-                expand=4,  # Block expansion factor
-                ).to("cuda")
-            n_RNN_cell = n_RNN_cell // 2
-
         else:
             NotImplementedError("Only BGRU supported for CRNN for now")
 
@@ -146,27 +135,33 @@ class CRNN(nn.Module):
             else:
                 self.cat_tf = torch.nn.Linear(2 * nb_in, nb_in)
 
-    def _get_logits_one_head(self, x, pad_mask, dense, dense_softmax, output_mask=None):
+    def _get_logits_one_head(self, x, pad_mask, dense, dense_softmax, classes_mask=None):
         strong = dense(x)  # [bs, frames, nclass]
         strong = self.sigmoid(strong)
-        if self.attention:
+        if classes_mask is not None:
+            classes_mask = ~classes_mask[:, None].expand_as(strong)
+        if self.attention in [True, "legacy"]:
             sof = dense_softmax(x)  # [bs, frames, nclass]
             if not pad_mask is None:
                 sof = sof.masked_fill(pad_mask.transpose(1, 2), -1e30)  # mask attention
 
-            if output_mask is not None:
-                output_mask = output_mask.expand_as(sof)
+            if classes_mask is not None:
                 # mask the invalid classes, cannot attend to these
-                sof = sof.masked_fill(~output_mask, -1e30)
+                sof = sof.masked_fill(classes_mask, -1e30)
             sof = self.softmax(sof)
             sof = torch.clamp(sof, min=1e-7, max=1)
             weak = (strong * sof).sum(1) / sof.sum(1)  # [bs, nclass]
         else:
             weak = strong.mean(1)
 
+        if classes_mask is not None:
+            # mask invalid
+            strong = strong.masked_fill(classes_mask, 0.0)
+            weak = weak.masked_fill(classes_mask[:, 0], 0.0)
+
         return strong.transpose(1, 2), weak
 
-    def _get_logits(self, x, pad_mask, output_mask=None):
+    def _get_logits(self, x, pad_mask, classes_mask=None):
         out_strong = []
         out_weak = []
         if isinstance(self.nclass, (tuple, list)):
@@ -174,8 +169,9 @@ class CRNN(nn.Module):
             # maestro_synth, maestro_real and desed.
             # not sure which approach is better. We must try.
             for indx, c_classes in enumerate(self.nclass):
+                dense_softmax = self.dense_softmax[indx] if hasattr(self, "dense_softmax") else None
                 c_strong, c_weak = self._get_logits_one_head(
-                    x, pad_mask, self.dense[indx], self.dense_softmax[indx], output_mask
+                    x, pad_mask, self.dense[indx], dense_softmax, classes_mask
                 )
                 out_strong.append(c_strong)
                 out_weak.append(c_weak)
@@ -183,11 +179,13 @@ class CRNN(nn.Module):
             # concatenate over class dimension
             return torch.cat(out_strong, 1), torch.cat(out_weak, 1)
         else:
+            dense_softmax = self.dense_softmax if hasattr(self,
+                                                                "dense_softmax") else None
             return self._get_logits_one_head(
-                x, pad_mask, self.dense, self.dense_softmax, output_mask
+                x, pad_mask, self.dense, dense_softmax, classes_mask
             )
 
-    def forward(self, x, pad_mask=None, embeddings=None, output_mask=None):
+    def forward(self, x, pad_mask=None, embeddings=None, classes_mask=None):
         x = x.transpose(1, 2).unsqueeze(1)
 
         # input size : (batch_size, n_channels, n_frames, n_freq)
@@ -262,7 +260,7 @@ class CRNN(nn.Module):
         x = self.rnn(x)
         x = self.dropout(x)
 
-        return self._get_logits(x, pad_mask, output_mask)
+        return self._get_logits(x, pad_mask, classes_mask)
 
     def train(self, mode=True):
         """

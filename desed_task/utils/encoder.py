@@ -28,6 +28,8 @@ class ManyHotEncoder:
     ):
         if type(labels) in [np.ndarray, np.array]:
             labels = labels.tolist()
+        elif isinstance(labels, (dict, OrderedDict)):
+            labels = list(labels.keys())
         self.labels = labels
         self.audio_len = audio_len
         self.frame_len = frame_len
@@ -35,9 +37,6 @@ class ManyHotEncoder:
         self.fs = fs
         self.net_pooling = net_pooling
         n_frames = self.audio_len * self.fs
-        # self.n_frames = int(
-        #     int(((n_frames - self.frame_len) / self.frame_hop)) / self.net_pooling
-        # )
         self.n_frames = int(int((n_frames / self.frame_hop)) / self.net_pooling)
 
     def encode_weak(self, labels):
@@ -108,11 +107,11 @@ class ManyHotEncoder:
                         onset = int(self._time_to_frame(row["onset"]))
                         offset = int(np.ceil(self._time_to_frame(row["offset"])))
                         if "confidence" in label_df.columns:
-                            y[onset:offset, i] = row["confidence"] # support confidence
+                            y[onset:offset, i] = row["confidence"]  # support confidence
                         else:
                             y[
-                            onset:offset, i
-                        ] = 1  # means offset not included (hypothesis of overlapping frames, so ok)
+                                onset:offset, i
+                            ] = 1  # means offset not included (hypothesis of overlapping frames, so ok)
 
         elif type(label_df) in [
             pd.Series,
@@ -238,8 +237,6 @@ class CatManyHotEncoder(ManyHotEncoder):
     """
 
     def __init__(self, encoders, allow_same_classes=True):
-
-
         total_labels = []
         assert len(encoders) > 0, "encoders list must not be empty."
         for enc in encoders:

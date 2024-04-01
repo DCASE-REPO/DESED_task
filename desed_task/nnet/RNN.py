@@ -6,7 +6,6 @@ from torch import nn as nn
 
 class BidirectionalGRU(nn.Module):
     def __init__(self, n_in, n_hidden, dropout=0, num_layers=1):
-
         """
             Initialization of BidirectionalGRU instance
         Args:

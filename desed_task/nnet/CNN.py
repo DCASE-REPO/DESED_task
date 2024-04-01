@@ -1,5 +1,5 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
 
 
 class GLU(nn.Module):
@@ -46,7 +46,7 @@ class CNN(nn.Module):
     ):
         """
             Initialization of CNN network s
-        
+
         Args:
             n_in_channel: int, number of input channel
             activation: str, activation function

@@ -85,6 +85,7 @@ class StronglyAnnotatedSet(Dataset):
         feats_pipeline=None,
         embeddings_hdf5_file=None,
         embedding_type=None,
+        mask_events_other_than=None,
     ):
         self.encoder = encoder
         self.fs = fs
@@ -96,6 +97,19 @@ class StronglyAnnotatedSet(Dataset):
         self.embeddings_hdf5_file = embeddings_hdf5_file
         self.embedding_type = embedding_type
 
+        # we mask events that are incompatible with the current setting
+        if mask_events_other_than is not None:
+            # fetch indexes to mask
+            self.mask_events_other_than = torch.ones(len(encoder.labels))
+            for indx, cls in enumerate(encoder.labels):
+                if cls not in mask_events_other_than:
+                    # set to zero corresponding entry, invalid class for this dataset
+                    # we will skip loss computation
+                    self.mask_events_other_than[indx] = 0
+        else:
+            # keep all, no mask
+            self.mask_events_other_than = torch.ones(len(encoder.labels))
+        self.mask_events_other_than = self.mask_events_other_than.bool()
         assert embedding_type in [
             "global",
             "frame",
@@ -109,25 +123,31 @@ class StronglyAnnotatedSet(Dataset):
         examples = {}
         for i, r in tsv_entries.iterrows():
             if r["filename"] not in examples.keys():
+                confidence = 1.0 if "confidence" not in r.keys() else r["confidence"]
                 examples[r["filename"]] = {
                     "mixture": os.path.join(audio_folder, r["filename"]),
-                    "events": [],
+                    "events": [], "confidence": confidence
                 }
                 if not np.isnan(r["onset"]):
+                    confidence = 1.0 if "confidence" not in r.keys() else r[
+                        "confidence"]
                     examples[r["filename"]]["events"].append(
                         {
                             "event_label": r["event_label"],
                             "onset": r["onset"],
-                            "offset": r["offset"],
+                            "offset": r["offset"], "confidence": confidence
                         }
                     )
             else:
                 if not np.isnan(r["onset"]):
+                    confidence = 1.0 if "confidence" not in r.keys() else r[
+                        "confidence"]
                     examples[r["filename"]]["events"].append(
                         {
                             "event_label": r["event_label"],
                             "onset": r["onset"],
                             "offset": r["offset"],
+                            "confidence": confidence
                         }
                     )
 
@@ -202,12 +222,10 @@ class StronglyAnnotatedSet(Dataset):
 
             out_args.append(embeddings)
 
+        if self.mask_events_other_than is not None:
+            out_args.append(self.mask_events_other_than)
+
         return out_args
-
-
-class MAESTRODataset(Dataset):
-    def __init__(self, audio_folder, encoder):
-        pass
 
 
 class WeakSet(Dataset):
@@ -224,6 +242,7 @@ class WeakSet(Dataset):
         feats_pipeline=None,
         embeddings_hdf5_file=None,
         embedding_type=None,
+        mask_events_other_than= None
     ):
         self.encoder = encoder
         self.fs = fs
@@ -234,6 +253,21 @@ class WeakSet(Dataset):
         self.feats_pipeline = feats_pipeline
         self.embeddings_hdf5_file = embeddings_hdf5_file
         self.embedding_type = embedding_type
+        self.mask_events_other_than = mask_events_other_than
+
+        if mask_events_other_than is not None:
+            # fetch indexes to mask
+            self.mask_events_other_than = torch.ones(len(encoder.labels))
+            for indx, cls in enumerate(encoder.labels):
+                if cls not in mask_events_other_than:
+                    # set to zero corresponding entry, invalid class for this dataset
+                    # we will skip loss computation
+                    self.mask_events_other_than[indx] = 0
+        else:
+            # keep all, no mask
+            self.mask_events_other_than = torch.ones(len(encoder.labels))
+
+        self.mask_events_other_than = self.mask_events_other_than.bool()
         assert embedding_type in [
             "global",
             "frame",
@@ -316,6 +350,9 @@ class WeakSet(Dataset):
 
             out_args.append(embeddings)
 
+        if self.mask_events_other_than is not None:
+            out_args.append(self.mask_events_other_than)
+
         return out_args
 
 
@@ -332,6 +369,7 @@ class UnlabeledSet(Dataset):
         feats_pipeline=None,
         embeddings_hdf5_file=None,
         embedding_type=None,
+        mask_events_other_than=None
     ):
         self.encoder = encoder
         self.fs = fs
@@ -350,6 +388,22 @@ class UnlabeledSet(Dataset):
         ], "embedding type are either frame or global or None, got {}".format(
             embedding_type
         )
+
+        self.mask_events_other_than = mask_events_other_than
+
+        if mask_events_other_than is not None:
+            # fetch indexes to mask
+            self.mask_events_other_than = torch.ones(len(encoder.labels))
+            for indx, cls in enumerate(encoder.labels):
+                if cls not in mask_events_other_than:
+                    # set to zero corresponding entry, invalid class for this dataset
+                    # we will skip loss computation
+                    self.mask_events_other_than[indx] = 0
+        else:
+            # keep all, no mask
+            self.mask_events_other_than = torch.ones(len(encoder.labels))
+
+        self.mask_events_other_than = self.mask_events_other_than.bool()
 
         if self.embeddings_hdf5_file is not None:
             assert (
@@ -404,5 +458,8 @@ class UnlabeledSet(Dataset):
                 raise NotImplementedError
 
             out_args.append(embeddings)
+
+        if self.mask_events_other_than is not None:
+            out_args.append(self.mask_events_other_than)
 
         return out_args
