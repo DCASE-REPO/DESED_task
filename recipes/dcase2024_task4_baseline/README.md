@@ -168,7 +168,7 @@ Furthermore, we suggest participants report the energy consumption in kWh (using
 1) Training the baseline system for 10 epochs
 2) Devtest inference for the baseline system
 
-Both are computed by the `python train_sed.py` command. You just need to set 10 epochs in the `confs/default.yaml`. You can find the energy consumed in kWh in `./exp/2024_baseline/version_X/codecarbon/emissions_baseline_training.csv` for training and `./exp/2024_baseline/version_X/codecarbon/emissions_baseline_inference.csv` for devtest inference.
+Both are computed by the `python train_sed.py` command. You just need to set 10 epochs in the `confs/default.yaml`. You can find the energy consumed in kWh in `./exp/2024_baseline/version_X/codecarbon/emissions_baseline_training.csv` for training and `./exp/2024_baseline/version_X/codecarbon/emissions_baseline_test.csv` for devtest inference.
 
 **(NEW)** This year, we recommend participants submit the whole .csv files that provide the details of consumption for GPU, CPU and RAM usage. For more information, please refer to the submission package example.
 
