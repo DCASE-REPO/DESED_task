@@ -1,4 +1,4 @@
-### DCASE2023 Task 4 Baseline for Sound Event Detection in Domestic Environments (Subtask A).
+### DCASE2024 Task 4 Baseline for Sound Event Detection in Domestic Environments (Subtask A).
 
 ---
 
@@ -152,48 +152,35 @@ The tensorboard logs can be tested using the command `tensorboard --logdir="path
 
 ## Energy Consumption
 
-From this year, the energy consumption (kWh) is going to be considered as additional metric to rank the submitted systems, therefore it is mandatory to report the energy consumption of the submitted models [11]. 
+Since last year, energy consumption (kWh) has been considered as an additional metric to rank the submitted systems. Therefore, participants must report the energy consumption of the submitted models [11].
 
 Participants need to provide, for each submitted system (or at least the best one), the following energy consumption figures in kWh using [CodeCarbon](https://github.com/mlco2/codecarbon):
 
-1) whole system training
-2) devtest inference
-3) evaluation set inference
+1) Whole system training
+2) Devtest inference
 
-You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to do this (super simple! 😉 )
-or to this baseline code see `local/sed_trained.py` for some hints on how we are doing this for the baseline system.
+You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to accomplish this (it's super simple! 😉), or refer to the baseline code in `local/sed_trained.py` for some hints on how we accomplish this for the baseline system.
 
+**Important!!**
 
-**Important!!** 
+Furthermore, we suggest participants report the energy consumption in kWh (using the same hardware used for 1) and 2)) of:
 
-In addition to this, we kindly suggest the participants to
-provide the energy consumption in kWh (using the same hardware used for 2) and 3)) of:
+1) Training the baseline system for 10 epochs
+2) Devtest inference for the baseline system
 
-1) devtest inference for baseline system using: 
+Both are computed by the `python train_sed.py` command. You just need to set 10 epochs in the `confs/default.yaml`. You can find the energy consumed in kWh in `./exp/2024_baseline/version_X/codecarbon/emissions_baseline_training.csv` for training and `./exp/2024_baseline/version_X/codecarbon/emissions_baseline_inference.csv` for devtest inference.
 
-`python train_sed.py --test_from_checkpoint /path/to/downloaded.ckpt`
-You can find the energy consumed in kWh in `./exp/2022_baseline/devtest_codecarbon/devtest_tot_kwh.txt`
+**(NEW)** This year, we recommend participants submit the whole .csv files that provide the details of consumption for GPU, CPU and RAM usage. For more information, please refer to the submission package example.
 
-2) evaluation set inference for baseline system using:
-`python train_sed.py --eval_from_checkpoint /path/to/downloaded.ckpt`
-You can find the energy consumed in kWh in `./exp/2022_baseline/evaluation_codecarbon/eval_tot_kwh.txt`
+**Why we require this?**
 
-**Why we require this ?**
+Energy consumption depends on hardware, and each participant uses different hardware. To account for this difference, we use the baseline training and inference kWh energy consumption as a common reference. It is important that the inference energy consumption figures for both submitted systems and baseline are computed on the same hardware under similar loading.
 
-Energy consumption depends on hardware and each participant uses
-different hardware. 
+## Multiply–accumulate (MAC) operations.
 
-To obviate for this difference we use the baseline inference kWh energy consumption 
-as a common reference. Because of this, it is important that the
-inference energy consumption figures for both submitted system 
-and baseline are computed on same hardware under similar loading. 
+Starting from last year, counting the MAC is complementary to the energy consumption metric. We consider the Multiply–accumulate operations (MACs) for 10 seconds of audio prediction to provide information about the computational complexity of the network in terms of multiply-accumulate (MAC) operations.
 
-## (New) Multiply–accumulate (MAC) operations. 
-
-This year we are introducing a new metric, complementary to the energy consumption metric. 
-We are considering the Multiply–accumulate operations (MACs) for 10 seconds of audio prediction, so to have information regarding the computational complexity of the network in terms of multiply-accumulate (MAC) operations.
-
-We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as framework to compute the number of multiply-accumulate operations (MACs). For more information regarding how to install and use THOP, the reader is referred to https://github.com/Lyken17/pytorch-OpCounter. 
+We use [THOP: PyTorch-OpCounter](https://github.com/Lyken17/pytorch-OpCounter) as a framework to compute the number of multiply-accumulate operations (MACs). For more information on how to install and use THOP, you can refer to the GitHub repository. You can also refer to the baseline code in `local/utils.py` and the function `calculate_macs`.
 
 
 ## (New) [sed_scores_eval][sed_scores_eval] based PSDS evaluation
