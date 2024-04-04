@@ -1,12 +1,12 @@
 import argparse
 import glob
+import multiprocessing as mp
 import os
 from pathlib import Path
 
 import librosa
 import torch
 import torchaudio
-import multiprocessing as mp
 import tqdm
 from tqdm.contrib.concurrent import process_map  # or thread_map
 
@@ -50,13 +50,14 @@ def resample_folder(in_dir, out_dir, target_fs=16000, regex="*.wav"):
         out_files = glob.glob(os.path.join(out_dir, regex))
         if len(files) == len(out_files):
             compute = False
-    
+
     if compute:
         # Packing resample_file arguments to the multiprocessing pool
         workers_args = [(f, in_dir, out_dir, target_fs) for f in files]
         n_workers = min(10, mp.cpu_count())
         process_map(_worker_func, workers_args, max_workers=n_workers, chunksize=1)
     return compute
+
 
 def _worker_func(input_args):
     """

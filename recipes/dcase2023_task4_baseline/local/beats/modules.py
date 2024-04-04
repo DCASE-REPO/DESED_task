@@ -9,9 +9,10 @@
 
 import math
 import warnings
+
 import torch
-from torch import Tensor, nn
 import torch.nn.functional as F
+from torch import Tensor, nn
 
 
 class GradMultiply(torch.autograd.Function):
@@ -75,9 +76,14 @@ class GLU_Linear(nn.Module):
         x = self.linear(x)
 
         if self.glu_type == "bilinear":
-            x = (x[:, :, 0:self.output_dim] * x[:, :, self.output_dim:self.output_dim * 2])
+            x = (
+                x[:, :, 0 : self.output_dim]
+                * x[:, :, self.output_dim : self.output_dim * 2]
+            )
         else:
-            x = (x[:, :, 0:self.output_dim] * self.glu_act(x[:, :, self.output_dim:self.output_dim * 2]))
+            x = x[:, :, 0 : self.output_dim] * self.glu_act(
+                x[:, :, self.output_dim : self.output_dim * 2]
+            )
 
         return x
 
@@ -102,9 +108,7 @@ def get_activation_fn(activation: str):
     elif activation == "gelu":
         return gelu
     elif activation == "gelu_fast":
-        warnings.warn(
-            "--activation-fn=gelu_fast has been renamed to gelu_accurate"
-        )
+        warnings.warn("--activation-fn=gelu_fast has been renamed to gelu_accurate")
         return gelu_accurate
     elif activation == "gelu_accurate":
         return gelu_accurate
@@ -216,4 +220,3 @@ def quant_noise(module, p, block_size):
 
     module.register_forward_pre_hook(_forward_pre_hook)
     return module
-

@@ -8,19 +8,16 @@
 # --------------------------------------------------------
 
 import math
-import numpy as np
 from typing import Dict, Optional, Tuple
+
+import numpy as np
 import torch
-from torch import Tensor, nn
 import torch.nn.functional as F
+from torch import Tensor, nn
 from torch.nn import LayerNorm, Parameter
-from .modules import (
-    GradMultiply,
-    SamePad,
-    get_activation_fn,
-    GLU_Linear,
-    quant_noise,
-)
+
+from .modules import (GLU_Linear, GradMultiply, SamePad, get_activation_fn,
+                      quant_noise)
 
 
 class TransformerEncoder(nn.Module):
@@ -78,7 +75,9 @@ class TransformerEncoder(nn.Module):
         if self.relative_position_embedding:
             for i in range(1, args.encoder_layers):
                 del self.layers[i].self_attn.relative_attention_bias
-                self.layers[i].self_attn.relative_attention_bias = self.layers[0].self_attn.relative_attention_bias
+                self.layers[i].self_attn.relative_attention_bias = self.layers[
+                    0
+                ].self_attn.relative_attention_bias
 
         self.layer_norm_first = args.layer_norm_first
         self.layer_norm = LayerNorm(self.embedding_dim)
@@ -90,13 +89,19 @@ class TransformerEncoder(nn.Module):
             deep_norm_beta = math.pow(8 * args.encoder_layers, -1 / 4)
             for i in range(args.encoder_layers):
                 nn.init.xavier_normal_(self.layers[i].self_attn.k_proj.weight, gain=1)
-                nn.init.xavier_normal_(self.layers[i].self_attn.v_proj.weight, gain=deep_norm_beta)
+                nn.init.xavier_normal_(
+                    self.layers[i].self_attn.v_proj.weight, gain=deep_norm_beta
+                )
                 nn.init.xavier_normal_(self.layers[i].self_attn.q_proj.weight, gain=1)
-                nn.init.xavier_normal_(self.layers[i].self_attn.out_proj.weight, gain=deep_norm_beta)
+                nn.init.xavier_normal_(
+                    self.layers[i].self_attn.out_proj.weight, gain=deep_norm_beta
+                )
                 nn.init.xavier_normal_(self.layers[i].fc1.weight, gain=deep_norm_beta)
                 nn.init.xavier_normal_(self.layers[i].fc2.weight, gain=deep_norm_beta)
 
-        self.layer_wise_gradient_decay_ratio = getattr(args, "layer_wise_gradient_decay_ratio", 1)
+        self.layer_wise_gradient_decay_ratio = getattr(
+            args, "layer_wise_gradient_decay_ratio", 1
+        )
 
     def forward(self, x, padding_mask=None, layer=None):
         x, layer_results = self.extract_features(x, padding_mask, layer)
@@ -107,7 +112,6 @@ class TransformerEncoder(nn.Module):
         return x, layer_results
 
     def extract_features(self, x, padding_mask=None, tgt_layer=None):
-
         if padding_mask is not None:
             x[padding_mask] = 0
 
@@ -134,7 +138,12 @@ class TransformerEncoder(nn.Module):
                 x = GradMultiply.apply(x, self.layer_wise_gradient_decay_ratio)
             dropout_probability = np.random.random()
             if not self.training or (dropout_probability > self.layerdrop):
-                x, z, pos_bias = layer(x, self_attn_padding_mask=padding_mask, need_weights=False, pos_bias=pos_bias)
+                x, z, pos_bias = layer(
+                    x,
+                    self_attn_padding_mask=padding_mask,
+                    need_weights=False,
+                    pos_bias=pos_bias,
+                )
             if tgt_layer is not None:
                 layer_results.append((x, z))
             if i == tgt_layer:
@@ -152,24 +161,23 @@ class TransformerEncoder(nn.Module):
 
 class TransformerSentenceEncoderLayer(nn.Module):
     def __init__(
-            self,
-            embedding_dim: float = 768,
-            ffn_embedding_dim: float = 3072,
-            num_attention_heads: float = 8,
-            dropout: float = 0.1,
-            attention_dropout: float = 0.1,
-            activation_dropout: float = 0.1,
-            activation_fn: str = "relu",
-            layer_norm_first: bool = False,
-            deep_norm: bool = False,
-            has_relative_attention_bias: bool = False,
-            num_buckets: int = 0,
-            max_distance: int = 0,
-            rescale_init: bool = False,
-            gru_rel_pos: bool = False,
-            encoder_layers: int = 0,
+        self,
+        embedding_dim: float = 768,
+        ffn_embedding_dim: float = 3072,
+        num_attention_heads: float = 8,
+        dropout: float = 0.1,
+        attention_dropout: float = 0.1,
+        activation_dropout: float = 0.1,
+        activation_fn: str = "relu",
+        layer_norm_first: bool = False,
+        deep_norm: bool = False,
+        has_relative_attention_bias: bool = False,
+        num_buckets: int = 0,
+        max_distance: int = 0,
+        rescale_init: bool = False,
+        gru_rel_pos: bool = False,
+        encoder_layers: int = 0,
     ) -> None:
-
         super().__init__()
         self.embedding_dim = embedding_dim
         self.dropout = dropout
@@ -212,12 +220,12 @@ class TransformerSentenceEncoderLayer(nn.Module):
             self.deep_norm_alpha = 1
 
     def forward(
-            self,
-            x: torch.Tensor,
-            self_attn_mask: torch.Tensor = None,
-            self_attn_padding_mask: torch.Tensor = None,
-            need_weights: bool = False,
-            pos_bias=None
+        self,
+        x: torch.Tensor,
+        self_attn_mask: torch.Tensor = None,
+        self_attn_padding_mask: torch.Tensor = None,
+        need_weights: bool = False,
+        pos_bias=None,
     ):
         residual = x
 
@@ -230,7 +238,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
                 key_padding_mask=self_attn_padding_mask,
                 need_weights=False,
                 attn_mask=self_attn_mask,
-                position_bias=pos_bias
+                position_bias=pos_bias,
             )
             x = self.dropout1(x)
             x = residual + x
@@ -253,7 +261,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
                 key_padding_mask=self_attn_padding_mask,
                 need_weights=need_weights,
                 attn_mask=self_attn_mask,
-                position_bias=pos_bias
+                position_bias=pos_bias,
             )
 
             x = self.dropout1(x)
@@ -282,24 +290,24 @@ class MultiheadAttention(nn.Module):
     """
 
     def __init__(
-            self,
-            embed_dim,
-            num_heads,
-            kdim=None,
-            vdim=None,
-            dropout=0.0,
-            bias=True,
-            add_bias_kv=False,
-            add_zero_attn=False,
-            self_attention=False,
-            encoder_decoder_attention=False,
-            q_noise=0.0,
-            qn_block_size=8,
-            has_relative_attention_bias=False,
-            num_buckets=32,
-            max_distance=128,
-            gru_rel_pos=False,
-            rescale_init=False,
+        self,
+        embed_dim,
+        num_heads,
+        kdim=None,
+        vdim=None,
+        dropout=0.0,
+        bias=True,
+        add_bias_kv=False,
+        add_zero_attn=False,
+        self_attention=False,
+        encoder_decoder_attention=False,
+        q_noise=0.0,
+        qn_block_size=8,
+        has_relative_attention_bias=False,
+        num_buckets=32,
+        max_distance=128,
+        gru_rel_pos=False,
+        rescale_init=False,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -320,9 +328,9 @@ class MultiheadAttention(nn.Module):
         self.q_head_dim = self.head_dim
         self.k_head_dim = self.head_dim
         assert (
-                self.head_dim * num_heads == self.embed_dim
+            self.head_dim * num_heads == self.embed_dim
         ), "embed_dim must be divisible by num_heads"
-        self.scaling = self.head_dim ** -0.5
+        self.scaling = self.head_dim**-0.5
 
         self.self_attention = self_attention
         self.encoder_decoder_attention = encoder_decoder_attention
@@ -399,21 +407,26 @@ class MultiheadAttention(nn.Module):
             relative_buckets += (relative_positions > 0).to(torch.long) * num_buckets
             relative_positions = torch.abs(relative_positions)
         else:
-            relative_positions = -torch.min(relative_positions, torch.zeros_like(relative_positions))
+            relative_positions = -torch.min(
+                relative_positions, torch.zeros_like(relative_positions)
+            )
 
         max_exact = num_buckets // 2
         is_small = relative_positions < max_exact
 
         relative_postion_if_large = max_exact + (
-                torch.log(relative_positions.float() / max_exact)
-                / math.log(max_distance / max_exact)
-                * (num_buckets - max_exact)
+            torch.log(relative_positions.float() / max_exact)
+            / math.log(max_distance / max_exact)
+            * (num_buckets - max_exact)
         ).to(torch.long)
         relative_postion_if_large = torch.min(
-            relative_postion_if_large, torch.full_like(relative_postion_if_large, num_buckets - 1)
+            relative_postion_if_large,
+            torch.full_like(relative_postion_if_large, num_buckets - 1),
         )
 
-        relative_buckets += torch.where(is_small, relative_positions, relative_postion_if_large)
+        relative_buckets += torch.where(
+            is_small, relative_positions, relative_postion_if_large
+        )
         return relative_buckets
 
     def compute_bias(self, query_length, key_length):
@@ -421,27 +434,28 @@ class MultiheadAttention(nn.Module):
         memory_position = torch.arange(key_length, dtype=torch.long)[None, :]
         relative_position = memory_position - context_position
         relative_position_bucket = self._relative_positions_bucket(
-            relative_position,
-            bidirectional=True
+            relative_position, bidirectional=True
         )
-        relative_position_bucket = relative_position_bucket.to(self.relative_attention_bias.weight.device)
+        relative_position_bucket = relative_position_bucket.to(
+            self.relative_attention_bias.weight.device
+        )
         values = self.relative_attention_bias(relative_position_bucket)
         values = values.permute([2, 0, 1])
         return values
 
     def forward(
-            self,
-            query,
-            key: Optional[Tensor],
-            value: Optional[Tensor],
-            key_padding_mask: Optional[Tensor] = None,
-            incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]] = None,
-            need_weights: bool = True,
-            static_kv: bool = False,
-            attn_mask: Optional[Tensor] = None,
-            before_softmax: bool = False,
-            need_head_weights: bool = False,
-            position_bias: Optional[Tensor] = None
+        self,
+        query,
+        key: Optional[Tensor],
+        value: Optional[Tensor],
+        key_padding_mask: Optional[Tensor] = None,
+        incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]] = None,
+        need_weights: bool = True,
+        static_kv: bool = False,
+        attn_mask: Optional[Tensor] = None,
+        before_softmax: bool = False,
+        need_head_weights: bool = False,
+        position_bias: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]:
         """Input shape: Time x Batch x Channel
 
@@ -478,7 +492,11 @@ class MultiheadAttention(nn.Module):
 
         if self.has_relative_attention_bias and position_bias is None:
             position_bias = self.compute_bias(tgt_len, src_len)
-            position_bias = position_bias.unsqueeze(0).repeat(bsz, 1, 1, 1).view(bsz * self.num_heads, tgt_len, src_len)
+            position_bias = (
+                position_bias.unsqueeze(0)
+                .repeat(bsz, 1, 1, 1)
+                .view(bsz * self.num_heads, tgt_len, src_len)
+            )
 
         if incremental_state is not None:
             saved_state = self._get_input_buffer(incremental_state)
@@ -533,20 +551,20 @@ class MultiheadAttention(nn.Module):
 
         q = (
             q.contiguous()
-                .view(tgt_len, bsz * self.num_heads, self.q_head_dim)
-                .transpose(0, 1)
+            .view(tgt_len, bsz * self.num_heads, self.q_head_dim)
+            .transpose(0, 1)
         )
         if k is not None:
             k = (
                 k.contiguous()
-                    .view(-1, bsz * self.num_heads, self.k_head_dim)
-                    .transpose(0, 1)
+                .view(-1, bsz * self.num_heads, self.k_head_dim)
+                .transpose(0, 1)
             )
         if v is not None:
             v = (
                 v.contiguous()
-                    .view(-1, bsz * self.num_heads, self.head_dim)
-                    .transpose(0, 1)
+                .view(-1, bsz * self.num_heads, self.head_dim)
+                .transpose(0, 1)
             )
 
         if saved_state is not None:
@@ -621,7 +639,9 @@ class MultiheadAttention(nn.Module):
                 )
 
         attn_weights = torch.bmm(q, k.transpose(1, 2))
-        attn_weights = (attn_weights - attn_weights.max(dim=-1, keepdim=True)[0]) * alpha
+        attn_weights = (
+            attn_weights - attn_weights.max(dim=-1, keepdim=True)[0]
+        ) * alpha
         attn_weights = self.apply_sparse_mask(attn_weights, tgt_len, src_len, bsz)
 
         assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
@@ -650,20 +670,27 @@ class MultiheadAttention(nn.Module):
         if position_bias is not None:
             attn_mask_rel_pos = position_bias
             if self.gru_rel_pos == 1:
-                query_layer = q.view(bsz, self.num_heads, tgt_len, self.q_head_dim) * alpha / self.scaling
+                query_layer = (
+                    q.view(bsz, self.num_heads, tgt_len, self.q_head_dim)
+                    * alpha
+                    / self.scaling
+                )
                 _B, _H, _L, __ = query_layer.size()
-                gate_a, gate_b = torch.sigmoid(self.grep_linear(query_layer).view(
-                    _B, _H, _L, 2, 4).sum(-1, keepdim=False)).chunk(2, dim=-1)
+                gate_a, gate_b = torch.sigmoid(
+                    self.grep_linear(query_layer)
+                    .view(_B, _H, _L, 2, 4)
+                    .sum(-1, keepdim=False)
+                ).chunk(2, dim=-1)
                 gate_a_1 = gate_a * (gate_b * self.grep_a - 1.0) + 2.0
-                attn_mask_rel_pos = gate_a_1.view(bsz * self.num_heads, tgt_len, 1) * position_bias
+                attn_mask_rel_pos = (
+                    gate_a_1.view(bsz * self.num_heads, tgt_len, 1) * position_bias
+                )
 
             attn_mask_rel_pos = attn_mask_rel_pos.view(attn_weights.size())
 
             attn_weights = attn_weights + attn_mask_rel_pos
 
-        attn_weights_float = F.softmax(
-            attn_weights, dim=-1
-        )
+        attn_weights_float = F.softmax(attn_weights, dim=-1)
         attn_weights = attn_weights_float.type_as(attn_weights)
         attn_probs = self.dropout_module(attn_weights)
 
@@ -685,11 +712,11 @@ class MultiheadAttention(nn.Module):
 
     @staticmethod
     def _append_prev_key_padding_mask(
-            key_padding_mask: Optional[Tensor],
-            prev_key_padding_mask: Optional[Tensor],
-            batch_size: int,
-            src_len: int,
-            static_kv: bool,
+        key_padding_mask: Optional[Tensor],
+        prev_key_padding_mask: Optional[Tensor],
+        batch_size: int,
+        src_len: int,
+        static_kv: bool,
     ) -> Optional[Tensor]:
         # saved key padding masks have shape (bsz, seq_len)
         if prev_key_padding_mask is not None and static_kv:
@@ -728,7 +755,7 @@ class MultiheadAttention(nn.Module):
         return new_key_padding_mask
 
     def _get_input_buffer(
-            self, incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]]
+        self, incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]]
     ) -> Dict[str, Optional[Tensor]]:
         result = self.get_incremental_state(incremental_state, "attn_state")
         if result is not None:
@@ -738,9 +765,9 @@ class MultiheadAttention(nn.Module):
             return empty_result
 
     def _set_input_buffer(
-            self,
-            incremental_state: Dict[str, Dict[str, Optional[Tensor]]],
-            buffer: Dict[str, Optional[Tensor]],
+        self,
+        incremental_state: Dict[str, Dict[str, Optional[Tensor]]],
+        buffer: Dict[str, Optional[Tensor]],
     ):
         return self.set_incremental_state(incremental_state, "attn_state", buffer)
 
@@ -765,9 +792,7 @@ def init_bert_params(module):
     def normal_(data):
         # with FSDP, module params will be on CUDA, so we cast them back to CPU
         # so that the RNG is consistent with and without FSDP
-        data.copy_(
-            data.cpu().normal_(mean=0.0, std=0.02).to(data.device)
-        )
+        data.copy_(data.cpu().normal_(mean=0.0, std=0.02).to(data.device))
 
     if isinstance(module, nn.Linear):
         normal_(module.weight.data)

@@ -1,25 +1,27 @@
+import glob
+import json
 import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import scipy
-import torch
-
-from desed_task.evaluation.evaluation_measures import compute_sed_eval_metrics
-import json
-
 import soundfile
-import glob
-from thop import profile, clever_format
-
+import torch
+from desed_task.evaluation.evaluation_measures import compute_sed_eval_metrics
 from sed_scores_eval.utils.scores import create_score_dataframe
+from thop import clever_format, profile
 
 
 def batched_decode_preds(
-    strong_preds, filenames, encoder, thresholds=[0.5], median_filter=7, pad_indx=None,
+    strong_preds,
+    filenames,
+    encoder,
+    thresholds=[0.5],
+    median_filter=7,
+    pad_indx=None,
 ):
-    """ Decode a batch of predictions to dataframes. Each threshold gives a different dataframe and stored in a
+    """Decode a batch of predictions to dataframes. Each threshold gives a different dataframe and stored in a
     dictionary
 
     Args:
@@ -50,13 +52,13 @@ def batched_decode_preds(
         c_scores = c_scores.transpose(0, 1).detach().cpu().numpy()
         scores_raw[audio_id] = create_score_dataframe(
             scores=c_scores,
-            timestamps=encoder._frame_to_time(np.arange(len(c_scores)+1)),
+            timestamps=encoder._frame_to_time(np.arange(len(c_scores) + 1)),
             event_classes=encoder.labels,
         )
         c_scores = scipy.ndimage.filters.median_filter(c_scores, (median_filter, 1))
         scores_postprocessed[audio_id] = create_score_dataframe(
             scores=c_scores,
-            timestamps=encoder._frame_to_time(np.arange(len(c_scores)+1)),
+            timestamps=encoder._frame_to_time(np.arange(len(c_scores) + 1)),
             event_classes=encoder.labels,
         )
         for c_th in thresholds:
@@ -64,13 +66,15 @@ def batched_decode_preds(
             pred = encoder.decode_strong(pred)
             pred = pd.DataFrame(pred, columns=["event_label", "onset", "offset"])
             pred["filename"] = filename
-            prediction_dfs[c_th] = pd.concat([prediction_dfs[c_th], pred], ignore_index=True)
+            prediction_dfs[c_th] = pd.concat(
+                [prediction_dfs[c_th], pred], ignore_index=True
+            )
 
     return scores_raw, scores_postprocessed, prediction_dfs
 
 
 def convert_to_event_based(weak_dataframe):
-    """ Convert a weakly labeled DataFrame ('filename', 'event_labels') to a DataFrame strongly labeled
+    """Convert a weakly labeled DataFrame ('filename', 'event_labels') to a DataFrame strongly labeled
     ('filename', 'onset', 'offset', 'event_label').
 
     Args:
@@ -82,7 +86,6 @@ def convert_to_event_based(weak_dataframe):
 
     new = []
     for i, r in weak_dataframe.iterrows():
-
         events = r["event_labels"].split(",")
         for e in events:
             new.append(
@@ -92,7 +95,7 @@ def convert_to_event_based(weak_dataframe):
 
 
 def log_sedeval_metrics(predictions, ground_truth, save_dir=None):
-    """ Return the set of metrics from sed_eval
+    """Return the set of metrics from sed_eval
     Args:
         predictions: pd.DataFrame, the dataframe of predictions.
         ground_truth: pd.DataFrame, the dataframe of groundtruth.
@@ -125,14 +128,12 @@ def log_sedeval_metrics(predictions, ground_truth, save_dir=None):
 
 
 def parse_jams(jams_list, encoder, out_json):
-
     if len(jams_list) == 0:
         raise IndexError("jams list is empty ! Wrong path ?")
 
     backgrounds = []
     sources = []
     for jamfile in jams_list:
-
         with open(jamfile, "r") as f:
             jdata = json.load(f)
 
@@ -184,11 +185,11 @@ def parse_jams(jams_list, encoder, out_json):
 def generate_tsv_wav_durations(audio_dir, out_tsv):
     """
         Generate a dataframe with filename and duration of the file
-    
+
     Args:
         audio_dir: str, the path of the folder where audio files are (used by glob.glob)
         out_tsv: str, the path of the output tsv file
-    
+
     Returns:
         pd.DataFrame: the dataframe containing filenames and durations
     """
@@ -205,7 +206,7 @@ def generate_tsv_wav_durations(audio_dir, out_tsv):
 
 def calculate_macs(model, config, dataset=None):
     """
-    The function calculate the multiply–accumulate operation (MACs) of the model given as input. 
+    The function calculate the multiply–accumulate operation (MACs) of the model given as input.
 
     Args:
         model: deep learning model to calculate the macs for
@@ -215,16 +216,22 @@ def calculate_macs(model, config, dataset=None):
     Returns:
 
     """
-    n_frames = int(((config["feats"]["sample_rate"] * config["data"]["audio_max_len"]) / config["feats"]["hop_length"])+1)
+    n_frames = int(
+        (
+            (config["feats"]["sample_rate"] * config["data"]["audio_max_len"])
+            / config["feats"]["hop_length"]
+        )
+        + 1
+    )
     input_size = [1, config["feats"]["n_mels"], n_frames]
     input = torch.randn(input_size)
 
-    if "use_embeddings" in config["net"] and  config["net"]["use_embeddings"]:
+    if "use_embeddings" in config["net"] and config["net"]["use_embeddings"]:
         audio, label, padded_indxs, path, embeddings = dataset[0]
         embeddings = embeddings.repeat(1, 1, 1)
         macs, params = profile(model, inputs=(input, None, embeddings))
     else:
         macs, params = profile(model, inputs=(input,))
-    
+
     macs, params = clever_format([macs, params], "%.3f")
     return macs, params

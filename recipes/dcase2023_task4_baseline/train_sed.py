@@ -1,31 +1,26 @@
 import argparse
+import os
+import random
 import warnings
 
 import numpy as np
-import os
 import pandas as pd
-import random
+import pytorch_lightning as pl
 import torch
 import yaml
-
-from local.utils import (
-    calculate_macs
-)
-
 from desed_task.dataio import ConcatDatasetBatchSampler
-from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabeledSet, WeakSet
+from desed_task.dataio.datasets import (StronglyAnnotatedSet, UnlabeledSet,
+                                        WeakSet)
 from desed_task.nnet.CRNN import CRNN
 from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
-
 from local.classes_dict import classes_labels
-from local.sed_trainer import SEDTask4
 from local.resample_folder import resample_folder
-from local.utils import generate_tsv_wav_durations
-
-import pytorch_lightning as pl
+from local.sed_trainer import SEDTask4
+from local.utils import calculate_macs, generate_tsv_wav_durations
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
+
 
 def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
     if not test_only:
@@ -54,6 +49,7 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
                     config_data[base_set + "_folder"], config_data[base_set + "_dur"]
                 )
 
+
 def single_run(
     config,
     log_dir,
@@ -63,7 +59,7 @@ def single_run(
     test_state_dict=None,
     fast_dev_run=False,
     evaluation=False,
-    callbacks=None
+    callbacks=None,
 ):
     """
     Running sound event detection baselin
@@ -102,14 +98,11 @@ def single_run(
             devtest_df,
             encoder,
             return_filename=True,
-            pad_to=config["data"]["audio_max_len"]
+            pad_to=config["data"]["audio_max_len"],
         )
     else:
         devtest_dataset = UnlabeledSet(
-            config["data"]["eval_folder"],
-            encoder,
-            pad_to=None,
-            return_filename=True
+            config["data"]["eval_folder"], encoder, pad_to=None, return_filename=True
         )
 
     test_dataset = devtest_dataset
@@ -117,10 +110,10 @@ def single_run(
     ##### model definition  ############
     sed_student = CRNN(**config["net"])
 
-    # calulate multiply–accumulate operation (MACs) 
-    macs, _ = calculate_macs(sed_student, config) 
-    print(f"---------------------------------------------------------------")
-    print(f"Total number of multiply–accumulate operation (MACs): {macs}\n")
+    # calulate multiply–accumulate operation (MACs)
+    # macs, _ = calculate_macs(sed_student, config)
+    # print(f"---------------------------------------------------------------")
+    # print(f"Total number of multiply–accumulate operation (MACs): {macs}\n")
 
     if test_state_dict is None:
         ##### data prep train valid ##########
@@ -140,7 +133,6 @@ def single_run(
                 encoder,
                 pad_to=config["data"]["audio_max_len"],
             )
-        
 
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
         train_weak_df = weak_df.sample(
@@ -204,34 +196,37 @@ def single_run(
             ]
         )
 
-        opt = torch.optim.Adam(sed_student.parameters(), config["opt"]["lr"], betas=(0.9, 0.999))
+        opt = torch.optim.Adam(
+            sed_student.parameters(), config["opt"]["lr"], betas=(0.9, 0.999)
+        )
         exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
         exp_scheduler = {
             "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps),
             "interval": "step",
         }
         logger = TensorBoardLogger(
-            os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
+            os.path.dirname(config["log_dir"]),
+            config["log_dir"].split("/")[-1],
         )
         logger.log_hyperparams(config)
         print(f"experiment dir: {logger.log_dir}")
 
         if callbacks is None:
             callbacks = [
-            EarlyStopping(
-                monitor="val/obj_metric",
-                patience=config["training"]["early_stop_patience"],
-                verbose=True,
-                mode="max",
-            ),
-            ModelCheckpoint(
-                logger.log_dir,
-                monitor="val/obj_metric",
-                save_top_k=1,
-                mode="max",
-                save_last=True,
-            ),
-        ]
+                EarlyStopping(
+                    monitor="val/obj_metric",
+                    patience=config["training"]["early_stop_patience"],
+                    verbose=True,
+                    mode="max",
+                ),
+                ModelCheckpoint(
+                    logger.log_dir,
+                    monitor="val/obj_metric",
+                    save_top_k=1,
+                    mode="max",
+                    save_last=True,
+                ),
+            ]
     else:
         train_dataset = None
         valid_dataset = None
@@ -252,7 +247,7 @@ def single_run(
         train_sampler=batch_sampler,
         scheduler=exp_scheduler,
         fast_dev_run=fast_dev_run,
-        evaluation=evaluation
+        evaluation=evaluation,
     )
 
     # Not using the fast_dev_run of Trainer because creates a DummyLogger so cannot check problems with the Logger
@@ -300,7 +295,6 @@ def single_run(
         enable_progress_bar=config["training"]["enable_progress_bar"],
     )
     if test_state_dict is None:
-
         # start tracking energy consumption
         trainer.fit(desed_training, ckpt_path=checkpoint_resume)
         best_path = trainer.checkpoint_callback.best_model_path
@@ -309,6 +303,7 @@ def single_run(
 
     desed_training.load_state_dict(test_state_dict)
     trainer.test(desed_training)
+
 
 def prepare_run(argv=None):
     parser = argparse.ArgumentParser("Training a SED system for DESED Task")
@@ -352,9 +347,7 @@ def prepare_run(argv=None):
     )
 
     parser.add_argument(
-        "--eval_from_checkpoint",
-        default=None,
-        help="Evaluate the model specified"
+        "--eval_from_checkpoint", default=None, help="Evaluate the model specified"
     )
 
     args = parser.parse_args(argv)
@@ -362,13 +355,13 @@ def prepare_run(argv=None):
     with open(args.conf_file, "r") as f:
         configs = yaml.safe_load(f)
 
-    evaluation = False 
+    evaluation = False
     test_from_checkpoint = args.test_from_checkpoint
 
     if args.eval_from_checkpoint is not None:
         test_from_checkpoint = args.eval_from_checkpoint
         evaluation = True
-    
+
     test_model_state_dict = None
     if test_from_checkpoint is not None:
         checkpoint = torch.load(test_from_checkpoint)
@@ -387,11 +380,11 @@ def prepare_run(argv=None):
     resample_data_generate_durations(configs["data"], test_only, evaluation)
     return configs, args, test_model_state_dict, evaluation
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     # prepare run
     configs, args, test_model_state_dict, evaluation = prepare_run()
-    
+
     # launch run
     single_run(
         configs,
@@ -401,5 +394,5 @@ if __name__ == "__main__":
         args.resume_from_checkpoint,
         test_model_state_dict,
         args.fast_dev_run,
-        evaluation
+        evaluation,
     )
