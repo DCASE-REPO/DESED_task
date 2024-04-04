@@ -3,27 +3,21 @@ import random
 from copy import deepcopy
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+from desed_task.data_augm import mixup
+from desed_task.evaluation.evaluation_measures import (
+    compute_per_intersection_macro_f1, compute_psds_from_operating_points)
+from desed_task.utils.scaler import TorchScaler
 from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 
-from desed_task.data_augm import mixup
-from desed_task.utils.scaler import TorchScaler
-import numpy as np
-
-from .utils import (
-    batched_decode_preds,
-    log_sedeval_metrics,
-)
-from desed_task.evaluation.evaluation_measures import (
-    compute_per_intersection_macro_f1,
-    compute_psds_from_operating_points,
-)
+from .utils import batched_decode_preds, log_sedeval_metrics
 
 
 class SEPSEDTask4_2021(pl.LightningModule):
-    """ Pytorch lightning module for the SEP-SED 2021 baseline
+    """Pytorch lightning module for the SEP-SED 2021 baseline
     Args:
         hparams: dict, the dictionary to be used for the current experiment/
         encoder: ManyHotEncoder object, object to encode and decode labels.
@@ -140,7 +134,7 @@ class SEPSEDTask4_2021(pl.LightningModule):
         self.decoded_teacher_05_buffer = pd.DataFrame()
 
     def update_ema(self, alpha, global_step, model, ema_model):
-        """ Update teacher model parameters
+        """Update teacher model parameters
 
         Args:
             alpha: float, the factor to be used between each updated step.
@@ -206,7 +200,7 @@ class SEPSEDTask4_2021(pl.LightningModule):
             return scaler
 
     def take_log(self, mels):
-        """ Apply the log transformation to mel spectrograms.
+        """Apply the log transformation to mel spectrograms.
         Args:
             mels: torch.Tensor, mel spectrograms for which to apply log.
 
@@ -229,7 +223,7 @@ class SEPSEDTask4_2021(pl.LightningModule):
         return strong, weak
 
     def training_step(self, batch, batch_indx):
-        """ Apply the training for one batch (a step). Used during trainer.fit
+        """Apply the training for one batch (a step). Used during trainer.fit
 
         Args:
             batch: torch.Tensor, batch input tensor
@@ -327,7 +321,7 @@ class SEPSEDTask4_2021(pl.LightningModule):
         )
 
     def validation_step(self, batch, batch_indx):
-        """ Apply validation to a batch (step). Used during trainer.fit
+        """Apply validation to a batch (step). Used during trainer.fit
 
         Args:
             batch: torch.Tensor, input batch tensor
@@ -435,7 +429,7 @@ class SEPSEDTask4_2021(pl.LightningModule):
         return
 
     def validation_epoch_end(self, outputs):
-        """ Fonction applied at the end of all the validation steps of the epoch.
+        """Fonction applied at the end of all the validation steps of the epoch.
 
         Args:
             outputs: torch.Tensor, the concatenation of everything returned by validation_step.
@@ -455,7 +449,8 @@ class SEPSEDTask4_2021(pl.LightningModule):
         )
 
         synth_student_event_macro = log_sedeval_metrics(
-            self.val_buffer_student_synth[0.5], self.hparams["data"]["synth_val_tsv"],
+            self.val_buffer_student_synth[0.5],
+            self.hparams["data"]["synth_val_tsv"],
         )[0]
 
         intersection_f1_macro_teacher = compute_per_intersection_macro_f1(
@@ -465,7 +460,8 @@ class SEPSEDTask4_2021(pl.LightningModule):
         )
 
         synth_teacher_event_macro = log_sedeval_metrics(
-            self.val_buffer_teacher_synth[0.5], self.hparams["data"]["synth_val_tsv"],
+            self.val_buffer_teacher_synth[0.5],
+            self.hparams["data"]["synth_val_tsv"],
         )[0]
 
         obj_metric_synth_type = self.hparams["training"].get("obj_metric_synth_type")
@@ -513,7 +509,7 @@ class SEPSEDTask4_2021(pl.LightningModule):
         return checkpoint
 
     def test_step(self, batch, batch_indx):
-        """ Apply Test to a batch (step), used only when (trainer.test is called)
+        """Apply Test to a batch (step), used only when (trainer.test is called)
 
         Args:
             batch: torch.Tensor, input batch tensor
@@ -695,7 +691,6 @@ class SEPSEDTask4_2021(pl.LightningModule):
         return [self.opt], [self.scheduler]
 
     def train_dataloader(self):
-
         self.train_loader = torch.utils.data.DataLoader(
             self.train_data,
             batch_sampler=self.train_sampler,

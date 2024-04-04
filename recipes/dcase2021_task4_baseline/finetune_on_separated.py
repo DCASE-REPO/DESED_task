@@ -1,25 +1,24 @@
 import argparse
-from copy import deepcopy
-import numpy as np
 import os
-import pandas as pd
 import random
+from copy import deepcopy
+
+import numpy as np
+import pandas as pd
+import pytorch_lightning as pl
 import torch
 import yaml
-
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
-
 from desed_task.dataio import ConcatDatasetBatchSampler
-from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabeledSet, WeakSet
+from desed_task.dataio.datasets import (StronglyAnnotatedSet, UnlabeledSet,
+                                        WeakSet)
 from desed_task.nnet.CRNN import CRNN
 from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
-
 from local.classes_dict import classes_labels
-from local.sepsed_trainer import SEPSEDTask4_2021
 from local.sed_trainer import SEDTask4_2021
+from local.sepsed_trainer import SEPSEDTask4_2021
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
 
 
 class EnsembleModel(torch.nn.Module):
@@ -140,8 +139,10 @@ def single_run(
     elif config["training"]["sed_model"] == "teacher":
         sed_model.load_state_dict(sed_trainer.sed_teacher.state_dict(), strict=False)
     else:
-        raise EnvironmentError(f"Sed model should be either student or teacher model. \n"
-                               f"You gave: {config['training']['sed_model']}")
+        raise EnvironmentError(
+            f"Sed model should be either student or teacher model. \n"
+            f"You gave: {config['training']['sed_model']}"
+        )
 
     sed_model = EnsembleModel(sed_model)
 
@@ -230,7 +231,8 @@ def single_run(
             "interval": "step",
         }
         logger = TensorBoardLogger(
-            os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
+            os.path.dirname(config["log_dir"]),
+            config["log_dir"].split("/")[-1],
         )
         print(f"experiment dir: {logger.log_dir}")
 

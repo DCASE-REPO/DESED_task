@@ -1,20 +1,19 @@
 import argparse
+import copy
 import glob
+import os
+import random
+import shutil
 import time
 import warnings
 from pprint import pformat
 
-import pandas as pd
-import numpy as np
-import os
-import scaper
-import soundfile as sf
-import copy
-import scipy
-import shutil
-import random
-
 import desed
+import numpy as np
+import pandas as pd
+import scaper
+import scipy
+import soundfile as sf
 
 seed = 2021
 random.seed(seed)
@@ -70,7 +69,7 @@ def create_real_dcase2021(desed_real_path, destination_folder):
 def _create_non_target_fg_dir(
     meta_infos_dir, fsd50k_dir, fuss_dir, destination_folder, split="train"
 ):
-    """ Create the non target foreground directory from FUSS
+    """Create the non target foreground directory from FUSS
     Args:
         meta_infos_dir: str, the path to the meta_infos directory.
         fsd50k_dir: str, the path to fsd50k directory (only groundtruth is needed from it).
@@ -129,7 +128,7 @@ def _create_2021_soundbank_split(
     fuss_dir,
     destination_folder,
 ):
-    """ Create the soundbank split ("train" or "validation") thanks to symlinks from original datasets (desed, fuss)
+    """Create the soundbank split ("train" or "validation") thanks to symlinks from original datasets (desed, fuss)
     Args:
         split: str, the split name ("train" or "validation").
         desed_soundbank_dir: str, the path to the desed soundbank basedir (folder containing "audio" and "metadata")
@@ -242,7 +241,7 @@ def _create_2021_soundbank_split(
 def create_2021_soundbank(
     desed_soundbank_dir, meta_classes_dir, fsd50k_dir, fuss_dir, destination_folder
 ):
-    """ Generate the 2021 soundbank from the dataset it is composed of. We generate symbolic links for each file
+    """Generate the 2021 soundbank from the dataset it is composed of. We generate symbolic links for each file
     to avoid copies.
 
     Args:
@@ -274,7 +273,7 @@ def create_2021_soundbank(
 
 
 def draw_file_nb(series_class, random_state=None):
-    """ Get the number of fpreground events from statistics.
+    """Get the number of fpreground events from statistics.
 
     Args:
         series_class: pd.Series, the statistics to draw from.
@@ -293,7 +292,7 @@ def draw_file_nb(series_class, random_state=None):
 
 
 def get_checked_event_parameters(sc, event_parameters):
-    """ Adapt the event_parameters to the foreground chosen.
+    """Adapt the event_parameters to the foreground chosen.
     Args:
         sc: scaper.Scaper object.
         event_parameters: dict, the original event_parameters to give to sc.add_event().
@@ -329,7 +328,7 @@ def get_checked_event_parameters(sc, event_parameters):
 
 
 def add_bg(sc):
-    """ Choose a background and add it to a scaper object (check the duration).
+    """Choose a background and add it to a scaper object (check the duration).
     Args:
         sc: scaper.Scaper, a scaper object to add a background to.
 
@@ -356,7 +355,7 @@ def add_bg(sc):
 def instantiate_soundscape(
     sc, event_parameters, event_dist, event_cooc, use_class_probas=False
 ):
-    """ Instantiate a soundscape without generating it. Allows to control the different parameters needed for the
+    """Instantiate a soundscape without generating it. Allows to control the different parameters needed for the
     soundscape.
 
     Args:
@@ -424,7 +423,7 @@ def instantiate_soundscape(
 
 
 def sort_sources(sources_folder, target_classes):
-    """ Sort the sources of each soundscape into subfolders (targets, non_targets, background)
+    """Sort the sources of each soundscape into subfolders (targets, non_targets, background)
     Args:
         sources_folder: str, the folder in which the sources have been extracted.
         target_classes: list, the list of target classes.
@@ -481,7 +480,7 @@ def generate_soundscapes(
     ],
     use_class_probas=False,
 ):
-    """ Generate soundscapes for 2021 set
+    """Generate soundscapes for 2021 set
 
     Args:
         n_soundscapes: int, number of soundscapes to be generated.
@@ -567,7 +566,6 @@ def generate_soundscapes(
     }
     # Generated soundscapes
     for i in range(n_soundscapes):
-
         events = instantiate_soundscape(
             sc,
             event_parameters,
@@ -659,7 +657,7 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help="Path to desed_real (weak, unlabeled, validation), "
-             "useful if already downloaded (parent folder of'audio' and 'metadata')",
+        "useful if already downloaded (parent folder of'audio' and 'metadata')",
     )
     parser.add_argument(
         "--meta_infos",
@@ -719,7 +717,9 @@ if __name__ == "__main__":
     # Download if not exists the different datasets
     # #########
     if not os.path.exists(desed_real_folder):
-        missing_files = desed.download_audioset_data(desed_real_folder, n_jobs=3, chunk_size=10)
+        missing_files = desed.download_audioset_data(
+            desed_real_folder, n_jobs=3, chunk_size=10
+        )
     if not os.path.exists(desed_soundbank_folder):
         desed.download_desed_soundbank(desed_soundbank_folder)
     if not os.path.exists(fsd50k_folder):

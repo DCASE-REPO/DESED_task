@@ -1,15 +1,15 @@
 # Script to generate the different version of the DESED dataset used in the paper for the DCASE Workshop.
 
-import jams
-import scaper
+import argparse
+import glob
 import json
 import os
-import glob
-import argparse
-import yaml
 import shutil
 
 import desed
+import jams
+import scaper
+import yaml
 
 
 def create_folder(folder, exist_ok=True, delete_if_exists=False):
@@ -17,8 +17,8 @@ def create_folder(folder, exist_ok=True, delete_if_exists=False):
 
     Args:
         folder (str): path of folder to create.
-        exist_ok (bool): if set to True (default), the FileExistsError is not raised. 
-        delete_if_exists: bool, True if you want to delete the folder if already exists. 
+        exist_ok (bool): if set to True (default), the FileExistsError is not raised.
+        delete_if_exists: bool, True if you want to delete the folder if already exists.
     Returns:
         None
     """
@@ -170,7 +170,7 @@ def change_snr(annotations, ann_snr, db_to_decrease, target_labels):
         ann_snr (Annotations): annotations of the jam file with the new SNR
         db_to_decrease (int): db to decrease for no-target events
         target_labels (list): list of target labels to consider
-    
+
     Returns:
         None
     """
@@ -211,7 +211,7 @@ def collect_target_events(annotations, ann_target, target_labels):
         annotations (dict): annotations from jam file
         ann_target (dict): only target events annotations
         target_labels (list): list of target events
-        
+
 
     Returns:
         int: number of target events present in the jam file
@@ -323,7 +323,6 @@ class Subset:
         self.only_target = only_target
 
         for file in self.jams_files:
-
             n_file = (file.split("/"))[-1].split(".")[0]
 
             with open(file, "r") as f:
@@ -402,7 +401,6 @@ class Subset:
         """
 
         for file in self.jams_files:
-
             n_file = (file.split("/"))[-1].split(".")[0]
 
             with open(file, "r") as f:
@@ -416,7 +414,6 @@ class Subset:
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser("Generating synthetic audio files")
     parser.add_argument(
         "--conf_file",
@@ -487,9 +484,7 @@ if __name__ == "__main__":
         args.snr = True
 
     if args.tg:
-
         for split in target_set:
-
             folder_ext = "_target"
 
             subset = Subset(
@@ -507,9 +502,7 @@ if __name__ == "__main__":
             print(f"Target {split} subset generated.\n")
 
     if args.ntg:
-
         for split in nontarget_set:
-
             folder_ext = "_nontarget"
 
             subset = Subset(
@@ -527,9 +520,7 @@ if __name__ == "__main__":
             print(f"Non target {split} subset generated.\n")
 
     if args.snr:
-
         for db_to_decrease in snr:
-
             for split in snr_set:
                 folder_ext = "_" + str(db_to_decrease) + "SNR"
 
