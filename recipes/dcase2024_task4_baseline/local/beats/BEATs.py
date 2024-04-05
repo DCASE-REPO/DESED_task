@@ -184,24 +184,7 @@ class BEATs(nn.Module):
             padding_mask=padding_mask,
         )
 
-        if self.predictor is not None:
-            x = self.predictor_dropout(x)
-            logits = self.predictor(x)
-
-            if padding_mask is not None and padding_mask.any():
-                logits[padding_mask] = 0
-                logits = logits.sum(dim=1)
-                logits = logits / (~padding_mask).sum(dim=1).unsqueeze(-1).expand_as(
-                    logits
-                )
-            else:
-                logits = logits.mean(dim=1)
-
-            lprobs = torch.sigmoid(logits)
-
-            return lprobs, padding_mask
-        else:
-            return x, padding_mask
+        return x, padding_mask
 
 
 class BEATsModel(nn.Module):
@@ -217,6 +200,7 @@ class BEATsModel(nn.Module):
 
     def forward(self, x):
         features = self.model.extract_features(x)[0]
+
         global_features = features.mean(dim=1)
         return {
             "global": global_features.float(),

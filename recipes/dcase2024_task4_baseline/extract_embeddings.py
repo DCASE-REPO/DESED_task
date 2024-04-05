@@ -78,12 +78,12 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", default="./embeddings", help="Output directory")
     parser.add_argument(
         "--conf_file",
-        default="./confs/default.yaml",
+        default="./confs/pretrained.yaml",
         help="The configuration file with all the experiment parameters.",
     )
     parser.add_argument(
         "--pretrained_model",
-        default="panns",
+        default="beats",
         help="The pretrained model to use," "choose between panns and ast",
     )
     parser.add_argument("--use_gpu", default="1", help="0 does not use GPU, 1 use GPU")
@@ -177,7 +177,7 @@ if __name__ == "__main__":
         from local.beats.BEATs import BEATsModel
 
         download_from_url(
-            "https://valle.blob.core.windows.net/share/BEATs/BEATs_iter3_plus_AS2M.pt?sv=2020-08-04&st=2023-03-01T07%3A51%3A05Z&se=2033-03-02T07%3A51%3A00Z&sr=c&sp=rl&sig=QJXmSJG9DbMKf48UDIU1MfzIro8HQOf3sqlNXiflY1I%3D",
+            "https://valle.blob.core.windows.net/share/BEATs/BEATs_iter3_plus_AS2M.pt?sv=2021-10-04&st=2024-04-04T07%3A15%3A11Z&se=2034-04-05T07%3A15%3A00Z&sr=c&sp=rl&sig=xH3MbkMqHPLBI5gN%2Frt9H4J8Ai%2BtUnkduo7KGpkLbdA%3D",
             "./pretrained_models/BEATS_iter3_plus_AS2M.pt",
         )
         pretrained = BEATsModel(cfg_path="./pretrained_models/BEATS_iter3_plus_AS2M.pt")
@@ -200,13 +200,6 @@ if __name__ == "__main__":
         config["data"]["strong_folder"], feats_pipeline=feature_extraction
     )
 
-    weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
-    train_weak_df = weak_df.sample(
-        frac=config["training"]["weak_split"], random_state=config["training"]["seed"]
-    )
-
-    valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
-    train_weak_df = train_weak_df.reset_index(drop=True)
     weak_set = WavDataset(
         config["data"]["weak_folder"], feats_pipeline=feature_extraction
     )
@@ -227,6 +220,17 @@ if __name__ == "__main__":
     devtest_dataset = WavDataset(
         config["data"]["test_folder"], feats_pipeline=feature_extraction
     )
+
+
+    # now extract features for MAESTRO too
+    maestro_real_dev = WavDataset(
+        config["data"]["real_maestro_val"],
+        feats_pipeline=feature_extraction)
+
+    maestro_real_train = WavDataset(
+        config["data"]["real_maestro_train"],
+        feats_pipeline=feature_extraction)
+
     for k, elem in {
         "synth_train": synth_set,
         "weak_train": weak_set,
@@ -235,6 +239,9 @@ if __name__ == "__main__":
         "synth_val": synth_val,
         "weak_val": weak_val,
         "devtest": devtest_dataset,
+        "maestro_real_dev": maestro_real_dev,
+        "maestro_real_train": maestro_real_train,
+
     }.items():
         # for k, elem in {"strong_train": strong_set}.items():
         # for k, elem in {"devtest": devtest_dataset}.items():
