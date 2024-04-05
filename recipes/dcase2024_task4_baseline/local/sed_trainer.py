@@ -106,13 +106,11 @@ class SEDTask4(pl.LightningModule):
         self.get_weak_student_f1_seg_macro = torchmetrics.classification.f_beta.MultilabelF1Score(
             len(self.encoder.labels),
             average="macro",
-            # compute_on_step=False,
         )
 
         self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.MultilabelF1Score(
             len(self.encoder.labels),
-            average="macro",
-            # compute_on_step=False,
+            average="macro"
         )
 
         self.scaler = self._init_scaler()
@@ -265,6 +263,8 @@ class SEDTask4(pl.LightningModule):
 
 
     def apply_mixup(self, features, labels, start_indx, stop_indx):
+        # made a dedicated method as we need to apply mixup only
+        # within each dataset that has the same classes
         mixup_type = self.hparams["training"].get("mixup")
         batch_num = features.shape[0]
         current_mask = torch.zeros(batch_num).to(features).bool()
@@ -288,7 +288,6 @@ class SEDTask4(pl.LightningModule):
         """
 
         audio, labels, padded_indxs, valid_class_mask = batch
-
         indx_maestro, indx_synth, indx_strong, indx_weak, indx_unlabelled = (
             np.cumsum(self.hparams["training"]["batch_size"]))
 
@@ -297,12 +296,13 @@ class SEDTask4(pl.LightningModule):
         # deriving masks for each dataset
         strong_mask = torch.zeros(batch_num).to(features).bool()
         weak_mask = torch.zeros(batch_num).to(features).bool()
+        mask_unlabeled = torch.zeros(batch_num).to(features).bool()
         strong_mask[:indx_strong] = 1
         weak_mask[indx_strong:indx_weak] = 1 #NOTE: we use cumsum now !
+        mask_unlabeled[indx_maestro:] = 1
 
         # deriving weak labels
         labels_weak = (torch.sum(labels[weak_mask], -1) > 0).float()
-
         mixup_type = self.hparams["training"].get("mixup")
         if (
             mixup_type is not None
@@ -353,12 +353,12 @@ class SEDTask4(pl.LightningModule):
         # should we apply the valid mask for classes also here ?
 
         strong_self_sup_loss = self.selfsup_loss(
-            strong_preds_student,
-            strong_preds_teacher.detach()
+            strong_preds_student[mask_unlabeled],
+            strong_preds_teacher.detach()[mask_unlabeled]
         )
         weak_self_sup_loss = self.selfsup_loss(
-            weak_preds_student,
-            weak_preds_teacher.detach()
+            weak_preds_student[mask_unlabeled],
+            weak_preds_teacher.detach()[mask_unlabeled]
         )
         tot_self_loss = (strong_self_sup_loss + weak_self_sup_loss) * weight
 
