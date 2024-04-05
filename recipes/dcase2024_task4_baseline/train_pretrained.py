@@ -1,25 +1,22 @@
 import argparse
 import os
-import random
-from copy import deepcopy
-
-import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torchaudio
 import yaml
+import desed
 from desed_task.dataio import ConcatDatasetBatchSampler
 from desed_task.dataio.datasets import (StronglyAnnotatedSet, UnlabeledSet,
                                         WeakSet)
 from desed_task.nnet.CRNN import CRNN
-from desed_task.utils.download import download_from_url
-from desed_task.utils.encoder import ManyHotEncoder
+from desed_task.utils.encoder import CatManyHotEncoder, ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
-from local.classes_dict import classes_labels
+from local.classes_dict import (classes_labels_desed,
+                                classes_labels_maestro_real, maestro_desed_alias)
 from local.resample_folder import resample_folder
 from local.sed_trainer_pretrained import SEDTask4
-from local.utils import calculate_macs, generate_tsv_wav_durations
+from local.utils import calculate_macs, generate_tsv_wav_durations, process_tsvs
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
@@ -29,6 +26,8 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
         dsets = [
             "synth_folder",
             "synth_val_folder",
+            "real_maestro_train",
+            "real_maestro_val",
             "strong_folder",
             "weak_folder",
             "unlabeled_folder",
@@ -40,6 +39,7 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
         dsets = ["eval_folder"]
 
     for dset in dsets:
+        print(f"Resampling {dset} to 16 kHz.")
         computed = resample_folder(
             config_data[dset + "_44k"], config_data[dset], target_fs=config_data["fs"]
         )
@@ -52,11 +52,52 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
                 )
 
 
+def get_encoder(config):
+    desed_encoder = ManyHotEncoder(
+        list(classes_labels_desed.keys()),
+        audio_len=config["data"]["audio_max_len"],
+        frame_len=config["feats"]["n_filters"],
+        frame_hop=config["feats"]["hop_length"],
+        net_pooling=config["data"]["net_subsample"],
+        fs=config["data"]["fs"],
+    )
+
+    maestro_real_encoder = ManyHotEncoder(
+        list(classes_labels_maestro_real.keys()),
+        audio_len=config["data"]["audio_max_len"],
+        frame_len=config["feats"]["n_filters"],
+        frame_hop=config["feats"]["hop_length"],
+        net_pooling=config["data"]["net_subsample"],
+        fs=config["data"]["fs"],
+    )
+
+    encoder = CatManyHotEncoder(
+        (desed_encoder, maestro_real_encoder)
+    )
+
+    return encoder
+
+
+
+def get_embeddings_name(config, name):
+    devtest_embeddings = (
+        None
+        if config["pretrained"]["e2e"]
+        else os.path.join(
+            config["pretrained"]["extracted_embeddings_dir"],
+            config["pretrained"]["model"],
+            f"{name}.hdf5",
+        )
+    )
+
+    return devtest_embeddings
+
+
+
 def single_run(
     config,
     log_dir,
     gpus,
-    strong_real=False,
     checkpoint_resume=None,
     test_state_dict=None,
     fast_dev_run=False,
@@ -84,14 +125,11 @@ def single_run(
         pl.seed_everything(seed, workers=True)
 
     ##### data prep test ##########
-    encoder = ManyHotEncoder(
-        list(classes_labels.keys()),
-        audio_len=config["data"]["audio_max_len"],
-        frame_len=config["feats"]["n_filters"],
-        frame_hop=config["feats"]["hop_length"],
-        net_pooling=config["data"]["net_subsample"],
-        fs=config["data"]["fs"],
-    )
+    encoder = get_encoder(config)
+
+    mask_events_desed = set(classes_labels_desed.keys())
+    mask_events_maestro_real = (set(classes_labels_maestro_real.keys()).union(
+        set(["Speech", "Dog", "Dishes"])))
 
     if not config["pretrained"]["freezed"]:
         assert config["pretrained"]["e2e"], (
@@ -162,7 +200,7 @@ def single_run(
     elif config["pretrained"]["model"] == "panns" and config["pretrained"]["e2e"]:
         assert config["data"]["fs"] == 16000, "this pretrained model is trained on 16k"
         feature_extraction = None  # integrated in the model
-        download_from_url(config["pretrained"]["url"], config["pretrained"]["dest"])
+        desed.download_from_url(config["pretrained"]["url"], config["pretrained"]["dest"])
         # use PANNs as additional feature
         from local.panns.models import Cnn14_16k
 
@@ -176,15 +214,7 @@ def single_run(
 
     if not evaluation:
         devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
-        devtest_embeddings = (
-            None
-            if config["pretrained"]["e2e"]
-            else os.path.join(
-                config["pretrained"]["extracted_embeddings_dir"],
-                config["pretrained"]["model"],
-                "devtest.hdf5",
-            )
-        )
+
         devtest_dataset = StronglyAnnotatedSet(
             config["data"]["test_folder"],
             devtest_df,
@@ -192,16 +222,36 @@ def single_run(
             return_filename=True,
             pad_to=config["data"]["audio_max_len"],
             feats_pipeline=feature_extraction,
-            embeddings_hdf5_file=devtest_embeddings,
+            embeddings_hdf5_file=get_embeddings_name(config, "devtest"),
             embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_desed
+        )
+
+        maestro_real_dev_tsv = pd.read_csv(
+            config["data"]["real_maestro_val_tsv"], sep="\t"
+        )
+        # optionally we can map to desed some maestro classes
+        maestro_real_dev = StronglyAnnotatedSet(
+            config["data"]["real_maestro_val"],
+            maestro_real_dev_tsv,
+            encoder,
+            return_filename=True,
+            pad_to=config["data"]["audio_max_len"],
+            feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=get_embeddings_name(config, "maestro_real_dev"),
+            embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_maestro_real,
         )
     else:
+        # FIXME fix later the evaluation sets
+        raise NotImplementedError
         devtest_dataset = UnlabeledSet(
             config["data"]["eval_folder"],
             encoder,
             pad_to=None,
             return_filename=True,
             feats_pipeline=feature_extraction,
+            mask_events_other_than=mask_events_maestro_real,
         )
 
     test_dataset = devtest_dataset
@@ -212,44 +262,28 @@ def single_run(
     if test_state_dict is None:
         ##### data prep train valid ##########
         synth_df = pd.read_csv(config["data"]["synth_tsv"], sep="\t")
-        synth_set_embeddings = (
-            None
-            if config["pretrained"]["e2e"]
-            else os.path.join(
-                config["pretrained"]["extracted_embeddings_dir"],
-                config["pretrained"]["model"],
-                "synth_train.hdf5",
-            )
-        )
+
         synth_set = StronglyAnnotatedSet(
             config["data"]["synth_folder"],
             synth_df,
             encoder,
             pad_to=config["data"]["audio_max_len"],
             feats_pipeline=feature_extraction,
-            embeddings_hdf5_file=synth_set_embeddings,
+            embeddings_hdf5_file=get_embeddings_name(config, "synth_train"),
             embedding_type=config["net"]["embedding_type"],
         )
 
-        if strong_real:
-            strong_df = pd.read_csv(config["data"]["strong_tsv"], sep="\t")
-            strong_set_embeddings = (
-                None
-                if config["pretrained"]["e2e"]
-                else os.path.join(
-                    config["pretrained"]["extracted_embeddings_dir"],
-                    config["pretrained"]["model"],
-                    "strong_train.hdf5",
-                )
-            )
-            strong_set = StronglyAnnotatedSet(
+
+        strong_df = pd.read_csv(config["data"]["strong_tsv"], sep="\t")
+        strong_set = StronglyAnnotatedSet(
                 config["data"]["strong_folder"],
                 strong_df,
                 encoder,
                 pad_to=config["data"]["audio_max_len"],
                 feats_pipeline=feature_extraction,
-                embeddings_hdf5_file=strong_set_embeddings,
+                embeddings_hdf5_file=get_embeddings_name(config, "strong_train"),
                 embedding_type=config["net"]["embedding_type"],
+                mask_events_other_than=mask_events_desed
             )
 
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
@@ -259,52 +293,30 @@ def single_run(
         )
         valid_weak_df = weak_df.drop(train_weak_df.index).reset_index(drop=True)
         train_weak_df = train_weak_df.reset_index(drop=True)
-        weak_set_embeddings = (
-            None
-            if config["pretrained"]["e2e"]
-            else os.path.join(
-                config["pretrained"]["extracted_embeddings_dir"],
-                config["pretrained"]["model"],
-                "weak_train.hdf5",
-            )
-        )
+
         weak_set = WeakSet(
             config["data"]["weak_folder"],
             train_weak_df,
             encoder,
             pad_to=config["data"]["audio_max_len"],
             feats_pipeline=feature_extraction,
-            embeddings_hdf5_file=weak_set_embeddings,
+            embeddings_hdf5_file=get_embeddings_name(config, "weak_train"),
             embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_desed
         )
-        unlabeled_set_embeddings = (
-            None
-            if config["pretrained"]["e2e"]
-            else os.path.join(
-                config["pretrained"]["extracted_embeddings_dir"],
-                config["pretrained"]["model"],
-                "unlabeled_train.hdf5",
-            )
-        )
+
         unlabeled_set = UnlabeledSet(
             config["data"]["unlabeled_folder"],
             encoder,
             pad_to=config["data"]["audio_max_len"],
             feats_pipeline=feature_extraction,
-            embeddings_hdf5_file=unlabeled_set_embeddings,
+            embeddings_hdf5_file=get_embeddings_name(config, "unlabeled_train"),
             embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_desed
         )
 
         synth_df_val = pd.read_csv(config["data"]["synth_val_tsv"], sep="\t")
-        synth_val_embeddings = (
-            None
-            if config["pretrained"]["e2e"]
-            else os.path.join(
-                config["pretrained"]["extracted_embeddings_dir"],
-                config["pretrained"]["model"],
-                "synth_val.hdf5",
-            )
-        )
+
         synth_val = StronglyAnnotatedSet(
             config["data"]["synth_val_folder"],
             synth_df_val,
@@ -312,19 +324,12 @@ def single_run(
             return_filename=True,
             pad_to=config["data"]["audio_max_len"],
             feats_pipeline=feature_extraction,
-            embeddings_hdf5_file=synth_val_embeddings,
+            embeddings_hdf5_file=get_embeddings_name(config, "synth_val"),
             embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_desed
         )
 
-        weak_val_embeddings = (
-            None
-            if config["pretrained"]["e2e"]
-            else os.path.join(
-                config["pretrained"]["extracted_embeddings_dir"],
-                config["pretrained"]["model"],
-                "weak_val.hdf5",
-            )
-        )
+
         weak_val = WeakSet(
             config["data"]["weak_folder"],
             valid_weak_df,
@@ -332,15 +337,49 @@ def single_run(
             pad_to=config["data"]["audio_max_len"],
             return_filename=True,
             feats_pipeline=feature_extraction,
-            embeddings_hdf5_file=weak_val_embeddings,
+            embeddings_hdf5_file=get_embeddings_name(config, "weak_val"),
             embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_desed
         )
 
-        if strong_real:
-            strong_full_set = torch.utils.data.ConcatDataset([strong_set, synth_set])
-            tot_train_data = [strong_full_set, weak_set, unlabeled_set]
-        else:
-            tot_train_data = [synth_set, weak_set, unlabeled_set]
+        maestro_real_train = pd.read_csv(
+            config["data"]["real_maestro_train_tsv"], sep="\t")
+        maestro_real_valid = maestro_real_train.sample(
+            frac=config["training"]["maestro_split"],
+            random_state=config["training"]["seed"],
+        )
+        maestro_real_valid = maestro_real_train.drop(
+            maestro_real_valid.index).reset_index(drop=True)
+        maestro_real_train = maestro_real_train.reset_index(drop=True)
+
+        maestro_real_train = process_tsvs(maestro_real_train,
+                                          alias_map=maestro_desed_alias)
+        maestro_real_train = StronglyAnnotatedSet(
+            config["data"]["real_maestro_train"],
+            maestro_real_train,
+            encoder,
+            pad_to=config["data"]["audio_max_len"],
+            feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=get_embeddings_name(config, "maestro_real_train"),
+            embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_maestro_real,
+        )
+
+        maestro_real_valid = StronglyAnnotatedSet(
+            config["data"]["real_maestro_train"],
+            maestro_real_valid,
+            encoder,
+            pad_to=config["data"]["audio_max_len"],
+            return_filename=True,
+            feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=get_embeddings_name(config, "maestro_real_train"),
+            embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_maestro_real,
+        )
+
+
+        strong_full_set = torch.utils.data.ConcatDataset([strong_set, synth_set])
+        tot_train_data = [maestro_real_train, synth_set, strong_full_set, weak_set, unlabeled_set]
         train_dataset = torch.utils.data.ConcatDataset(tot_train_data)
 
         batch_sizes = config["training"]["batch_size"]

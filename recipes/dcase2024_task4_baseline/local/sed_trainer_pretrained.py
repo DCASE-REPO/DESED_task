@@ -109,20 +109,14 @@ class SEDTask4(pl.LightningModule):
             raise NotImplementedError
 
         # for weak labels we simply compute f1 score
-        self.get_weak_student_f1_seg_macro = (
-            torchmetrics.classification.f_beta.MultilabelF1Score(
-                len(self.encoder.labels),
-                average="macro",
-                compute_on_step=False,
-            )
+        self.get_weak_student_f1_seg_macro = torchmetrics.classification.f_beta.MultilabelF1Score(
+            len(self.encoder.labels),
+            average="macro",
         )
 
-        self.get_weak_teacher_f1_seg_macro = (
-            torchmetrics.classification.f_beta.MultilabelF1Score(
-                len(self.encoder.labels),
-                average="macro",
-                compute_on_step=False,
-            )
+        self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.MultilabelF1Score(
+            len(self.encoder.labels),
+            average="macro"
         )
 
         self.scaler = self._init_scaler()
@@ -269,13 +263,51 @@ class SEDTask4(pl.LightningModule):
 
         amp_to_db = AmplitudeToDB(stype="amplitude")
         amp_to_db.amin = 1e-5  # amin= 1e-5 as in librosa
-        return amp_to_db(mels).clamp(min=-50, max=80)  # clamp to reproduce old code
+        # clamp to reproduce old code
+        return amp_to_db(mels).clamp(min=-50, max=80)
 
-    def detect(self, mel_feats, model, embeddings=None):
+    def detect(self, mel_feats, model, embeddings=None, **kwargs):
         if embeddings is None:
-            return model(self.scaler(self.take_log(mel_feats)))
+            return model(self.scaler(self.take_log(mel_feats)), **kwargs)
         else:
-            return model(self.scaler(self.take_log(mel_feats)), embeddings=embeddings)
+            return model(self.scaler(self.take_log(mel_feats)),
+                         embeddings=embeddings, **kwargs)
+
+    def apply_mixup(self, features, embeddings, labels, start_indx, stop_indx):
+        # made a dedicated method as we need to apply mixup only
+        # within each dataset that has the same classes
+        mixup_type = self.hparams["training"].get("mixup")
+        batch_num = features.shape[0]
+        current_mask = torch.zeros(batch_num).to(features).bool()
+        current_mask[start_indx:stop_indx] = 1
+        features[current_mask], labels[current_mask] = mixup(
+            features[current_mask], labels[current_mask],
+            mixup_label_type=mixup_type
+        )
+
+        if embeddings is not None:
+            # apply mixup also on embeddings
+            embeddings[current_mask], labels[current_mask] = mixup(
+                embeddings[current_mask], labels[current_mask],
+                mixup_label_type=mixup_type
+            )
+
+        return features, embeddings, labels
+
+    def _unpack_batch(self, batch):
+
+        if not self.hparams["pretrained"]["e2e"]:
+            return batch
+        else:
+            # untested
+            raise NotImplementedError
+            # we train e2e
+            if len(batch) > 3:
+                audio, labels, padded_indxs, ast_feats = batch
+                pretrained_input = ast_feats
+            else:
+                audio, labels, padded_indxs = batch
+                pretrained_input = audio
 
     def training_step(self, batch, batch_indx):
         """Apply the training for one batch (a step). Used during trainer.fit
@@ -288,84 +320,83 @@ class SEDTask4(pl.LightningModule):
            torch.Tensor, the loss to take into account.
         """
 
-        if not self.hparams["pretrained"]["e2e"]:
-            audio, labels, padded_indxs, embeddings = batch
-        else:
-            # we train e2e
-            if len(batch) > 3:
-                audio, labels, padded_indxs, ast_feats = batch
-                pretrained_input = ast_feats
-            else:
-                audio, labels, padded_indxs = batch
-                pretrained_input = audio
+        audio, labels, padded_indxs, embeddings, valid_class_mask = self._unpack_batch(batch)
 
-        indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
         features = self.mel_spec(audio)
 
-        if self.hparams["pretrained"]["e2e"]:
-            # extract embeddings here
-            if self.pretrained_model.training and self.hparams["pretrained"]["freezed"]:
-                # check that is freezed
-                self.pretrained_model.eval()
-            embeddings = self.pretrained_model(pretrained_input)[
-                self.hparams["net"]["embedding_type"]
-            ]
+        indx_maestro, indx_synth, indx_strong, indx_weak, indx_unlabelled = (
+            np.cumsum(self.hparams["training"]["batch_size"]))
 
         batch_num = features.shape[0]
         # deriving masks for each dataset
         strong_mask = torch.zeros(batch_num).to(features).bool()
         weak_mask = torch.zeros(batch_num).to(features).bool()
-        strong_mask[:indx_synth] = 1
-        weak_mask[indx_synth : indx_weak + indx_synth] = 1
+        mask_unlabeled = torch.zeros(batch_num).to(features).bool()
+        strong_mask[:indx_strong] = 1
+        weak_mask[indx_strong:indx_weak] = 1 #NOTE: we use cumsum now !
+        mask_unlabeled[indx_maestro:] = 1
 
         # deriving weak labels
         labels_weak = (torch.sum(labels[weak_mask], -1) > 0).float()
-
         mixup_type = self.hparams["training"].get("mixup")
-        if mixup_type is not None and 0.5 > random.random():
-            features[weak_mask], labels_weak = mixup(
-                features[weak_mask], labels_weak, mixup_label_type=mixup_type
-            )
-            features[strong_mask], labels[strong_mask] = mixup(
-                features[strong_mask], labels[strong_mask], mixup_label_type=mixup_type
-            )
+        if (
+            mixup_type is not None
+            and self.hparams["training"]["mixup_prob"] > random.random()
+        ):
+            # NOTE: mix only within same dataset !
+            features, embeddings, labels = self.apply_mixup(features, embeddings, labels,
+                                                indx_strong, indx_weak)
+            features, embeddings, labels = self.apply_mixup(features, embeddings, labels,
+                                                indx_maestro, indx_strong)
+            features, embeddings, labels = self.apply_mixup(features, embeddings, labels, 0,
+                                                indx_maestro)
+
+
+        # mask labels for invalid datasets classes after mixup.
+        labels = labels.masked_fill(~valid_class_mask[:, :, None].expand_as(labels), 0.0)
+        labels_weak = labels_weak.masked_fill(
+            ~valid_class_mask[weak_mask], 0.0)
 
         # sed student forward
         strong_preds_student, weak_preds_student = self.detect(
-            features, self.sed_student, embeddings
+            features, self.sed_student,
+            embeddings=embeddings,
+            classes_mask=valid_class_mask
         )
 
         # supervised loss on strong labels
         loss_strong = self.supervised_loss(
-            strong_preds_student[strong_mask], labels[strong_mask]
+            strong_preds_student[strong_mask],
+            labels[strong_mask],
         )
         # supervised loss on weakly labelled
-        loss_weak = self.supervised_loss(weak_preds_student[weak_mask], labels_weak)
+
+        loss_weak = self.supervised_loss(
+            weak_preds_student[weak_mask],
+            labels_weak,
+        )
         # total supervised loss
         tot_loss_supervised = loss_strong + loss_weak
 
         with torch.no_grad():
             strong_preds_teacher, weak_preds_teacher = self.detect(
-                features, self.sed_teacher, embeddings
-            )
-            loss_strong_teacher = self.supervised_loss(
-                strong_preds_teacher[strong_mask], labels[strong_mask]
+                features, self.sed_teacher, embeddings=embeddings,
+                classes_mask=valid_class_mask
             )
 
-            loss_weak_teacher = self.supervised_loss(
-                weak_preds_teacher[weak_mask], labels_weak
-            )
-        # we apply consistency between the predictions, use the scheduler for learning rate (to be changed ?)
         weight = (
             self.hparams["training"]["const_max"]
             * self.scheduler["scheduler"]._get_scaling_factor()
         )
+        # should we apply the valid mask for classes also here ?
 
         strong_self_sup_loss = self.selfsup_loss(
-            strong_preds_student, strong_preds_teacher.detach()
+            strong_preds_student[mask_unlabeled],
+            strong_preds_teacher.detach()[mask_unlabeled]
         )
         weak_self_sup_loss = self.selfsup_loss(
-            weak_preds_student, weak_preds_teacher.detach()
+            weak_preds_student[mask_unlabeled],
+            weak_preds_teacher.detach()[mask_unlabeled]
         )
         tot_self_loss = (strong_self_sup_loss + weak_self_sup_loss) * weight
 
@@ -373,8 +404,6 @@ class SEDTask4(pl.LightningModule):
 
         self.log("train/student/loss_strong", loss_strong)
         self.log("train/student/loss_weak", loss_weak)
-        self.log("train/teacher/loss_strong", loss_strong_teacher)
-        self.log("train/teacher/loss_weak", loss_weak_teacher)
         self.log("train/step", self.scheduler["scheduler"].step_num, prog_bar=True)
         self.log("train/student/tot_self_loss", tot_self_loss, prog_bar=True)
         self.log("train/weight", weight)
@@ -402,34 +431,29 @@ class SEDTask4(pl.LightningModule):
             batch_indx: torch.Tensor, 1D tensor of indexes to know which data are present in each batch.
         Returns:
         """
-        if not self.hparams["pretrained"]["e2e"]:
-            audio, labels, padded_indxs, filenames, embeddings = batch
-        else:
-            # we train e2e
-            if len(batch) > 4:
-                audio, labels, padded_indxs, ast_feats, filenames = batch
-                pretrained_input = ast_feats
-            else:
-                audio, labels, padded_indxs, filenames = batch
-                pretrained_input = audio
+
+        audio, labels, padded_indxs, filenames, embeddings, valid_class_mask = self._unpack_batch(
+            batch)
 
         if self.hparams["pretrained"]["e2e"]:
             # extract embeddings here
             if self.pretrained_model.training and self.hparams["pretrained"]["freezed"]:
                 # check that is freezed
                 self.pretrained_model.eval()
-            embeddings = self.pretrained_model(pretrained_input)[
+            embeddings = self.pretrained_model(embeddings)[
                 self.hparams["net"]["embedding_type"]
             ]
 
         # prediction for student
         mels = self.mel_spec(audio)
         strong_preds_student, weak_preds_student = self.detect(
-            mels, self.sed_student, embeddings
+            mels, self.sed_student, embeddings=embeddings,
+            classes_mask=valid_class_mask
         )
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.detect(
-            mels, self.sed_teacher, embeddings
+            mels, self.sed_teacher, embeddings=embeddings,
+            classes_mask=valid_class_mask
         )
 
         # we derive masks for each dataset based on folders of filenames
@@ -665,23 +689,15 @@ class SEDTask4(pl.LightningModule):
         Returns:
         """
 
-        if not self.hparams["pretrained"]["e2e"]:
-            audio, labels, padded_indxs, filenames, embeddings = batch
-        else:
-            # we train e2e
-            if len(batch) > 4:
-                audio, labels, padded_indxs, ast_feats, filenames = batch
-                pretrained_input = ast_feats
-            else:
-                audio, labels, padded_indxs, filenames = batch
-                pretrained_input = audio
+        audio, labels, padded_indxs, filenames, embeddings, valid_class_mask = self._unpack_batch(
+            batch)
 
         if self.hparams["pretrained"]["e2e"]:
             # extract embeddings here
             if self.pretrained_model.training and self.hparams["pretrained"]["freezed"]:
                 # check that is freezed
                 self.pretrained_model.eval()
-            embeddings = self.pretrained_model(pretrained_input)[
+            embeddings = self.pretrained_model(embeddings)[
                 self.hparams["net"]["embedding_type"]
             ]
 

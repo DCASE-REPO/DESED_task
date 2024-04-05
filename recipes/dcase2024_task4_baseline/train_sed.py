@@ -1,9 +1,5 @@
 import argparse
 import os
-import random
-import warnings
-
-import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
@@ -29,7 +25,6 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
         dsets = [
             "synth_folder",
             "synth_val_folder",
-            "synth_maestro_train",
             "real_maestro_train",
             "real_maestro_val",
             "strong_folder",
@@ -75,18 +70,10 @@ def get_encoder(config):
         fs=config["data"]["fs"],
     )
 
-    maestro_synth_encoder = ManyHotEncoder(
-        list(classes_labels_maestro_synth.keys()),
-        audio_len=config["data"]["audio_max_len"],
-        frame_len=config["feats"]["n_filters"],
-        frame_hop=config["feats"]["hop_length"],
-        net_pooling=config["data"]["net_subsample"],
-        fs=config["data"]["fs"],
+    encoder = CatManyHotEncoder(
+        (desed_encoder, maestro_real_encoder)
     )
 
-    encoder = CatManyHotEncoder(
-        (desed_encoder, maestro_synth_encoder, maestro_real_encoder)
-    )
     return encoder
 
 
@@ -124,9 +111,9 @@ def single_run(
     encoder = get_encoder(config)
 
     mask_events_desed = set(classes_labels_desed.keys())
-    mask_events_maestro_synth = set(classes_labels_maestro_synth.keys())
-    # we add also alias desed classes
-    mask_events_maestro_real = (set(classes_labels_maestro_real.keys()).union(set(["Speech", "Dog", "Dishes"])))
+    mask_events_maestro_real = (set(classes_labels_maestro_real.keys()).union(
+        set(["Speech", "Dog", "Dishes"])))
+
 
     if not evaluation:
         devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
@@ -185,18 +172,6 @@ def single_run(
             mask_events_other_than=mask_events_desed,
         )
 
-        # add maestro synth here
-        synth_maestro_df = pd.read_csv(config["data"]["synth_maestro_tsv"], sep="\t")
-        # augment with alias
-        synth_maestro_df = process_tsvs(synth_maestro_df, alias_map=maestro_desed_alias)
-        synth_maestro = StronglyAnnotatedSet(
-            config["data"]["synth_maestro_train"],
-            synth_maestro_df,
-            encoder,
-            pad_to=config["data"]["audio_max_len"],
-            mask_events_other_than=mask_events_maestro_synth,
-        )
-
 
         maestro_real_train = pd.read_csv(config["data"]["real_maestro_train_tsv"], sep="\t")
         maestro_real_valid = maestro_real_train.sample(
@@ -210,7 +185,6 @@ def single_run(
         # not sure.
         maestro_real_train = process_tsvs(maestro_real_train,
                                           alias_map=maestro_desed_alias)
-
         maestro_real_train = StronglyAnnotatedSet(
             config["data"]["real_maestro_train"],
             maestro_real_train,
