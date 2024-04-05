@@ -243,7 +243,7 @@ def calculate_macs(model, config, dataset=None):
     input = torch.randn(input_size)
 
     if "use_embeddings" in config["net"] and config["net"]["use_embeddings"]:
-        audio, label, padded_indxs, path, embeddings = dataset[0]
+        audio, label, padded_indxs, path, embeddings, _ = dataset[0]
         embeddings = embeddings.repeat(1, 1, 1)
         macs, params = profile(model, inputs=(input, None, embeddings))
     else:
