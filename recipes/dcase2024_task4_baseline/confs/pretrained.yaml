@@ -95,7 +95,7 @@ net:
   stride: [1, 1, 1, 1, 1, 1, 1]
   nb_filters: [ 16, 32, 64, 128, 128, 128, 128 ]
   pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
-  dropout_recurrent: 0
+  dropstep_recurrent: 0.0
   use_embeddings: True
   embedding_size: 768
   embedding_type: frame

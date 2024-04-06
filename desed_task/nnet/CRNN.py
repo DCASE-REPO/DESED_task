@@ -2,6 +2,7 @@ import warnings
 
 import torch
 import torch.nn as nn
+import torchaudio.transforms
 
 from .CNN import CNN
 from .RNN import BidirectionalGRU
@@ -27,6 +28,7 @@ class CRNN(nn.Module):
         embedding_type="global",
         frame_emb_enc_dim=512,
         aggregation_type="global",
+        dropstep_recurrent=0.0,
         **kwargs,
     ):
         """
@@ -57,6 +59,7 @@ class CRNN(nn.Module):
         self.embedding_type = embedding_type
         self.aggregation_type = aggregation_type
         self.nclass = nclass
+        self.dropstep_recurrent = dropstep_recurrent
 
         n_in_cnn = n_in_channel
 
@@ -228,17 +231,8 @@ class CRNN(nn.Module):
                 # as an encoder and we use the last state
                 last, _ = self.frame_embs_encoder(embeddings.transpose(1, 2))
                 embeddings = last[:, -1]
-                x = self.cat_tf(
-                    torch.cat(
-                        (
-                            x,
-                            self.shrink_emb(embeddings)
-                            .unsqueeze(1)
-                            .repeat(1, x.shape[1], 1),
-                        ),
-                        -1,
-                    )
-                )
+                reshape_emb = self.shrink_emb(embeddings).unsqueeze(1).repeat(1, x.shape[1], 1)
+
             elif self.aggregation_type == "interpolate":
                 output_shape = (embeddings.shape[1], x.shape[1])
                 reshape_emb = (
@@ -248,14 +242,25 @@ class CRNN(nn.Module):
                     .squeeze(1)
                     .transpose(1, 2)
                 )
-                x = self.cat_tf(torch.cat((x, reshape_emb), -1))
+
             elif self.aggregation_type == "pool1d":
                 reshape_emb = torch.nn.functional.adaptive_avg_pool1d(
                     embeddings, x.shape[1]
                 ).transpose(1, 2)
-                x = self.cat_tf(torch.cat((x, reshape_emb), -1))
             else:
-                pass
+                raise NotImplementedError
+
+        if self.use_embeddings:
+            if self.dropstep_recurrent:
+                dropstep = torchaudio.transforms.TimeMasking(2, True, self.dropstep_recurrent)
+                x = dropstep(x.transpose(1, 2)).transpose(1, 2)
+                reshape_emb = dropstep(reshape_emb.transpose(1, -1)).transpose(1, -1)
+            x = self.cat_tf(torch.cat((x, reshape_emb), -1))
+        else:
+            if self.dropstep_recurrent:
+                dropstep = torchaudio.transforms.TimeMasking(2, True,
+                                                             self.dropstep_recurrent)
+                x = dropstep(x.transpose(1, 2)).transpose(1, 2)
 
         x = self.rnn(x)
         x = self.dropout(x)

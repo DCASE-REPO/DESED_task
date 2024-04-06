@@ -333,7 +333,7 @@ class SEDTask4(pl.LightningModule):
         weak_mask = torch.zeros(batch_num).to(features).bool()
         mask_unlabeled = torch.zeros(batch_num).to(features).bool()
         strong_mask[:indx_strong] = 1
-        weak_mask[indx_strong:indx_weak] = 1 #NOTE: we use cumsum now !
+        weak_mask[indx_strong:indx_weak] = 1
         mask_unlabeled[indx_maestro:] = 1
 
         # deriving weak labels
