@@ -73,8 +73,8 @@ def get_current_annotation(annotation, start, end):
         if ann.overlaps(start, end):
             c_segment = ann.data
             # make it relative
-            onset = max(start, c_segment["onset"])
-            offset = min(end, c_segment["offset"])
+            onset = max(0.0, c_segment["onset"]-start)
+            offset = min(end - start, c_segment["offset"]-start)
             c_segment = {
                 "onset": onset,
                 "offset": offset,
@@ -273,3 +273,7 @@ def get_maestro(dcase_dataset_folder):
         os.path.join(dcase_dataset_folder, "audio"),
         os.path.join(dcase_dataset_folder, "metadata"),
     )
+
+if __name__ == "__main__":
+    split_maestro_real("/media/samco/Data1/MAESTRO/maestro_dev/", "/media/samco/Data1/MAESTRO_split/audio",
+                       "/media/samco/Data1/MAESTRO_split/metadata")
