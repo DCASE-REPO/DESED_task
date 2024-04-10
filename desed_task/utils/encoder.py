@@ -247,14 +247,20 @@ class CatManyHotEncoder(ManyHotEncoder):
                 )
             total_labels.extend(enc.labels)
 
-        if not allow_same_classes and len(total_labels) != len(set(total_labels)):
-            # we might test for this
-            raise RuntimeError(
-                f"Encoders must not have classes in common. "
-                f"But you have {total_labels} while the unique labels are: {set(total_labels)}"
-            )
-
-        total_labels = list(set(total_labels))
+        if len(total_labels) != len(set(total_labels)):
+            if not allow_same_classes:
+                # we might test for this
+                raise RuntimeError(
+                    f"Encoders must not have classes in common. "
+                    f"But you have {total_labels} while the unique labels are: {set(total_labels)}"
+                )
+            total_labels_tmp_set = {}
+            i = 0
+            for label in total_labels:
+                if label in total_labels_tmp_set:
+                    total_labels.pop(i)
+                else:
+                    i += 1
 
         total_labels = OrderedDict({x: indx for indx, x in enumerate(total_labels)})
 
