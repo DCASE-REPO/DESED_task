@@ -34,6 +34,12 @@ classes_labels_maestro_synth = OrderedDict(
 
 )
 
+classes_labels_maestro_real_eval = {
+    'birds_singing', 'car', 'people talking', 'footsteps', 'children voices',
+    'wind_blowing', 'brakes_squeaking', 'large_vehicle', 'cutlery and dishes',
+    'metro approaching', 'metro leaving',
+}
+
 maestro_desed_alias = {
         "people_talking": "Speech",
         "children voices": "Speech",  # both synth and real

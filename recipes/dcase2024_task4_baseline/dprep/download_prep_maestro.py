@@ -172,6 +172,7 @@ def split_maestro_real(download_folder, out_audio_folder, out_meta_folder):
             sep="\t",
             index=False,
         )
+    (Path(download_folder) / "development_metadata.csv").rename(Path(out_meta_folder) / "maestro_real_durations.tsv")
 
 
 def split_maestro_synth(download_folder, out_audio_folder, out_meta_folder):
@@ -251,6 +252,10 @@ def download_and_prepare_maestro(dcase_dataset_folder):
     )
     dev_meta_path = os.path.join(dcase_dataset_folder, "maestro_dev")
     help_extract(dev_meta_path, url_dev_meta, "development_audio.zip")
+    url_dev_audio_durations = (
+        "https://raw.githubusercontent.com/marmoi/dcase2023_task4b_baseline/main/metadata/development_metadata.csv"
+    )
+    desed.utils.download_file_from_url(url_dev_audio_durations, os.path.join(dev_meta_path, "development_metadata.csv"))
 
 
 def get_maestro(dcase_dataset_folder):

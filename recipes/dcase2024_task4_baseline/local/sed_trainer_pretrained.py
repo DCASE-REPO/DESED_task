@@ -3,11 +3,14 @@ import random
 import warnings
 from copy import deepcopy
 from pathlib import Path
+from collections import defaultdict
+from math import ceil
 
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import sed_scores_eval
+from sed_scores_eval.base_modules.scores import create_score_dataframe, validate_score_dataframe
 import torch
 import torchmetrics
 from codecarbon import OfflineEmissionsTracker
@@ -19,6 +22,7 @@ from desed_task.utils.scaler import TorchScaler
 from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 
 from .utils import batched_decode_preds, log_sedeval_metrics
+from .classes_dict import classes_labels_desed, classes_labels_maestro_real, classes_labels_maestro_real_eval
 
 
 class SEDTask4(pl.LightningModule):
@@ -113,7 +117,6 @@ class SEDTask4(pl.LightningModule):
             len(self.encoder.labels),
             average="macro",
         )
-
         self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.MultilabelF1Score(
             len(self.encoder.labels),
             average="macro"
@@ -122,34 +125,28 @@ class SEDTask4(pl.LightningModule):
         self.scaler = self._init_scaler()
         # buffer for event based scores which we compute using sed-eval
 
-        self.val_buffer_student_synth = {
+        self.val_buffer_psds_eval_student = {
             k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
         }
-        self.val_buffer_teacher_synth = {
+        self.val_buffer_psds_eval_teacher = {
             k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
         }
 
-        self.val_buffer_student_test = {
-            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
-        }
-        self.val_buffer_teacher_test = {
-            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
-        }
-        self.val_scores_postprocessed_buffer_student_synth = {}
-        self.val_scores_postprocessed_buffer_teacher_synth = {}
+        self.val_buffer_sed_scores_eval_student = {}
+        self.val_buffer_sed_scores_eval_teacher = {}
 
         test_n_thresholds = self.hparams["training"]["n_test_thresholds"]
         test_thresholds = np.arange(
             1 / (test_n_thresholds * 2), 1, 1 / test_n_thresholds
         )
-        self.test_psds_buffer_student = {k: pd.DataFrame() for k in test_thresholds}
-        self.test_psds_buffer_teacher = {k: pd.DataFrame() for k in test_thresholds}
-        self.decoded_student_05_buffer = pd.DataFrame()
-        self.decoded_teacher_05_buffer = pd.DataFrame()
-        self.test_scores_raw_buffer_student = {}
-        self.test_scores_raw_buffer_teacher = {}
-        self.test_scores_postprocessed_buffer_student = {}
-        self.test_scores_postprocessed_buffer_teacher = {}
+        self.test_buffer_psds_eval_student = {k: pd.DataFrame() for k in test_thresholds}
+        self.test_buffer_psds_eval_teacher = {k: pd.DataFrame() for k in test_thresholds}
+        self.test_buffer_sed_scores_eval_student = {}
+        self.test_buffer_sed_scores_eval_teacher = {}
+        self.test_buffer_sed_scores_eval_unprocessed_student = {}
+        self.test_buffer_sed_scores_eval_unprocessed_teacher = {}
+        self.test_buffer_detections_thres05_student = pd.DataFrame()
+        self.test_buffer_detections_thres05_teacher = pd.DataFrame()
 
     _exp_dir = None
 
@@ -518,7 +515,7 @@ class SEDTask4(pl.LightningModule):
             ]
 
             (
-                scores_raw_student_strong,
+                scores_unprocessed_student_strong,
                 scores_postprocessed_student_strong,
                 decoded_student_strong,
             ) = batched_decode_preds(
@@ -526,20 +523,20 @@ class SEDTask4(pl.LightningModule):
                 filenames_synth,
                 self.encoder,
                 median_filter=self.hparams["training"]["median_window"],
-                thresholds=list(self.val_buffer_student_synth.keys()),
+                thresholds=list(self.val_buffer_psds_eval_student.keys()),
             )
 
-            self.val_scores_postprocessed_buffer_student_synth.update(
+            self.val_buffer_sed_scores_eval_student.update(
                 scores_postprocessed_student_strong
             )
-            for th in self.val_buffer_student_synth.keys():
-                self.val_buffer_student_synth[th] = pd.concat(
-                    [self.val_buffer_student_synth[th], decoded_student_strong[th]],
+            for th in self.val_buffer_psds_eval_student.keys():
+                self.val_buffer_psds_eval_student[th] = pd.concat(
+                    [self.val_buffer_psds_eval_student[th], decoded_student_strong[th]],
                     ignore_index=True,
                 )
 
             (
-                scores_raw_teacher_strong,
+                scores_unprocessed_teacher_strong,
                 scores_postprocessed_teacher_strong,
                 decoded_teacher_strong,
             ) = batched_decode_preds(
@@ -547,15 +544,15 @@ class SEDTask4(pl.LightningModule):
                 filenames_synth,
                 self.encoder,
                 median_filter=self.hparams["training"]["median_window"],
-                thresholds=list(self.val_buffer_teacher_synth.keys()),
+                thresholds=list(self.val_buffer_psds_eval_teacher.keys()),
             )
 
-            self.val_scores_postprocessed_buffer_teacher_synth.update(
+            self.val_buffer_sed_scores_eval_teacher.update(
                 scores_postprocessed_teacher_strong
             )
-            for th in self.val_buffer_teacher_synth.keys():
-                self.val_buffer_teacher_synth[th] = pd.concat(
-                    [self.val_buffer_teacher_synth[th], decoded_teacher_strong[th]],
+            for th in self.val_buffer_psds_eval_teacher.keys():
+                self.val_buffer_psds_eval_teacher[th] = pd.concat(
+                    [self.val_buffer_psds_eval_teacher[th], decoded_teacher_strong[th]],
                     ignore_index=True,
                 )
 
@@ -571,37 +568,43 @@ class SEDTask4(pl.LightningModule):
             torch.Tensor, the objective metric to be used to choose the best model from for example.
         """
 
+        # desed weak dataset
         weak_student_f1_macro = self.get_weak_student_f1_seg_macro.compute()
         weak_teacher_f1_macro = self.get_weak_teacher_f1_seg_macro.compute()
 
-        # synth dataset
-        ground_truth = sed_scores_eval.io.read_ground_truth_events(
+        # desed synth dataset
+        desed_ground_truth = sed_scores_eval.io.read_ground_truth_events(
             self.hparams["data"]["synth_val_tsv"]
         )
-        audio_durations = sed_scores_eval.io.read_audio_durations(
+        desed_audio_durations = sed_scores_eval.io.read_audio_durations(
             self.hparams["data"]["synth_val_dur"]
         )
         if self.fast_dev_run:
-            ground_truth = {
-                audio_id: ground_truth[audio_id]
-                for audio_id in self.val_scores_postprocessed_buffer_student_synth
+            desed_ground_truth = {
+                audio_id: desed_ground_truth[audio_id]
+                for audio_id in self.val_buffer_sed_scores_eval_student
             }
-            audio_durations = {
-                audio_id: audio_durations[audio_id]
-                for audio_id in self.val_scores_postprocessed_buffer_student_synth
+            desed_audio_durations = {
+                audio_id: desed_audio_durations[audio_id]
+                for audio_id in self.val_buffer_sed_scores_eval_student
             }
         else:
             # drop audios without events
-            ground_truth = {
-                audio_id: gt for audio_id, gt in ground_truth.items() if len(gt) > 0
+            desed_ground_truth = {
+                audio_id: gt for audio_id, gt in desed_ground_truth.items() if len(gt) > 0
             }
-            audio_durations = {
-                audio_id: audio_durations[audio_id] for audio_id in ground_truth.keys()
+            desed_audio_durations = {
+                audio_id: desed_audio_durations[audio_id] for audio_id in desed_ground_truth.keys()
             }
+        keys = ['onset', 'offset'] + sorted(classes_labels_desed.keys())
+        desed_scores = {
+            clip_id: self.val_buffer_sed_scores_eval_student[clip_id][keys]
+            for clip_id in desed_ground_truth.keys()
+        }
         psds1_student_sed_scores_eval = compute_psds_from_scores(
-            self.val_scores_postprocessed_buffer_student_synth,
-            ground_truth,
-            audio_durations,
+            desed_scores,
+            desed_ground_truth,
+            desed_audio_durations,
             dtc_threshold=0.7,
             gtc_threshold=0.7,
             cttc_threshold=None,
@@ -610,22 +613,22 @@ class SEDTask4(pl.LightningModule):
             # save_dir=os.path.join(save_dir, "student", "scenario1"),
         )
         intersection_f1_macro_student = compute_per_intersection_macro_f1(
-            self.val_buffer_student_synth,
+            self.val_buffer_psds_eval_student,
             self.hparams["data"]["synth_val_tsv"],
             self.hparams["data"]["synth_val_dur"],
         )
         synth_student_event_macro = log_sedeval_metrics(
-            self.val_buffer_student_synth[0.5],
+            self.val_buffer_psds_eval_student[0.5],
             self.hparams["data"]["synth_val_tsv"],
         )[0]
         intersection_f1_macro_teacher = compute_per_intersection_macro_f1(
-            self.val_buffer_teacher_synth,
+            self.val_buffer_psds_eval_teacher,
             self.hparams["data"]["synth_val_tsv"],
             self.hparams["data"]["synth_val_dur"],
         )
 
         synth_teacher_event_macro = log_sedeval_metrics(
-            self.val_buffer_teacher_synth[0.5],
+            self.val_buffer_psds_eval_teacher[0.5],
             self.hparams["data"]["synth_val_tsv"],
         )[0]
 
@@ -646,29 +649,29 @@ class SEDTask4(pl.LightningModule):
         obj_metric = torch.tensor(weak_student_f1_macro.item() + synth_metric)
 
         self.log("val/obj_metric", obj_metric, prog_bar=True)
-        self.log("val/weak/student/macro_F1", weak_student_f1_macro)
-        self.log("val/weak/teacher/macro_F1", weak_teacher_f1_macro)
+        self.log("val/desed/weak/student/f1_macro_thres05/sed_eval", weak_student_f1_macro)
+        self.log("val/desed/weak/teacher/f1_macro_thres05/sed_eval", weak_teacher_f1_macro)
         self.log(
-            "val/synth/student/psds1_sed_scores_eval", psds1_student_sed_scores_eval
+            "val/desed/synth/student/psds1/sed_scores_eval", psds1_student_sed_scores_eval
         )
         self.log(
-            "val/synth/student/intersection_f1_macro", intersection_f1_macro_student
+            "val/desed/synth/student/intersection_f1_macro_thres05/psds_eval", intersection_f1_macro_student
         )
         self.log(
-            "val/synth/teacher/intersection_f1_macro", intersection_f1_macro_teacher
+            "val/desed/synth/teacher/intersection_f1_macro_thres05/psds_eval", intersection_f1_macro_teacher
         )
-        self.log("val/synth/student/event_f1_macro", synth_student_event_macro)
-        self.log("val/synth/teacher/event_f1_macro", synth_teacher_event_macro)
+        self.log("val/desed/synth/student/collar_f1_macro_thres05/sed_eval", synth_student_event_macro)
+        self.log("val/desed/synth/teacher/collar_f1_macro_thres05/sed_eval", synth_teacher_event_macro)
 
         # free the buffers
-        self.val_buffer_student_synth = {
+        self.val_buffer_psds_eval_student = {
             k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
         }
-        self.val_buffer_teacher_synth = {
+        self.val_buffer_psds_eval_teacher = {
             k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
         }
-        self.val_scores_postprocessed_buffer_student_synth = {}
-        self.val_scores_postprocessed_buffer_teacher_synth = {}
+        self.val_buffer_sed_scores_eval_student = {}
+        self.val_buffer_sed_scores_eval_teacher = {}
 
         self.get_weak_student_f1_seg_macro.reset()
         self.get_weak_teacher_f1_seg_macro.reset()
@@ -720,7 +723,7 @@ class SEDTask4(pl.LightningModule):
 
         # compute psds
         (
-            scores_raw_student_strong,
+            scores_unprocessed_student_strong,
             scores_postprocessed_student_strong,
             decoded_student_strong,
         ) = batched_decode_preds(
@@ -728,21 +731,21 @@ class SEDTask4(pl.LightningModule):
             filenames,
             self.encoder,
             median_filter=self.hparams["training"]["median_window"],
-            thresholds=list(self.test_psds_buffer_student.keys()) + [0.5],
+            thresholds=list(self.test_buffer_psds_eval_student.keys()) + [0.5],
         )
 
-        self.test_scores_raw_buffer_student.update(scores_raw_student_strong)
-        self.test_scores_postprocessed_buffer_student.update(
+        self.test_buffer_sed_scores_eval_unprocessed_student.update(scores_unprocessed_student_strong)
+        self.test_buffer_sed_scores_eval_student.update(
             scores_postprocessed_student_strong
         )
-        for th in self.test_psds_buffer_student.keys():
-            self.test_psds_buffer_student[th] = pd.concat(
-                [self.test_psds_buffer_student[th], decoded_student_strong[th]],
+        for th in self.test_buffer_psds_eval_student.keys():
+            self.test_buffer_psds_eval_student[th] = pd.concat(
+                [self.test_buffer_psds_eval_student[th], decoded_student_strong[th]],
                 ignore_index=True,
             )
 
         (
-            scores_raw_teacher_strong,
+            scores_unprocessed_teacher_strong,
             scores_postprocessed_teacher_strong,
             decoded_teacher_strong,
         ) = batched_decode_preds(
@@ -750,61 +753,64 @@ class SEDTask4(pl.LightningModule):
             filenames,
             self.encoder,
             median_filter=self.hparams["training"]["median_window"],
-            thresholds=list(self.test_psds_buffer_teacher.keys()) + [0.5],
+            thresholds=list(self.test_buffer_psds_eval_teacher.keys()) + [0.5],
         )
 
-        self.test_scores_raw_buffer_teacher.update(scores_raw_teacher_strong)
-        self.test_scores_postprocessed_buffer_teacher.update(
+        self.test_buffer_sed_scores_eval_unprocessed_teacher.update(scores_unprocessed_teacher_strong)
+        self.test_buffer_sed_scores_eval_teacher.update(
             scores_postprocessed_teacher_strong
         )
-        for th in self.test_psds_buffer_teacher.keys():
-            self.test_psds_buffer_teacher[th] = pd.concat(
-                [self.test_psds_buffer_teacher[th], decoded_teacher_strong[th]],
+        for th in self.test_buffer_psds_eval_teacher.keys():
+            self.test_buffer_psds_eval_teacher[th] = pd.concat(
+                [self.test_buffer_psds_eval_teacher[th], decoded_teacher_strong[th]],
                 ignore_index=True,
             )
 
         # compute f1 score
-        self.decoded_student_05_buffer = pd.concat(
-            [self.decoded_student_05_buffer, decoded_student_strong[0.5]]
+        self.test_buffer_detections_thres05_student = pd.concat(
+            [self.test_buffer_detections_thres05_student, decoded_student_strong[0.5]]
         )
-        self.decoded_teacher_05_buffer = pd.concat(
-            [self.decoded_teacher_05_buffer, decoded_teacher_strong[0.5]]
+        self.test_buffer_detections_thres05_teacher = pd.concat(
+            [self.test_buffer_detections_thres05_teacher, decoded_teacher_strong[0.5]]
         )
 
     def on_test_epoch_end(self):
         # pub eval dataset
         save_dir = os.path.join(self.exp_dir, "metrics_test")
+        print('save_dir', save_dir)
 
         if self.evaluation:
             # only save prediction scores
-            save_dir_student_raw = os.path.join(save_dir, "student_scores", "raw")
+            save_dir_student_unprocessed = os.path.join(
+                save_dir, "student_scores", "unprocessed")
             sed_scores_eval.io.write_sed_scores(
-                self.test_scores_raw_buffer_student, save_dir_student_raw
+                self.test_buffer_sed_scores_eval_unprocessed_student, save_dir_student_unprocessed
             )
-            print(f"\nRaw scores for student saved in: {save_dir_student_raw}")
+            print(f"\nRaw scores for student saved in: {save_dir_student_unprocessed}")
 
             save_dir_student_postprocessed = os.path.join(
                 save_dir, "student_scores", "postprocessed"
             )
             sed_scores_eval.io.write_sed_scores(
-                self.test_scores_postprocessed_buffer_student,
+                self.test_buffer_sed_scores_eval_student,
                 save_dir_student_postprocessed,
             )
             print(
                 f"\nPostprocessed scores for student saved in: {save_dir_student_postprocessed}"
             )
 
-            save_dir_teacher_raw = os.path.join(save_dir, "teacher_scores", "raw")
+            save_dir_teacher_unprocessed = os.path.join(
+                save_dir, "teacher_scores", "unprocessed")
             sed_scores_eval.io.write_sed_scores(
-                self.test_scores_raw_buffer_teacher, save_dir_teacher_raw
+                self.test_buffer_sed_scores_eval_unprocessed_teacher, save_dir_teacher_unprocessed
             )
-            print(f"\nRaw scores for teacher saved in: {save_dir_teacher_raw}")
+            print(f"\nRaw scores for teacher saved in: {save_dir_teacher_unprocessed}")
 
             save_dir_teacher_postprocessed = os.path.join(
                 save_dir, "teacher_scores", "postprocessed"
             )
             sed_scores_eval.io.write_sed_scores(
-                self.test_scores_postprocessed_buffer_teacher,
+                self.test_buffer_sed_scores_eval_teacher,
                 save_dir_teacher_postprocessed,
             )
             print(
@@ -813,7 +819,7 @@ class SEDTask4(pl.LightningModule):
 
             self.tracker_eval.stop()
             eval_kwh = self.tracker_eval._total_energy.kWh
-            results = {"/eval/tot_energy_kWh": torch.tensor(float(eval_kwh))}
+            results = {"eval/tot_energy_kWh": torch.tensor(float(eval_kwh))}
             with open(
                 os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"),
                 "w",
@@ -821,32 +827,9 @@ class SEDTask4(pl.LightningModule):
                 f.write(str(eval_kwh))
         else:
             # calculate the metrics
-            ground_truth = sed_scores_eval.io.read_ground_truth_events(
-                self.hparams["data"]["test_tsv"]
-            )
-            audio_durations = sed_scores_eval.io.read_audio_durations(
-                self.hparams["data"]["test_dur"]
-            )
-            if self.fast_dev_run:
-                ground_truth = {
-                    audio_id: ground_truth[audio_id]
-                    for audio_id in self.test_scores_postprocessed_buffer_student
-                }
-                audio_durations = {
-                    audio_id: audio_durations[audio_id]
-                    for audio_id in self.test_scores_postprocessed_buffer_student
-                }
-            else:
-                # drop audios without events
-                ground_truth = {
-                    audio_id: gt for audio_id, gt in ground_truth.items() if len(gt) > 0
-                }
-                audio_durations = {
-                    audio_id: audio_durations[audio_id]
-                    for audio_id in ground_truth.keys()
-                }
+            # psds_eval
             psds1_student_psds_eval = compute_psds_from_operating_points(
-                self.test_psds_buffer_student,
+                self.test_buffer_psds_eval_student,
                 self.hparams["data"]["test_tsv"],
                 self.hparams["data"]["test_dur"],
                 dtc_threshold=0.7,
@@ -855,20 +838,8 @@ class SEDTask4(pl.LightningModule):
                 alpha_st=1,
                 save_dir=os.path.join(save_dir, "student", "scenario1"),
             )
-            psds1_student_sed_scores_eval = compute_psds_from_scores(
-                self.test_scores_postprocessed_buffer_student,
-                ground_truth,
-                audio_durations,
-                dtc_threshold=0.7,
-                gtc_threshold=0.7,
-                cttc_threshold=None,
-                alpha_ct=0,
-                alpha_st=1,
-                save_dir=os.path.join(save_dir, "student", "scenario1"),
-            )
-
             psds2_student_psds_eval = compute_psds_from_operating_points(
-                self.test_psds_buffer_student,
+                self.test_buffer_psds_eval_student,
                 self.hparams["data"]["test_tsv"],
                 self.hparams["data"]["test_dur"],
                 dtc_threshold=0.1,
@@ -878,20 +849,8 @@ class SEDTask4(pl.LightningModule):
                 alpha_st=1,
                 save_dir=os.path.join(save_dir, "student", "scenario2"),
             )
-            psds2_student_sed_scores_eval = compute_psds_from_scores(
-                self.test_scores_postprocessed_buffer_student,
-                ground_truth,
-                audio_durations,
-                dtc_threshold=0.1,
-                gtc_threshold=0.1,
-                cttc_threshold=0.3,
-                alpha_ct=0.5,
-                alpha_st=1,
-                save_dir=os.path.join(save_dir, "student", "scenario2"),
-            )
-
             psds1_teacher_psds_eval = compute_psds_from_operating_points(
-                self.test_psds_buffer_teacher,
+                self.test_buffer_psds_eval_teacher,
                 self.hparams["data"]["test_tsv"],
                 self.hparams["data"]["test_dur"],
                 dtc_threshold=0.7,
@@ -900,20 +859,8 @@ class SEDTask4(pl.LightningModule):
                 alpha_st=1,
                 save_dir=os.path.join(save_dir, "teacher", "scenario1"),
             )
-            psds1_teacher_sed_scores_eval = compute_psds_from_scores(
-                self.test_scores_postprocessed_buffer_teacher,
-                ground_truth,
-                audio_durations,
-                dtc_threshold=0.7,
-                gtc_threshold=0.7,
-                cttc_threshold=None,
-                alpha_ct=0,
-                alpha_st=1,
-                save_dir=os.path.join(save_dir, "teacher", "scenario1"),
-            )
-
             psds2_teacher_psds_eval = compute_psds_from_operating_points(
-                self.test_psds_buffer_teacher,
+                self.test_buffer_psds_eval_teacher,
                 self.hparams["data"]["test_tsv"],
                 self.hparams["data"]["test_dur"],
                 dtc_threshold=0.1,
@@ -923,66 +870,214 @@ class SEDTask4(pl.LightningModule):
                 alpha_st=1,
                 save_dir=os.path.join(save_dir, "teacher", "scenario2"),
             )
-            psds2_teacher_sed_scores_eval = compute_psds_from_scores(
-                self.test_scores_postprocessed_buffer_teacher,
-                ground_truth,
-                audio_durations,
-                dtc_threshold=0.1,
-                gtc_threshold=0.1,
-                cttc_threshold=0.3,
-                alpha_ct=0.5,
-                alpha_st=1,
-                save_dir=os.path.join(save_dir, "teacher", "scenario2"),
+            # synth dataset
+            intersection_f1_macro_thres05_student_psds_eval = compute_per_intersection_macro_f1(
+                {"0.5": self.test_buffer_detections_thres05_student},
+                self.hparams["data"]["test_tsv"],
+                self.hparams["data"]["test_dur"],
             )
-
-            event_macro_student = log_sedeval_metrics(
-                self.decoded_student_05_buffer,
+            intersection_f1_macro_thres05_teacher_psds_eval = compute_per_intersection_macro_f1(
+                {"0.5": self.test_buffer_detections_thres05_teacher},
+                self.hparams["data"]["test_tsv"],
+                self.hparams["data"]["test_dur"],
+            )
+            # sed_eval
+            collar_f1_macro_thres05_student = log_sedeval_metrics(
+                self.test_buffer_detections_thres05_student,
                 self.hparams["data"]["test_tsv"],
                 os.path.join(save_dir, "student"),
             )[0]
-
-            event_macro_teacher = log_sedeval_metrics(
-                self.decoded_teacher_05_buffer,
+            collar_f1_macro_thres05_teacher = log_sedeval_metrics(
+                self.test_buffer_detections_thres05_teacher,
                 self.hparams["data"]["test_tsv"],
                 os.path.join(save_dir, "teacher"),
             )[0]
 
-            # synth dataset
-            intersection_f1_macro_student = compute_per_intersection_macro_f1(
-                {"0.5": self.decoded_student_05_buffer},
-                self.hparams["data"]["test_tsv"],
-                self.hparams["data"]["test_dur"],
+            # sed_scores_eval
+            desed_ground_truth = sed_scores_eval.io.read_ground_truth_events(
+                self.hparams["data"]["test_tsv"]
             )
+            desed_audio_durations = sed_scores_eval.io.read_audio_durations(
+                self.hparams["data"]["test_dur"]
+            )
+            if self.fast_dev_run:
+                desed_ground_truth = {
+                    audio_id: desed_ground_truth[audio_id]
+                    for audio_id in self.test_buffer_sed_scores_eval_student
+                }
+                desed_audio_durations = {
+                    audio_id: desed_audio_durations[audio_id]
+                    for audio_id in self.test_buffer_sed_scores_eval_student
+                }
+            else:
+                # drop audios without events
+                desed_ground_truth = {
+                    audio_id: gt for audio_id, gt in desed_ground_truth.items() if len(gt) > 0
+                }
+                desed_audio_durations = {
+                    audio_id: desed_audio_durations[audio_id]
+                    for audio_id in desed_ground_truth.keys()
+                }
+            keys = ['onset', 'offset'] + sorted(classes_labels_desed.keys())
+            desed_scores = {
+                clip_id: self.test_buffer_sed_scores_eval_student[clip_id][keys]
+                for clip_id in desed_ground_truth.keys()
+            }
+            psds1_student_sed_scores_eval = compute_psds_from_scores(
+                desed_scores,
+                desed_ground_truth,
+                desed_audio_durations,
+                dtc_threshold=0.7,
+                gtc_threshold=0.7,
+                cttc_threshold=None,
+                alpha_ct=0,
+                alpha_st=1,
+                save_dir=os.path.join(save_dir, "student", "scenario1"),
+            )
+            psds2_student_sed_scores_eval = compute_psds_from_scores(
+                desed_scores,
+                desed_ground_truth,
+                desed_audio_durations,
+                dtc_threshold=0.1,
+                gtc_threshold=0.1,
+                cttc_threshold=0.3,
+                alpha_ct=0.5,
+                alpha_st=1,
+                save_dir=os.path.join(save_dir, "student", "scenario2"),
+            )
+            intersection_f1_macro_thres05_student_sed_scores_eval = sed_scores_eval.intersection_based.fscore(
+                desed_scores, desed_ground_truth, threshold=.5, dtc_threshold=.5, gtc_threshold=.5)[0]['macro_average']
+            collar_f1_macro_thres05_student_sed_scores_eval = sed_scores_eval.collar_based.fscore(
+                desed_scores, desed_ground_truth, threshold=.5, onset_collar=.2, offset_collar=.2, offset_collar_rate=.2)[0]['macro_average']
 
-            # synth dataset
-            intersection_f1_macro_teacher = compute_per_intersection_macro_f1(
-                {"0.5": self.decoded_teacher_05_buffer},
-                self.hparams["data"]["test_tsv"],
-                self.hparams["data"]["test_dur"],
+            desed_scores = {
+                clip_id: self.test_buffer_sed_scores_eval_teacher[clip_id][keys]
+                for clip_id in desed_ground_truth.keys()
+            }
+            psds1_teacher_sed_scores_eval = compute_psds_from_scores(
+                desed_scores,
+                desed_ground_truth,
+                desed_audio_durations,
+                dtc_threshold=0.7,
+                gtc_threshold=0.7,
+                cttc_threshold=None,
+                alpha_ct=0,
+                alpha_st=1,
+                save_dir=os.path.join(save_dir, "teacher", "scenario1"),
             )
+            psds2_teacher_sed_scores_eval = compute_psds_from_scores(
+                desed_scores,
+                desed_ground_truth,
+                desed_audio_durations,
+                dtc_threshold=0.1,
+                gtc_threshold=0.1,
+                cttc_threshold=0.3,
+                alpha_ct=0.5,
+                alpha_st=1,
+                save_dir=os.path.join(save_dir, "teacher", "scenario2"),
+            )
+            intersection_f1_macro_thres05_teacher_sed_scores_eval = sed_scores_eval.intersection_based.fscore(
+                desed_scores, desed_ground_truth, threshold=.5, dtc_threshold=.5, gtc_threshold=.5)[0]['macro_average']
+            collar_f1_macro_thres05_teacher_sed_scores_eval = sed_scores_eval.collar_based.fscore(
+                desed_scores, desed_ground_truth, threshold=.5, onset_collar=.2, offset_collar=.2, offset_collar_rate=.2)[0]['macro_average']
 
-            best_test_result = torch.tensor(
-                max(psds1_student_psds_eval, psds2_student_psds_eval)
+            maestro_audio_durations = sed_scores_eval.io.read_audio_durations(
+                self.hparams["data"]["real_maestro_dur"])
+            maestro_ground_truth_clips = pd.read_csv(
+                self.hparams["data"]["real_maestro_val_tsv"], sep="\t")
+            maestro_ground_truth_clips = maestro_ground_truth_clips[maestro_ground_truth_clips.confidence > .5]
+            maestro_ground_truth_clips = sed_scores_eval.io.read_ground_truth_events(maestro_ground_truth_clips)
+
+            maestro_ground_truth = defaultdict(list)
+            for clip_id in maestro_ground_truth_clips:
+                file_id, clip_onset_time, clip_offset_time = clip_id.rsplit('-', maxsplit=2)
+                clip_onset_time = int(clip_onset_time)//100
+                if (clip_onset_time % 10) == 0:
+                    maestro_ground_truth[file_id].extend([
+                        (clip_onset_time+event_onset_time, clip_onset_time+event_offset_time, event_class)
+                        for event_onset_time, event_offset_time, event_class in maestro_ground_truth_clips[clip_id]
+                    ])
+            maestro_ground_truth = _merge_overlapping_events(maestro_ground_truth)
+            maestro_audio_durations = {file_id: maestro_audio_durations[file_id] for file_id in maestro_ground_truth.keys()}
+
+            maestro_scores_student = {
+                clip_id: self.test_buffer_sed_scores_eval_student[clip_id]
+                for clip_id in maestro_ground_truth_clips.keys()
+            }
+            maestro_scores_teacher = {
+                clip_id: self.test_buffer_sed_scores_eval_teacher[clip_id]
+                for clip_id in maestro_ground_truth_clips.keys()
+            }
+            segment_length = 1.
+            event_classes_maestro = sorted(classes_labels_maestro_real)
+            segment_scores_student = _get_segment_scores_and_overlap_add(
+                frame_scores=maestro_scores_student,
+                audio_durations=maestro_audio_durations,
+                event_classes=event_classes_maestro,
+                segment_length=segment_length,
             )
+            sed_scores_eval.io.write_sed_scores(segment_scores_student, os.path.join(save_dir, "student", "maestro", "postprocessed"))
+            segment_scores_teacher = _get_segment_scores_and_overlap_add(
+                frame_scores=maestro_scores_teacher,
+                audio_durations=maestro_audio_durations,
+                event_classes=event_classes_maestro,
+                segment_length=segment_length,
+            )
+            sed_scores_eval.io.write_sed_scores(segment_scores_teacher, os.path.join(save_dir, "teacher", "maestro", "postprocessed"))
+
+            event_classes_maestro_eval = sorted(classes_labels_maestro_real_eval)
+            keys = ['onset', 'offset'] + event_classes_maestro_eval
+            segment_scores_student = {
+                clip_id: scores_df[keys]
+                for clip_id, scores_df in segment_scores_student.items()
+            }
+            segment_scores_teacher = {
+                clip_id: scores_df[keys]
+                for clip_id, scores_df in segment_scores_teacher.items()
+            }
+
+            segment_f1_macro_optthres_student = sed_scores_eval.segment_based.best_fscore(
+                segment_scores_student, maestro_ground_truth, maestro_audio_durations,
+                segment_length=segment_length,
+            )[0]['macro_average']
+            segment_mauc_student = sed_scores_eval.segment_based.auroc(
+                segment_scores_student, maestro_ground_truth, maestro_audio_durations,
+                segment_length=segment_length,
+            )[0]['mean']
+            segment_f1_macro_optthres_teacher = sed_scores_eval.segment_based.best_fscore(
+                segment_scores_teacher, maestro_ground_truth, maestro_audio_durations,
+                segment_length=segment_length,
+            )[0]['macro_average']
+            segment_mauc_teacher = sed_scores_eval.segment_based.auroc(
+                segment_scores_teacher, maestro_ground_truth, maestro_audio_durations,
+                segment_length=segment_length,
+            )[0]['mean']
 
             results = {
-                "hp_metric": best_test_result,
-                "test/student/psds1_psds_eval": psds1_student_psds_eval,
-                "test/student/psds1_sed_scores_eval": psds1_student_sed_scores_eval,
-                "test/student/psds2_psds_eval": psds2_student_psds_eval,
-                "test/student/psds2_sed_scores_eval": psds2_student_sed_scores_eval,
-                "test/teacher/psds1_psds_eval": psds1_teacher_psds_eval,
-                "test/teacher/psds1_sed_scores_eval": psds1_teacher_sed_scores_eval,
-                "test/teacher/psds2_psds_eval": psds2_teacher_psds_eval,
-                "test/teacher/psds2_sed_scores_eval": psds2_teacher_sed_scores_eval,
-                "test/student/event_f1_macro": event_macro_student,
-                "test/student/intersection_f1_macro": intersection_f1_macro_student,
-                "test/teacher/event_f1_macro": event_macro_teacher,
-                "test/teacher/intersection_f1_macro": intersection_f1_macro_teacher,
+                "test/student/psds1/psds_eval": psds1_student_psds_eval,
+                "test/student/psds2/psds_eval": psds2_student_psds_eval,
+                "test/teacher/psds1/psds_eval": psds1_teacher_psds_eval,
+                "test/teacher/psds2/psds_eval": psds2_teacher_psds_eval,
+                "test/student/intersection_f1_macro_thres05/psds_eval": intersection_f1_macro_thres05_student_psds_eval,
+                "test/teacher/intersection_f1_macro_thres05/psds_eval": intersection_f1_macro_thres05_teacher_psds_eval,
+                "test/student/collar_f1_macro_thres05/sed_eval": collar_f1_macro_thres05_student,
+                "test/teacher/collar_f1_macro_thres05/sed_eval": collar_f1_macro_thres05_teacher,
+                "test/student/psds1/sed_scores_eval": psds1_student_sed_scores_eval,
+                "test/student/psds2/sed_scores_eval": psds2_student_sed_scores_eval,
+                "test/teacher/psds1/sed_scores_eval": psds1_teacher_sed_scores_eval,
+                "test/teacher/psds2/sed_scores_eval": psds2_teacher_sed_scores_eval,
+                "test/student/intersection_f1_macro_thres05/sed_scores_eval": intersection_f1_macro_thres05_student_sed_scores_eval,
+                "test/teacher/intersection_f1_macro_thres05/sed_scores_eval": intersection_f1_macro_thres05_teacher_sed_scores_eval,
+                "test/student/collar_f1_macro_thres05/sed_scores_eval": collar_f1_macro_thres05_student_sed_scores_eval,
+                "test/teacher/collar_f1_macro_thres05/sed_scores_eval": collar_f1_macro_thres05_teacher_sed_scores_eval,
+                "test/student/segment_f1_macro_thresopt/sed_scores_eval": segment_f1_macro_optthres_student,
+                "test/student/segment_mauc/sed_scores_eval": segment_mauc_student,
+                "test/teacher/segment_f1_macro_thresopt/sed_scores_eval": segment_f1_macro_optthres_teacher,
+                "test/teacher/segment_mauc/sed_scores_eval": segment_mauc_teacher,
             }
             self.tracker_devtest.stop()
             eval_kwh = self.tracker_devtest._total_energy.kWh
-            results.update({"/test/tot_energy_kWh": torch.tensor(float(eval_kwh))})
+            results.update({"test/tot_energy_kWh": torch.tensor(float(eval_kwh))})
             with open(
                 os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"),
                 "w",
@@ -1062,3 +1157,91 @@ class SEDTask4(pl.LightningModule):
                 country_iso_code="FRA",
             )
             self.tracker_devtest.start()
+
+
+def _merge_overlapping_events(ground_truth_events):
+    for clip_id, events in ground_truth_events.items():
+        per_class_events = defaultdict(list)
+        for event in events:
+            per_class_events[event[2]].append(event)
+        ground_truth_events[clip_id] = []
+        for event_class, events in per_class_events.items():
+            events = sorted(events)
+            merged_events = []
+            current_offset = -1e6
+            for event in events:
+                if event[0] > current_offset:
+                    merged_events.append(list(event))
+                else:
+                    merged_events[-1][1] = max(current_offset, event[1])
+                current_offset = merged_events[-1][1]
+            ground_truth_events[clip_id].extend(merged_events)
+    return ground_truth_events
+
+
+def _get_segment_scores_and_overlap_add(frame_scores, audio_durations, event_classes, segment_length=1.):
+    """
+    >>> event_classes = ['a', 'b', 'c']
+    >>> audio_durations = {'f1': 201.6, 'f2':133.1, 'f3':326}
+    >>> frame_scores = {\
+        f'{file_id}-{int(100*onset)}-{int(100*(onset+10.))}': create_score_dataframe(np.random.rand(156,3), np.arange(157.)*0.064, event_classes)\
+        for file_id in audio_durations for onset in range(int((audio_durations[file_id]-9.)))\
+    }
+    >>> frame_scores.keys()
+    >>> seg_scores = _get_segment_scores_and_overlap_add(frame_scores, audio_durations, event_classes, segment_length=1.)
+    >>> [(key, validate_score_dataframe(value)[0][-3:]) for key, value in seg_scores.items()]
+    """
+    segment_scores_file = {}
+    summand_count = {}
+    keys = ['onset', 'offset'] + event_classes
+    for clip_id in frame_scores:
+        file_id, clip_onset_time, clip_offset_time = clip_id.rsplit('-', maxsplit=2)
+        clip_onset_time = float(clip_onset_time)/100
+        clip_offset_time = float(clip_offset_time)/100
+        if file_id not in segment_scores_file:
+            segment_scores_file[file_id] = np.zeros((ceil(audio_durations[file_id]/segment_length), len(event_classes)))
+            summand_count[file_id] = np.zeros_like(segment_scores_file[file_id])
+        segment_scores_clip = _get_segment_scores(
+            frame_scores[clip_id][keys], clip_length=(clip_offset_time - clip_onset_time), segment_length=1.)[event_classes].to_numpy()
+        seg_idx = int(clip_onset_time//segment_length)
+        segment_scores_file[file_id][seg_idx:seg_idx+len(segment_scores_clip)] += segment_scores_clip
+        summand_count[file_id][seg_idx:seg_idx+len(segment_scores_clip)] += 1
+    return {
+        file_id: create_score_dataframe(
+            segment_scores_file[file_id] / np.maximum(summand_count[file_id], 1),
+            np.minimum(np.arange(0., audio_durations[file_id]+segment_length, segment_length), audio_durations[file_id]),
+            event_classes,
+        ) for file_id in segment_scores_file
+    }
+
+
+def _get_segment_scores(scores_df, clip_length, segment_length=1.):
+    """
+    >>> scores_arr = np.random.rand(156,3)
+    >>> timestamps = np.arange(157)*0.064
+    >>> event_classes = ['a', 'b', 'c']
+    >>> scores_df = create_score_dataframe(scores_arr, timestamps, event_classes)
+    >>> seg_scores_df = _get_segment_scores(scores_df, clip_length=10., segment_length=1.)
+    """
+    frame_timestamps, event_classes = validate_score_dataframe(scores_df)
+    scores_arr = scores_df[event_classes].to_numpy()
+    segment_scores = []
+    segment_timestamps = []
+    seg_onset_idx = 0
+    seg_offset_idx = 0
+    for seg_onset in np.arange(0., clip_length, segment_length):
+        seg_offset = seg_onset + segment_length
+        while frame_timestamps[seg_onset_idx+1] <= seg_onset:
+            seg_onset_idx += 1
+        while seg_offset_idx < len(scores_arr) and frame_timestamps[seg_offset_idx] < seg_offset:
+            seg_offset_idx += 1
+        seg_weights = (
+            np.minimum(frame_timestamps[seg_onset_idx+1:seg_offset_idx+1], seg_offset)
+            - np.maximum(frame_timestamps[seg_onset_idx:seg_offset_idx], seg_onset)
+        )
+        segment_scores.append(
+            (seg_weights[:, None] * scores_arr[seg_onset_idx:seg_offset_idx]).sum(0) / seg_weights.sum()
+        )
+        segment_timestamps.append(seg_onset)
+    segment_timestamps.append(clip_length)
+    return create_score_dataframe(np.array(segment_scores), np.array(segment_timestamps), event_classes)
