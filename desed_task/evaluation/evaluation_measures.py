@@ -268,7 +268,7 @@ def compute_psds_from_scores(
     num_jobs=4,
     save_dir=None,
 ):
-    psds, psd_roc, single_class_rocs, *_ = sed_scores_eval.intersection_based.psds(
+    psds, single_class_psds, psd_roc, single_class_rocs, *_ = sed_scores_eval.intersection_based.psds(
         scores=scores,
         ground_truth=ground_truth_file,
         audio_durations=durations_file,

@@ -9,7 +9,7 @@ import scipy
 import soundfile
 import torch
 from desed_task.evaluation.evaluation_measures import compute_sed_eval_metrics
-from sed_scores_eval.utils.scores import create_score_dataframe
+from sed_scores_eval.base_modules.scores import create_score_dataframe
 from thop import clever_format, profile
 
 
