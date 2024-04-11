@@ -986,6 +986,7 @@ class SEDTask4(pl.LightningModule):
             maestro_ground_truth_clips = pd.read_csv(
                 self.hparams["data"]["real_maestro_val_tsv"], sep="\t")
             maestro_ground_truth_clips = maestro_ground_truth_clips[maestro_ground_truth_clips.confidence > .5]
+            maestro_ground_truth_clips = maestro_ground_truth_clips[maestro_ground_truth_clips.event_label.isin(classes_labels_maestro_real_eval)]
             maestro_ground_truth_clips = sed_scores_eval.io.read_ground_truth_events(maestro_ground_truth_clips)
 
             maestro_ground_truth = defaultdict(list)
