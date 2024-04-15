@@ -61,7 +61,6 @@ def get_encoder(config):
         net_pooling=config["data"]["net_subsample"],
         fs=config["data"]["fs"],
     )
-
     maestro_real_encoder = ManyHotEncoder(
         list(classes_labels_maestro_real.keys()),
         audio_len=config["data"]["audio_max_len"],
@@ -215,7 +214,7 @@ def single_run(
     if not evaluation:
         devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
 
-        devtest_dataset = StronglyAnnotatedSet(
+        desed_devtest_dataset = StronglyAnnotatedSet(
             config["data"]["test_folder"],
             devtest_df,
             encoder,
@@ -227,13 +226,13 @@ def single_run(
             mask_events_other_than=mask_events_desed
         )
 
-        maestro_real_dev_tsv = pd.read_csv(
+        maestro_real_devtest_tsv = pd.read_csv(
             config["data"]["real_maestro_val_tsv"], sep="\t"
         )
         # optionally we can map to desed some maestro classes
-        maestro_real_dev = StronglyAnnotatedSet(
+        maestro_real_devtest = StronglyAnnotatedSet(
             config["data"]["real_maestro_val"],
-            maestro_real_dev_tsv,
+            maestro_real_devtest_tsv,
             encoder,
             return_filename=True,
             pad_to=config["data"]["audio_max_len"],
@@ -242,6 +241,7 @@ def single_run(
             embedding_type=config["net"]["embedding_type"],
             mask_events_other_than=mask_events_maestro_real,
         )
+        devtest_dataset = torch.utils.data.ConcatDataset([desed_devtest_dataset, maestro_real_devtest])
     else:
         # FIXME fix later the evaluation sets
         raise NotImplementedError
@@ -471,6 +471,7 @@ def single_run(
         limit_val_batches = 2
         limit_test_batches = 2
         n_epochs = 3
+        validation_interval = 1
     else:
         flush_logs_every_n_steps = 100
         log_every_n_steps = 40
@@ -478,6 +479,7 @@ def single_run(
         limit_val_batches = 1.0
         limit_test_batches = 1.0
         n_epochs = config["training"]["n_epochs"]
+        validation_interval = config["training"]["validation_interval"]
 
     if gpus == "0":
         accelerator = "cpu"
@@ -527,7 +529,7 @@ def prepare_run(argv=None):
     )
     parser.add_argument(
         "--log_dir",
-        default="./exp/2022_baseline_pretask",
+        default="./exp/2024_baseline",
         help="Directory where to save tensorboard logs, saved models, etc.",
     )
     parser.add_argument(
@@ -553,12 +555,6 @@ def prepare_run(argv=None):
     )
     parser.add_argument(
         "--eval_from_checkpoint", default=None, help="Evaluate the model specified"
-    )
-    parser.add_argument(
-        "--strong_real",
-        action="store_true",
-        default=False,
-        help="The strong annotations coming from Audioset will be included in the training phase.",
     )
 
     args = parser.parse_args(argv)
@@ -601,7 +597,6 @@ if __name__ == "__main__":
         configs,
         args.log_dir,
         args.gpus,
-        args.strong_real,
         args.resume_from_checkpoint,
         test_model_state_dict,
         args.fast_dev_run,
