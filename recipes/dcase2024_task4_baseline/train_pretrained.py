@@ -10,6 +10,7 @@ from desed_task.dataio import ConcatDatasetBatchSampler
 from desed_task.dataio.datasets import (StronglyAnnotatedSet, UnlabeledSet,
                                         WeakSet)
 from desed_task.nnet.CRNN import CRNN
+import numpy as np
 from desed_task.utils.encoder import CatManyHotEncoder, ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
 from local.classes_dict import (classes_labels_desed,
@@ -91,6 +92,31 @@ def get_embeddings_name(config, name):
 
     return devtest_embeddings
 
+def split_maestro(config, maestro_dev_df):
+
+    np.random.seed(config["training"]["seed"])
+    split_f = config["training"]["maestro_split"]
+    for indx, scene_name in enumerate(['city_center', 'grocery_store', 'metro_station', 'cafe_restaurant', 'residential_area']):
+
+        mask = maestro_dev_df["filename"].apply(lambda x: "_".join(x.split("_")[:-1])) == scene_name
+        filenames = maestro_dev_df[mask]["filename"].apply(lambda x: x.split("-")[0]).unique()
+        np.random.shuffle(filenames)
+
+        pivot = int(split_f*len(filenames))
+        filenames_train = filenames[:pivot]
+        filenames_valid = filenames[pivot:]
+        if indx == 0:
+            mask_train = maestro_dev_df["filename"].apply(lambda x: x.split("-")[0]).isin(filenames_train)
+            mask_valid = maestro_dev_df["filename"].apply(lambda x: x.split("-")[0]).isin(filenames_valid)
+            train_split = maestro_dev_df[mask_train]
+            valid_split = maestro_dev_df[mask_valid]
+        else:
+            mask_train = maestro_dev_df["filename"].apply(lambda x: x.split("-")[0]).isin(filenames_train)
+            mask_valid = maestro_dev_df["filename"].apply(lambda x: x.split("-")[0]).isin(filenames_valid)
+            train_split = pd.concat([train_split, maestro_dev_df[mask_train]])
+            valid_split = pd.concat([valid_split, maestro_dev_df[mask_valid]])
+
+    return train_split, valid_split
 
 
 def single_run(
@@ -344,14 +370,9 @@ def single_run(
 
         maestro_real_train = pd.read_csv(
             config["data"]["real_maestro_train_tsv"], sep="\t")
-        maestro_real_valid = maestro_real_train.sample(
-            frac=config["training"]["maestro_split"],
-            random_state=config["training"]["seed"],
-        )
-        maestro_real_valid = maestro_real_train.drop(
-            maestro_real_valid.index).reset_index(drop=True)
-        maestro_real_train = maestro_real_train.reset_index(drop=True)
 
+
+        maestro_real_valid, maestro_real_train = split_maestro(config, maestro_real_train)
         maestro_real_train = process_tsvs(maestro_real_train,
                                           alias_map=maestro_desed_alias)
         maestro_real_train = StronglyAnnotatedSet(
