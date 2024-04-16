@@ -465,15 +465,13 @@ def single_run(
 
     # Not using the fast_dev_run of Trainer because creates a DummyLogger so cannot check problems with the Logger
     if fast_dev_run:
-        flush_logs_every_n_steps = 1
         log_every_n_steps = 1
-        limit_train_batches = 2
-        limit_val_batches = 2
-        limit_test_batches = 2
+        limit_train_batches = 20
+        limit_val_batches = 20
+        limit_test_batches = 20
         n_epochs = 3
         validation_interval = 1
     else:
-        flush_logs_every_n_steps = 100
         log_every_n_steps = 40
         limit_train_batches = 1.0
         limit_val_batches = 1.0
@@ -500,7 +498,7 @@ def single_run(
         accumulate_grad_batches=config["training"]["accumulate_batches"],
         logger=logger,
         gradient_clip_val=config["training"]["gradient_clip"],
-        check_val_every_n_epoch=config["training"]["validation_interval"],
+        check_val_every_n_epoch=validation_interval,
         num_sanity_val_steps=0,
         log_every_n_steps=log_every_n_steps,
         limit_train_batches=limit_train_batches,
