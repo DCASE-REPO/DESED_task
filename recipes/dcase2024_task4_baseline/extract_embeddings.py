@@ -194,8 +194,6 @@ if __name__ == "__main__":
         config["data"]["synth_folder"], feats_pipeline=feature_extraction
     )
 
-    synth_set[0]
-
     strong_set = WavDataset(
         config["data"]["strong_folder"], feats_pipeline=feature_extraction
     )
@@ -224,11 +222,11 @@ if __name__ == "__main__":
 
     # now extract features for MAESTRO too
     maestro_real_dev = WavDataset(
-        config["data"]["real_maestro_val"],
+        config["data"]["real_maestro_val_folder"],
         feats_pipeline=feature_extraction)
 
     maestro_real_train = WavDataset(
-        config["data"]["real_maestro_train"],
+        config["data"]["real_maestro_train_folder"],
         feats_pipeline=feature_extraction)
 
     for k, elem in {
