@@ -982,7 +982,7 @@ class SEDTask4(pl.LightningModule):
                 desed_scores, desed_ground_truth, threshold=.5, onset_collar=.2, offset_collar=.2, offset_collar_rate=.2)[0]['macro_average']
 
             maestro_audio_durations = sed_scores_eval.io.read_audio_durations(
-                self.hparams["data"]["real_maestro_dur"])
+                self.hparams["data"]["real_maestro_val_dur"])
             maestro_ground_truth_clips = pd.read_csv(
                 self.hparams["data"]["real_maestro_val_tsv"], sep="\t")
             maestro_ground_truth_clips = maestro_ground_truth_clips[maestro_ground_truth_clips.confidence > .5]

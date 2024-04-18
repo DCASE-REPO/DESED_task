@@ -27,8 +27,8 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
         dsets = [
             "synth_folder",
             "synth_val_folder",
-            "real_maestro_train",
-            "real_maestro_val",
+            "real_maestro_train_folder",
+            "real_maestro_val_folder",
             "strong_folder",
             "weak_folder",
             "unlabeled_folder",
@@ -92,11 +92,12 @@ def get_embeddings_name(config, name):
 
     return devtest_embeddings
 
+
 def split_maestro(config, maestro_dev_df):
 
     np.random.seed(config["training"]["seed"])
     split_f = config["training"]["maestro_split"]
-    for indx, scene_name in enumerate(['city_center', 'grocery_store', 'metro_station', 'cafe_restaurant', 'residential_area']):
+    for indx, scene_name in enumerate(['cafe_restaurant', 'city_center', 'grocery_store', 'metro_station', 'residential_area']):
 
         mask = maestro_dev_df["filename"].apply(lambda x: "_".join(x.split("_")[:-1])) == scene_name
         filenames = maestro_dev_df[mask]["filename"].apply(lambda x: x.split("-")[0]).unique()
@@ -113,9 +114,11 @@ def split_maestro(config, maestro_dev_df):
         else:
             mask_train = maestro_dev_df["filename"].apply(lambda x: x.split("-")[0]).isin(filenames_train)
             mask_valid = maestro_dev_df["filename"].apply(lambda x: x.split("-")[0]).isin(filenames_valid)
-            train_split = pd.concat([train_split, maestro_dev_df[mask_train]])
-            valid_split = pd.concat([valid_split, maestro_dev_df[mask_valid]])
+            train_split = pd.concat([train_split, maestro_dev_df[mask_train]], ignore_index=True)
+            valid_split = pd.concat([valid_split, maestro_dev_df[mask_valid]], ignore_index=True)
 
+    import pdb
+    pdb.set_trace()
     return train_split, valid_split
 
 
@@ -257,7 +260,7 @@ def single_run(
         )
         # optionally we can map to desed some maestro classes
         maestro_real_devtest = StronglyAnnotatedSet(
-            config["data"]["real_maestro_val"],
+            config["data"]["real_maestro_val_folder"],
             maestro_real_devtest_tsv,
             encoder,
             return_filename=True,
@@ -376,7 +379,7 @@ def single_run(
         maestro_real_train = process_tsvs(maestro_real_train,
                                           alias_map=maestro_desed_alias)
         maestro_real_train = StronglyAnnotatedSet(
-            config["data"]["real_maestro_train"],
+            config["data"]["real_maestro_train_folder"],
             maestro_real_train,
             encoder,
             pad_to=config["data"]["audio_max_len"],
@@ -387,7 +390,7 @@ def single_run(
         )
 
         maestro_real_valid = StronglyAnnotatedSet(
-            config["data"]["real_maestro_train"],
+            config["data"]["real_maestro_train_folder"],
             maestro_real_valid,
             encoder,
             pad_to=config["data"]["audio_max_len"],
