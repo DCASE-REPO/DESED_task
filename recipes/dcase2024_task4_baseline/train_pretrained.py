@@ -373,7 +373,7 @@ def single_run(
             config["data"]["real_maestro_train_tsv"], sep="\t")
 
 
-        maestro_real_valid, maestro_real_train = split_maestro(config, maestro_real_train)
+        maestro_real_train, maestro_real_valid = split_maestro(config, maestro_real_train)
         maestro_real_train = process_tsvs(maestro_real_train,
                                           alias_map=maestro_desed_alias)
         maestro_real_train = StronglyAnnotatedSet(
