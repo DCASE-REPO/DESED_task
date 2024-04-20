@@ -117,8 +117,6 @@ def split_maestro(config, maestro_dev_df):
             train_split = pd.concat([train_split, maestro_dev_df[mask_train]], ignore_index=True)
             valid_split = pd.concat([valid_split, maestro_dev_df[mask_valid]], ignore_index=True)
 
-    import pdb
-    pdb.set_trace()
     return train_split, valid_split
 
 
