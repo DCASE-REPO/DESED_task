@@ -29,6 +29,7 @@ training:
   mixup: soft # Soft mixup gives the ratio of the mix to the labels, hard mixup gives a 1 to every label present.
   mixup_prob: 0.5
   obj_metric_synth_type: intersection
+  obj_metric_maestro_type: fmo
   enable_progress_bar: True
 scaler:
   statistic: instance # instance or dataset-wide statistic

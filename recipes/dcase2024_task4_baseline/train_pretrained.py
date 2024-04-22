@@ -408,7 +408,7 @@ def single_run(
         samplers = [torch.utils.data.RandomSampler(x) for x in tot_train_data]
         batch_sampler = ConcatDatasetBatchSampler(samplers, batch_sizes)
 
-        valid_dataset = torch.utils.data.ConcatDataset([synth_val, weak_val])
+        valid_dataset = torch.utils.data.ConcatDataset([synth_val, weak_val, maestro_real_valid])
 
         ##### training params and optimizers ############
         epoch_len = min(
@@ -489,9 +489,9 @@ def single_run(
     if fast_dev_run:
         log_every_n_steps = 1
         limit_train_batches = 20
-        limit_val_batches = 20
-        limit_test_batches = 20
-        n_epochs = 3
+        limit_val_batches = 1.0
+        limit_test_batches = 1.0
+        n_epochs = 2
         validation_interval = 1
     else:
         log_every_n_steps = 40

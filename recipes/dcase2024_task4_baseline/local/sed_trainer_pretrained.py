@@ -125,13 +125,6 @@ class SEDTask4(pl.LightningModule):
         self.scaler = self._init_scaler()
         # buffer for event based scores which we compute using sed-eval
 
-        self.val_buffer_psds_eval_student = {
-            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
-        }
-        self.val_buffer_psds_eval_teacher = {
-            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
-        }
-
         self.val_buffer_sed_scores_eval_student = {}
         self.val_buffer_sed_scores_eval_teacher = {}
 
@@ -465,11 +458,13 @@ class SEDTask4(pl.LightningModule):
             .to(audio)
             .bool()
         )
-        mask_synth = (
+        mask_strong = (
             torch.tensor(
                 [
-                    str(Path(x).parent)
-                    == str(Path(self.hparams["data"]["synth_val_folder"]))
+                    str(Path(x).parent) in [
+                        str(Path(self.hparams["data"]["synth_val_folder"])),
+                        str(Path(self.hparams["data"]["real_maestro_train_folder"])),
+                    ]
                     for x in filenames
                 ]
             )
@@ -497,21 +492,23 @@ class SEDTask4(pl.LightningModule):
                 weak_preds_teacher[mask_weak], labels_weak.long()
             )
 
-        if torch.any(mask_synth):
+        if torch.any(mask_strong):
             loss_strong_student = self.supervised_loss(
-                strong_preds_student[mask_synth], labels[mask_synth]
+                strong_preds_student[mask_strong], labels[mask_strong]
             )
             loss_strong_teacher = self.supervised_loss(
-                strong_preds_teacher[mask_synth], labels[mask_synth]
+                strong_preds_teacher[mask_strong], labels[mask_strong]
             )
 
             self.log("val/synth/student/loss_strong", loss_strong_student)
             self.log("val/synth/teacher/loss_strong", loss_strong_teacher)
 
-            filenames_synth = [
-                x
-                for x in filenames
-                if Path(x).parent == Path(self.hparams["data"]["synth_val_folder"])
+            filenames_strong = [
+                x for x in filenames
+                if str(Path(x).parent) in [
+                    str(Path(self.hparams["data"]["synth_val_folder"])),
+                    str(Path(self.hparams["data"]["real_maestro_train_folder"])),
+                ]
             ]
 
             (
@@ -519,42 +516,32 @@ class SEDTask4(pl.LightningModule):
                 scores_postprocessed_student_strong,
                 decoded_student_strong,
             ) = batched_decode_preds(
-                strong_preds_student[mask_synth],
-                filenames_synth,
+                strong_preds_student[mask_strong],
+                filenames_strong,
                 self.encoder,
                 median_filter=self.hparams["training"]["median_window"],
-                thresholds=list(self.val_buffer_psds_eval_student.keys()),
+                thresholds=[],
             )
 
             self.val_buffer_sed_scores_eval_student.update(
                 scores_postprocessed_student_strong
             )
-            for th in self.val_buffer_psds_eval_student.keys():
-                self.val_buffer_psds_eval_student[th] = pd.concat(
-                    [self.val_buffer_psds_eval_student[th], decoded_student_strong[th]],
-                    ignore_index=True,
-                )
 
             (
                 scores_unprocessed_teacher_strong,
                 scores_postprocessed_teacher_strong,
                 decoded_teacher_strong,
             ) = batched_decode_preds(
-                strong_preds_teacher[mask_synth],
-                filenames_synth,
+                strong_preds_teacher[mask_strong],
+                filenames_strong,
                 self.encoder,
                 median_filter=self.hparams["training"]["median_window"],
-                thresholds=list(self.val_buffer_psds_eval_teacher.keys()),
+                thresholds=[],
             )
 
             self.val_buffer_sed_scores_eval_teacher.update(
                 scores_postprocessed_teacher_strong
             )
-            for th in self.val_buffer_psds_eval_teacher.keys():
-                self.val_buffer_psds_eval_teacher[th] = pd.concat(
-                    [self.val_buffer_psds_eval_teacher[th], decoded_teacher_strong[th]],
-                    ignore_index=True,
-                )
 
         return
 
@@ -567,11 +554,9 @@ class SEDTask4(pl.LightningModule):
         Returns:
             torch.Tensor, the objective metric to be used to choose the best model from for example.
         """
-
         # desed weak dataset
         weak_student_f1_macro = self.get_weak_student_f1_seg_macro.compute()
         weak_teacher_f1_macro = self.get_weak_teacher_f1_seg_macro.compute()
-
         # desed synth dataset
         desed_ground_truth = sed_scores_eval.io.read_ground_truth_events(
             self.hparams["data"]["synth_val_tsv"]
@@ -579,21 +564,12 @@ class SEDTask4(pl.LightningModule):
         desed_audio_durations = sed_scores_eval.io.read_audio_durations(
             self.hparams["data"]["synth_val_dur"]
         )
-        if self.fast_dev_run:
-            desed_ground_truth = {
-                audio_id: desed_ground_truth[audio_id]
-                for audio_id in self.val_buffer_sed_scores_eval_student
-            }
-            desed_audio_durations = {
-                audio_id: desed_audio_durations[audio_id]
-                for audio_id in self.val_buffer_sed_scores_eval_student
-            }
-        else:
-            # drop audios without events
-            desed_ground_truth = {
+
+        # drop audios without events
+        desed_ground_truth = {
                 audio_id: gt for audio_id, gt in desed_ground_truth.items() if len(gt) > 0
             }
-            desed_audio_durations = {
+        desed_audio_durations = {
                 audio_id: desed_audio_durations[audio_id] for audio_id in desed_ground_truth.keys()
             }
         keys = ['onset', 'offset'] + sorted(classes_labels_desed.keys())
@@ -601,7 +577,7 @@ class SEDTask4(pl.LightningModule):
             clip_id: self.val_buffer_sed_scores_eval_student[clip_id][keys]
             for clip_id in desed_ground_truth.keys()
         }
-        psds1_student_sed_scores_eval = compute_psds_from_scores(
+        psds1_sed_scores_eval_student = compute_psds_from_scores(
             desed_scores,
             desed_ground_truth,
             desed_audio_durations,
@@ -610,66 +586,127 @@ class SEDTask4(pl.LightningModule):
             cttc_threshold=None,
             alpha_ct=0,
             alpha_st=1,
-            # save_dir=os.path.join(save_dir, "student", "scenario1"),
         )
-        intersection_f1_macro_student = compute_per_intersection_macro_f1(
-            self.val_buffer_psds_eval_student,
-            self.hparams["data"]["synth_val_tsv"],
-            self.hparams["data"]["synth_val_dur"],
+        intersection_f1_macro_thres05_student_sed_scores_eval = sed_scores_eval.intersection_based.fscore(
+            desed_scores, desed_ground_truth, threshold=.5, dtc_threshold=.5, gtc_threshold=.5)[0]['macro_average']
+        collar_f1_macro_thres05_student_sed_scores_eval = sed_scores_eval.collar_based.fscore(
+            desed_scores, desed_ground_truth, threshold=.5, onset_collar=.2, offset_collar=.2, offset_collar_rate=.2)[0]['macro_average']
+        desed_scores = {
+            clip_id: self.val_buffer_sed_scores_eval_teacher[clip_id][keys]
+            for clip_id in desed_ground_truth.keys()
+        }
+        psds1_sed_scores_eval_teacher = compute_psds_from_scores(
+            desed_scores,
+            desed_ground_truth,
+            desed_audio_durations,
+            dtc_threshold=0.7,
+            gtc_threshold=0.7,
+            cttc_threshold=None,
+            alpha_ct=0,
+            alpha_st=1,
         )
-        synth_student_event_macro = log_sedeval_metrics(
-            self.val_buffer_psds_eval_student[0.5],
-            self.hparams["data"]["synth_val_tsv"],
-        )[0]
-        intersection_f1_macro_teacher = compute_per_intersection_macro_f1(
-            self.val_buffer_psds_eval_teacher,
-            self.hparams["data"]["synth_val_tsv"],
-            self.hparams["data"]["synth_val_dur"],
-        )
+        intersection_f1_macro_thres05_teacher_sed_scores_eval = sed_scores_eval.intersection_based.fscore(
+            desed_scores, desed_ground_truth, threshold=.5, dtc_threshold=.5, gtc_threshold=.5)[0]['macro_average']
+        collar_f1_macro_thres05_teacher_sed_scores_eval = sed_scores_eval.collar_based.fscore(
+            desed_scores, desed_ground_truth, threshold=.5, onset_collar=.2, offset_collar=.2, offset_collar_rate=.2)[0]['macro_average']
 
-        synth_teacher_event_macro = log_sedeval_metrics(
-            self.val_buffer_psds_eval_teacher[0.5],
-            self.hparams["data"]["synth_val_tsv"],
-        )[0]
+        # maestro
+        maestro_ground_truth = pd.read_csv(
+            self.hparams["data"]["real_maestro_train_tsv"], sep="\t")
+        maestro_ground_truth = maestro_ground_truth[maestro_ground_truth.confidence > .5]
+        maestro_ground_truth = maestro_ground_truth[maestro_ground_truth.event_label.isin(classes_labels_maestro_real_eval)]
+        maestro_ground_truth = {
+            clip_id: events
+            for clip_id, events in sed_scores_eval.io.read_ground_truth_events(maestro_ground_truth).items()
+            if clip_id in self.val_buffer_sed_scores_eval_student
+        }
+        maestro_ground_truth = _merge_overlapping_events(maestro_ground_truth)
+        maestro_audio_durations = {
+            clip_id: sorted(events, key=lambda x: x[1])[-1][1]
+            for clip_id, events in maestro_ground_truth.items()
+        }
+        event_classes_maestro_eval = sorted(classes_labels_maestro_real_eval)
+        keys = ['onset', 'offset'] + event_classes_maestro_eval
+        maestro_scores_student = {
+            clip_id: self.val_buffer_sed_scores_eval_student[clip_id][keys]
+            for clip_id in maestro_ground_truth.keys()
+        }
+        segment_f1_macro_optthres_student = sed_scores_eval.segment_based.best_fscore(
+            maestro_scores_student, maestro_ground_truth, maestro_audio_durations,
+            segment_length=1.,
+        )[0]['macro_average']
+        segment_mauc_student = sed_scores_eval.segment_based.auroc(
+            maestro_scores_student, maestro_ground_truth, maestro_audio_durations,
+            segment_length=1.,
+        )[0]['mean']
+        segment_mpauc_student = sed_scores_eval.segment_based.auroc(
+            maestro_scores_student, maestro_ground_truth, maestro_audio_durations,
+            segment_length=1., max_fpr=.1,
+        )[0]['mean']
+        maestro_scores_teacher = {
+            clip_id: self.val_buffer_sed_scores_eval_teacher[clip_id][keys]
+            for clip_id in maestro_ground_truth.keys()
+        }
+        segment_f1_macro_optthres_teacher = sed_scores_eval.segment_based.best_fscore(
+            maestro_scores_teacher, maestro_ground_truth, maestro_audio_durations,
+            segment_length=1.,
+        )[0]['macro_average']
+        segment_mauc_teacher = sed_scores_eval.segment_based.auroc(
+            maestro_scores_teacher, maestro_ground_truth, maestro_audio_durations,
+            segment_length=1.,
+        )[0]['mean']
+        segment_mpauc_teacher = sed_scores_eval.segment_based.auroc(
+            maestro_scores_teacher, maestro_ground_truth, maestro_audio_durations,
+            segment_length=1., max_fpr=.1,
+        )[0]['mean']
 
         obj_metric_synth_type = self.hparams["training"].get("obj_metric_synth_type")
         if obj_metric_synth_type is None:
-            synth_metric = psds1_student_sed_scores_eval
-        elif obj_metric_synth_type == "event":
-            synth_metric = synth_student_event_macro
+            synth_metric = psds1_sed_scores_eval_student
+        elif obj_metric_synth_type == "collar":
+            synth_metric = collar_f1_macro_thres05_student_sed_scores_eval
         elif obj_metric_synth_type == "intersection":
-            synth_metric = intersection_f1_macro_student
+            synth_metric = intersection_f1_macro_thres05_student_sed_scores_eval
         elif obj_metric_synth_type == "psds":
-            synth_metric = psds1_student_sed_scores_eval
+            synth_metric = psds1_sed_scores_eval_student
         else:
             raise NotImplementedError(
                 f"obj_metric_synth_type: {obj_metric_synth_type} not implemented."
             )
 
-        obj_metric = torch.tensor(weak_student_f1_macro.item() + synth_metric)
+        obj_metric_maestro_type = self.hparams["training"].get("obj_metric_maestro_type")
+        if obj_metric_maestro_type is None:
+            maestro_metric = segment_mpauc_student
+        elif obj_metric_maestro_type == "fmo":
+            maestro_metric = segment_f1_macro_optthres_student
+        elif obj_metric_maestro_type == "mauc":
+            maestro_metric = segment_mauc_student
+        elif obj_metric_maestro_type == "mpauc":
+            maestro_metric = segment_f1_macro_optthres_student
+        else:
+            raise NotImplementedError(
+                f"obj_metric_maestro_type: {obj_metric_maestro_type} not implemented."
+            )
+
+        obj_metric = torch.tensor(weak_student_f1_macro.item() + synth_metric + maestro_metric)
 
         self.log("val/obj_metric", obj_metric, prog_bar=True)
-        self.log("val/desed/weak/student/f1_macro_thres05/sed_eval", weak_student_f1_macro)
-        self.log("val/desed/weak/teacher/f1_macro_thres05/sed_eval", weak_teacher_f1_macro)
-        self.log(
-            "val/desed/synth/student/psds1/sed_scores_eval", psds1_student_sed_scores_eval
-        )
-        self.log(
-            "val/desed/synth/student/intersection_f1_macro_thres05/psds_eval", intersection_f1_macro_student
-        )
-        self.log(
-            "val/desed/synth/teacher/intersection_f1_macro_thres05/psds_eval", intersection_f1_macro_teacher
-        )
-        self.log("val/desed/synth/student/collar_f1_macro_thres05/sed_eval", synth_student_event_macro)
-        self.log("val/desed/synth/teacher/collar_f1_macro_thres05/sed_eval", synth_teacher_event_macro)
+        self.log("val/student/weak_f1_macro_thres05/torchmetrics", weak_student_f1_macro)
+        self.log("val/teacher/weak_f1_macro_thres05/torchmetrics", weak_teacher_f1_macro)
+        self.log("val/student/intersection_f1_macro_thres05/sed_scores_eval", intersection_f1_macro_thres05_student_sed_scores_eval)
+        self.log("val/teacher/intersection_f1_macro_thres05/sed_scores_eval", intersection_f1_macro_thres05_teacher_sed_scores_eval)
+        self.log("val/student/collar_f1_macro_thres05/sed_scores_eval", collar_f1_macro_thres05_student_sed_scores_eval)
+        self.log("val/teacher/collar_f1_macro_thres05/sed_scores_eval", collar_f1_macro_thres05_teacher_sed_scores_eval)
+        self.log("val/student/psds1/sed_scores_eval", psds1_sed_scores_eval_student)
+        self.log("val/teacher/psds1/sed_scores_eval", psds1_sed_scores_eval_teacher)
+        self.log("val/student/segment_f1_macro_thresopt/sed_scores_eval", segment_f1_macro_optthres_student)
+        self.log("val/student/segment_mauc/sed_scores_eval", segment_mauc_student)
+        self.log("val/student/segment_mpauc/sed_scores_eval", segment_mpauc_student)
+        self.log("val/teacher/segment_f1_macro_thresopt/sed_scores_eval", segment_f1_macro_optthres_teacher)
+        self.log("val/teacher/segment_mauc/sed_scores_eval", segment_mauc_teacher)
+        self.log("val/teacher/segment_mpauc/sed_scores_eval", segment_mpauc_teacher)
 
         # free the buffers
-        self.val_buffer_psds_eval_student = {
-            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
-        }
-        self.val_buffer_psds_eval_teacher = {
-            k: pd.DataFrame() for k in self.hparams["training"]["val_thresholds"]
-        }
         self.val_buffer_sed_scores_eval_student = {}
         self.val_buffer_sed_scores_eval_teacher = {}
 
@@ -989,16 +1026,7 @@ class SEDTask4(pl.LightningModule):
             maestro_ground_truth_clips = maestro_ground_truth_clips[maestro_ground_truth_clips.event_label.isin(classes_labels_maestro_real_eval)]
             maestro_ground_truth_clips = sed_scores_eval.io.read_ground_truth_events(maestro_ground_truth_clips)
 
-            maestro_ground_truth = defaultdict(list)
-            for clip_id in maestro_ground_truth_clips:
-                file_id, clip_onset_time, clip_offset_time = clip_id.rsplit('-', maxsplit=2)
-                clip_onset_time = int(clip_onset_time)//100
-                if (clip_onset_time % 10) == 0:
-                    maestro_ground_truth[file_id].extend([
-                        (clip_onset_time+event_onset_time, clip_onset_time+event_offset_time, event_class)
-                        for event_onset_time, event_offset_time, event_class in maestro_ground_truth_clips[clip_id]
-                    ])
-            maestro_ground_truth = _merge_overlapping_events(maestro_ground_truth)
+            maestro_ground_truth = _merge_maestro_ground_truth(maestro_ground_truth_clips)
             maestro_audio_durations = {file_id: maestro_audio_durations[file_id] for file_id in maestro_ground_truth.keys()}
 
             maestro_scores_student = {
@@ -1045,6 +1073,10 @@ class SEDTask4(pl.LightningModule):
                 segment_scores_student, maestro_ground_truth, maestro_audio_durations,
                 segment_length=segment_length,
             )[0]['mean']
+            segment_mpauc_student = sed_scores_eval.segment_based.auroc(
+                segment_scores_student, maestro_ground_truth, maestro_audio_durations,
+                segment_length=segment_length, max_fpr=.1,
+            )[0]['mean']
             segment_f1_macro_optthres_teacher = sed_scores_eval.segment_based.best_fscore(
                 segment_scores_teacher, maestro_ground_truth, maestro_audio_durations,
                 segment_length=segment_length,
@@ -1052,6 +1084,10 @@ class SEDTask4(pl.LightningModule):
             segment_mauc_teacher = sed_scores_eval.segment_based.auroc(
                 segment_scores_teacher, maestro_ground_truth, maestro_audio_durations,
                 segment_length=segment_length,
+            )[0]['mean']
+            segment_mpauc_teacher = sed_scores_eval.segment_based.auroc(
+                segment_scores_teacher, maestro_ground_truth, maestro_audio_durations,
+                segment_length=segment_length, max_fpr=.1,
             )[0]['mean']
 
             results = {
@@ -1073,8 +1109,10 @@ class SEDTask4(pl.LightningModule):
                 "test/teacher/collar_f1_macro_thres05/sed_scores_eval": collar_f1_macro_thres05_teacher_sed_scores_eval,
                 "test/student/segment_f1_macro_thresopt/sed_scores_eval": segment_f1_macro_optthres_student,
                 "test/student/segment_mauc/sed_scores_eval": segment_mauc_student,
+                "test/student/segment_mpauc/sed_scores_eval": segment_mpauc_student,
                 "test/teacher/segment_f1_macro_thresopt/sed_scores_eval": segment_f1_macro_optthres_teacher,
                 "test/teacher/segment_mauc/sed_scores_eval": segment_mauc_teacher,
+                "test/teacher/segment_mpauc/sed_scores_eval": segment_mpauc_teacher,
             }
             self.tracker_devtest.stop()
             eval_kwh = self.tracker_devtest._total_energy.kWh
@@ -1158,6 +1196,18 @@ class SEDTask4(pl.LightningModule):
                 country_iso_code="FRA",
             )
             self.tracker_devtest.start()
+
+
+def _merge_maestro_ground_truth(clip_ground_truth):
+    ground_truth = defaultdict(list)
+    for clip_id in clip_ground_truth:
+        file_id, clip_onset_time, clip_offset_time = clip_id.rsplit('-', maxsplit=2)
+        clip_onset_time = int(clip_onset_time) // 100
+        ground_truth[file_id].extend([
+            (clip_onset_time + event_onset_time, clip_onset_time + event_offset_time, event_class)
+            for event_onset_time, event_offset_time, event_class in clip_ground_truth[clip_id]
+        ])
+    return _merge_overlapping_events(ground_truth)
 
 
 def _merge_overlapping_events(ground_truth_events):
