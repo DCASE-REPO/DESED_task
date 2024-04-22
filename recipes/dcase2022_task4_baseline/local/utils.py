@@ -1,20 +1,23 @@
+import glob
+import json
 import os
 from pathlib import Path
 
 import pandas as pd
 import scipy
-
-from desed_task.evaluation.evaluation_measures import compute_sed_eval_metrics
-import json
-
 import soundfile
-import glob
+from desed_task.evaluation.evaluation_measures import compute_sed_eval_metrics
 
 
 def batched_decode_preds(
-    strong_preds, filenames, encoder, thresholds=[0.5], median_filter=7, pad_indx=None,
+    strong_preds,
+    filenames,
+    encoder,
+    thresholds=[0.5],
+    median_filter=7,
+    pad_indx=None,
 ):
-    """ Decode a batch of predictions to dataframes. Each threshold gives a different dataframe and stored in a
+    """Decode a batch of predictions to dataframes. Each threshold gives a different dataframe and stored in a
     dictionary
 
     Args:
@@ -51,7 +54,7 @@ def batched_decode_preds(
 
 
 def convert_to_event_based(weak_dataframe):
-    """ Convert a weakly labeled DataFrame ('filename', 'event_labels') to a DataFrame strongly labeled
+    """Convert a weakly labeled DataFrame ('filename', 'event_labels') to a DataFrame strongly labeled
     ('filename', 'onset', 'offset', 'event_label').
 
     Args:
@@ -63,7 +66,6 @@ def convert_to_event_based(weak_dataframe):
 
     new = []
     for i, r in weak_dataframe.iterrows():
-
         events = r["event_labels"].split(",")
         for e in events:
             new.append(
@@ -73,7 +75,7 @@ def convert_to_event_based(weak_dataframe):
 
 
 def log_sedeval_metrics(predictions, ground_truth, save_dir=None):
-    """ Return the set of metrics from sed_eval
+    """Return the set of metrics from sed_eval
     Args:
         predictions: pd.DataFrame, the dataframe of predictions.
         ground_truth: pd.DataFrame, the dataframe of groundtruth.
@@ -106,14 +108,12 @@ def log_sedeval_metrics(predictions, ground_truth, save_dir=None):
 
 
 def parse_jams(jams_list, encoder, out_json):
-
     if len(jams_list) == 0:
         raise IndexError("jams list is empty ! Wrong path ?")
 
     backgrounds = []
     sources = []
     for jamfile in jams_list:
-
         with open(jamfile, "r") as f:
             jdata = json.load(f)
 
@@ -165,11 +165,11 @@ def parse_jams(jams_list, encoder, out_json):
 def generate_tsv_wav_durations(audio_dir, out_tsv):
     """
         Generate a dataframe with filename and duration of the file
-    
+
     Args:
         audio_dir: str, the path of the folder where audio files are (used by glob.glob)
         out_tsv: str, the path of the output tsv file
-    
+
     Returns:
         pd.DataFrame: the dataframe containing filenames and durations
     """

@@ -1,5 +1,5 @@
-from torch.utils.data import Sampler
 import numpy as np
+from torch.utils.data import Sampler
 
 
 class ConcatDatasetBatchSampler(Sampler):
@@ -32,7 +32,6 @@ class ConcatDatasetBatchSampler(Sampler):
     """
 
     def __init__(self, samplers, batch_sizes: (tuple, list), epoch=0) -> None:
-
         if not isinstance(samplers, (list, tuple)):
             raise ValueError(
                 "samplers should be a list or tuple of Pytorch Samplers, "
@@ -68,7 +67,6 @@ class ConcatDatasetBatchSampler(Sampler):
                 s.set_epoch(epoch)
 
     def __iter__(self):
-
         iterators = [iter(i) for i in self.samplers]
         tot_batch = []
 
@@ -82,7 +80,6 @@ class ConcatDatasetBatchSampler(Sampler):
             tot_batch = []
 
     def __len__(self):
-
         min_len = float("inf")
         for idx, sampler in enumerate(self.samplers):
             c_len = (len(sampler)) // self.batch_sizes[idx]

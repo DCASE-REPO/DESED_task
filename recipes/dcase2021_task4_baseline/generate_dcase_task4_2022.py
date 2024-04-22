@@ -1,16 +1,16 @@
 import argparse
 import glob
+import os
+import shutil
 import time
 import warnings
 from pprint import pformat
 
-import os
-import shutil
-
 import desed
 
+
 def create_folder(folder, exist_ok=True, delete_if_exists=False):
-    """ Create folder (and parent folders) if not exists.
+    """Create folder (and parent folders) if not exists.
 
     Args:
         folder: str, path of folder(s) to create.
@@ -71,13 +71,18 @@ def create_synth_dcase(synth_path, destination_folder):
             _create_symlink(abs_src_folder, dest_folder)
 
         # META
-        split_meta_folder = os.path.join(synth_path, "metadata", split_set, f"synthetic21_{split_set}")
+        split_meta_folder = os.path.join(
+            synth_path, "metadata", split_set, f"synthetic21_{split_set}"
+        )
         meta_files = glob.glob(os.path.join(split_meta_folder, "*.tsv"))
         for meta_file in meta_files:
-            
             create_folder(destination_folder)
             dest_file = os.path.join(
-                destination_folder, "metadata", split_set, f"synthetic21_{split_set}", os.path.basename(meta_file)
+                destination_folder,
+                "metadata",
+                split_set,
+                f"synthetic21_{split_set}",
+                os.path.basename(meta_file),
             )
             _create_symlink(meta_file, dest_file)
 
@@ -99,15 +104,15 @@ if __name__ == "__main__":
         help="Output basefolder in which to put the created 2021 dataset (with real and soundscapes)",
     )
     parser.add_argument(
-        "--only_real", 
+        "--only_real",
         action="store_true",
-        help="True if only the real part of the dataset need to be downloaded"
+        help="True if only the real part of the dataset need to be downloaded",
     )
 
     parser.add_argument(
         "--only_synth",
         action="store_true",
-        help="True if only the synthetic part of the dataset need to be downloaded"
+        help="True if only the synthetic part of the dataset need to be downloaded",
     )
 
     args = parser.parse_args()
@@ -124,34 +129,37 @@ if __name__ == "__main__":
 
     download_all = (only_real and only_synth) or (not only_real and not only_synth)
     print(f"Download all: {download_all}")
-    
 
     # Default paths if not defined (using basedir)
     if dcase_dataset_folder is None:
         dcase_dataset_folder = os.path.join(bdir, "dcase", "dataset")
-        
+
     # #########
     # Download the different datasets if they do not exist
     # #########
 
-    # download real dataset 
+    # download real dataset
     if only_real or download_all:
-        print('Downloading audioset dataset')
-        missing_files = desed.download_audioset_data(dcase_dataset_folder, n_jobs=3, chunk_size=10)
+        print("Downloading audioset dataset")
+        missing_files = desed.download_audioset_data(
+            dcase_dataset_folder, n_jobs=3, chunk_size=10
+        )
 
     # download synthetic dataset
     if only_synth or download_all:
         print(f"Downloading synthetic part of the dataset")
-        url_synth = (
-            "https://zenodo.org/record/6026841/files/dcase_synth.zip?download=1"
+        url_synth = "https://zenodo.org/record/6026841/files/dcase_synth.zip?download=1"
+        synth_folder = str(os.path.basename(url_synth)).split(".")[0]
+        desed.download.download_and_unpack_archive(
+            url_synth, dcase_dataset_folder, archive_format="zip"
         )
-        synth_folder = str(os.path.basename(url_synth)).split('.')[0]
-        desed.download.download_and_unpack_archive(url_synth, dcase_dataset_folder, archive_format="zip")
         synth_folder = os.path.join(bdir, "dcase", "dataset", synth_folder)
         create_synth_dcase(synth_folder, dcase_dataset_folder)
 
     print(f"Time of the program: {time.time() - t} s")
-    print(f"The dcase dataset has been saved in the following path: {dcase_dataset_folder}")
+    print(
+        f"The dcase dataset has been saved in the following path: {dcase_dataset_folder}"
+    )
     if missing_files is not None:
         warnings.warn(
             f"You have missing files.\n\n"
@@ -160,5 +168,3 @@ if __name__ == "__main__":
             f"desed.download_audioset_data('{dcase_dataset_folder}', n_jobs=3, chunk_size=10)\n\n"
             f"Please, send your missing_files_xx.tsv to the task organisers to get your missing files.\n"
         )
-        
-

@@ -1,10 +1,11 @@
 import argparse
 import os
-from local.resample_folder import resample_folder
-from local.utils import generate_tsv_wav_durations
-from local.apply_separation_model import SeparationModel, separate_folder
+
 import tensorflow.compat.v1 as tf
 import yaml
+from local.apply_separation_model import SeparationModel, separate_folder
+from local.resample_folder import resample_folder
+from local.utils import generate_tsv_wav_durations
 
 parser = argparse.ArgumentParser(
     "Run separation model on whole dataset + optional resampling to 16kHz"

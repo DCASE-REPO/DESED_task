@@ -1,10 +1,15 @@
+from collections import OrderedDict
+
 import numpy as np
 import pandas as pd
 from dcase_util.data import DecisionEncoder
 
+# wrapper around manyhotencoder to handle multiple heterogeneous class
+# dsets
+
 
 class ManyHotEncoder:
-    """"
+    """ "
         Adapted after DecisionEncoder.find_contiguous_regions method in
         https://github.com/DCASE-REPO/dcase_util/blob/master/dcase_util/data/decisions.py
 
@@ -23,6 +28,8 @@ class ManyHotEncoder:
     ):
         if type(labels) in [np.ndarray, np.array]:
             labels = labels.tolist()
+        elif isinstance(labels, (dict, OrderedDict)):
+            labels = list(labels.keys())
         self.labels = labels
         self.audio_len = audio_len
         self.frame_len = frame_len
@@ -30,13 +37,10 @@ class ManyHotEncoder:
         self.fs = fs
         self.net_pooling = net_pooling
         n_frames = self.audio_len * self.fs
-        # self.n_frames = int(
-        #     int(((n_frames - self.frame_len) / self.frame_hop)) / self.net_pooling
-        # )
         self.n_frames = int(int((n_frames / self.frame_hop)) / self.net_pooling)
 
     def encode_weak(self, labels):
-        """ Encode a list of weak labels into a numpy array
+        """Encode a list of weak labels into a numpy array
 
         Args:
             labels: list, list of labels to encode (to a vector of 0 and 1)
@@ -102,9 +106,12 @@ class ManyHotEncoder:
                         i = self.labels.index(row["event_label"])
                         onset = int(self._time_to_frame(row["onset"]))
                         offset = int(np.ceil(self._time_to_frame(row["offset"])))
-                        y[
-                            onset:offset, i
-                        ] = 1  # means offset not included (hypothesis of overlapping frames, so ok)
+                        if "confidence" in label_df.columns:
+                            y[onset:offset, i] = row["confidence"]  # support confidence
+                        else:
+                            y[
+                                onset:offset, i
+                            ] = 1  # means offset not included (hypothesis of overlapping frames, so ok)
 
         elif type(label_df) in [
             pd.Series,
@@ -119,7 +126,11 @@ class ManyHotEncoder:
                         i = self.labels.index(label_df["event_label"])
                         onset = int(self._time_to_frame(label_df["onset"]))
                         offset = int(np.ceil(self._time_to_frame(label_df["offset"])))
-                        y[onset:offset, i] = 1
+
+                        if "confidence" in label_df.columns:
+                            y[onset:offset, i] = label_df["confidence"]
+                        else:
+                            y[onset:offset, i] = 1
                     return y
 
             for event_label in label_df:
@@ -136,6 +147,13 @@ class ManyHotEncoder:
                         onset = int(self._time_to_frame(event_label[1]))
                         offset = int(np.ceil(self._time_to_frame(event_label[2])))
                         y[onset:offset, i] = 1
+                # List of list, with [label, onset, offset, confidence]
+                elif len(event_label) == 4:
+                    if event_label[0] != "":
+                        i = self.labels.index(event_label[0])
+                        onset = int(self._time_to_frame(event_label[1]))
+                        offset = int(np.ceil(self._time_to_frame(event_label[2])))
+                        y[onset:offset, i] = event_label[3]
 
                 else:
                     raise NotImplementedError(
@@ -153,7 +171,7 @@ class ManyHotEncoder:
         return y
 
     def decode_weak(self, labels):
-        """ Decode the encoded weak labels
+        """Decode the encoded weak labels
         Args:
             labels: numpy.array, the encoded labels to be decoded
 
@@ -169,7 +187,7 @@ class ManyHotEncoder:
         return result_labels
 
     def decode_strong(self, labels):
-        """ Decode the encoded strong labels
+        """Decode the encoded strong labels
         Args:
             labels: numpy.array, the encoded labels to be decoded
         Returns:
@@ -211,3 +229,47 @@ class ManyHotEncoder:
         net_pooling = state_dict["net_pooling"]
         fs = state_dict["fs"]
         return cls(labels, audio_len, frame_len, frame_hop, net_pooling, fs)
+
+
+class CatManyHotEncoder(ManyHotEncoder):
+    """
+    Concatenate many ManyHotEncoders.
+    """
+
+    def __init__(self, encoders, allow_same_classes=True):
+        total_labels = []
+        assert len(encoders) > 0, "encoders list must not be empty."
+        for enc in encoders:
+            for attr in ["audio_len", "frame_len", "frame_hop", "net_pooling", "fs"]:
+                assert getattr(encoders[0], attr) == getattr(enc, attr), (
+                    "Encoders must have the same args (e.g. same fs and so on) "
+                    "except for the classes."
+                )
+            total_labels.extend(enc.labels)
+
+        if len(total_labels) != len(set(total_labels)):
+            if not allow_same_classes:
+                # we might test for this
+                raise RuntimeError(
+                    f"Encoders must not have classes in common. "
+                    f"But you have {total_labels} while the unique labels are: {set(total_labels)}"
+                )
+            total_labels_tmp_set = {}
+            i = 0
+            for label in total_labels:
+                if label in total_labels_tmp_set:
+                    total_labels.pop(i)
+                else:
+                    i += 1
+
+        total_labels = OrderedDict({x: indx for indx, x in enumerate(total_labels)})
+
+        # instantiate only one manyhotencoder
+        super().__init__(
+            total_labels,
+            encoders[0].audio_len,
+            encoders[0].frame_len,
+            encoders[0].frame_hop,
+            encoders[0].net_pooling,
+            encoders[0].fs,
+        )

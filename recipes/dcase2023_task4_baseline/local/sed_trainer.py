@@ -1,35 +1,28 @@
 import os
 import random
+import warnings
 from copy import deepcopy
 from pathlib import Path
-import warnings
 
+import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
+import sed_scores_eval
 import torch
+import torchmetrics
+from codecarbon import OfflineEmissionsTracker
+from desed_task.data_augm import mixup
+from desed_task.evaluation.evaluation_measures import (
+    compute_per_intersection_macro_f1, compute_psds_from_operating_points,
+    compute_psds_from_scores)
+from desed_task.utils.scaler import TorchScaler
 from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 
-from desed_task.data_augm import mixup
-from desed_task.utils.scaler import TorchScaler
-import numpy as np
-import torchmetrics
-
-from .utils import (
-    batched_decode_preds,
-    log_sedeval_metrics,
-)
-from desed_task.evaluation.evaluation_measures import (
-    compute_per_intersection_macro_f1,
-    compute_psds_from_operating_points,
-    compute_psds_from_scores
-)
-
-from codecarbon import OfflineEmissionsTracker
-import sed_scores_eval
+from .utils import batched_decode_preds, log_sedeval_metrics
 
 
 class SEDTask4(pl.LightningModule):
-    """ Pytorch lightning module for the SED 2021 baseline
+    """Pytorch lightning module for the SED 2021 baseline
     Args:
         hparams: dict, the dictionary to be used for the current experiment/
         encoder: ManyHotEncoder object, object to encode and decode labels.
@@ -58,7 +51,7 @@ class SEDTask4(pl.LightningModule):
         scheduler=None,
         fast_dev_run=False,
         evaluation=False,
-        sed_teacher=None
+        sed_teacher=None,
     ):
         super(SEDTask4, self).__init__()
         self.hparams.update(hparams)
@@ -110,16 +103,18 @@ class SEDTask4(pl.LightningModule):
             raise NotImplementedError
 
         # for weak labels we simply compute f1 score
-        self.get_weak_student_f1_seg_macro = torchmetrics.classification.f_beta.MultilabelF1Score(
-            len(self.encoder.labels),
-            average="macro",
-            compute_on_step=False,
+        self.get_weak_student_f1_seg_macro = (
+            torchmetrics.classification.f_beta.MultilabelF1Score(
+                len(self.encoder.labels),
+                average="macro"
+            )
         )
 
-        self.get_weak_teacher_f1_seg_macro = torchmetrics.classification.f_beta.MultilabelF1Score(
-            len(self.encoder.labels),
-            average="macro",
-            compute_on_step=False,
+        self.get_weak_teacher_f1_seg_macro = (
+            torchmetrics.classification.f_beta.MultilabelF1Score(
+                len(self.encoder.labels),
+                average="macro"
+            )
         )
 
         self.scaler = self._init_scaler()
@@ -169,7 +164,6 @@ class SEDTask4(pl.LightningModule):
         scheduler.step()
 
     def on_train_start(self) -> None:
-
         os.makedirs(os.path.join(self.exp_dir, "training_codecarbon"), exist_ok=True)
         self.tracker_train = OfflineEmissionsTracker(
             "DCASE Task 4 SED TRAINING",
@@ -181,16 +175,17 @@ class SEDTask4(pl.LightningModule):
 
         # Remove for debugging. Those warnings can be ignored during training otherwise.
         # to_ignore = []
-        to_ignore = [".*Trying to infer the `batch_size` from an ambiguous collection.*",
-                     ".*invalid value encountered in divide*",
-                     ".*mean of empty slice*",
-                     ".*self.log*"
-                     ]
+        to_ignore = [
+            ".*Trying to infer the `batch_size` from an ambiguous collection.*",
+            ".*invalid value encountered in divide*",
+            ".*mean of empty slice*",
+            ".*self.log*",
+        ]
         for message in to_ignore:
             warnings.filterwarnings("ignore", message)
 
     def update_ema(self, alpha, global_step, model, ema_model):
-        """ Update teacher model parameters
+        """Update teacher model parameters
 
         Args:
             alpha: float, the factor to be used between each updated step.
@@ -204,7 +199,7 @@ class SEDTask4(pl.LightningModule):
             ema_params.data.mul_(alpha).add_(params.data, alpha=1 - alpha)
 
     def _init_scaler(self):
-        """ Scaler inizialization
+        """Scaler inizialization
 
         Raises:
             NotImplementedError: in case of not Implemented scaler
@@ -256,7 +251,7 @@ class SEDTask4(pl.LightningModule):
             return scaler
 
     def take_log(self, mels):
-        """ Apply the log transformation to mel spectrograms.
+        """Apply the log transformation to mel spectrograms.
         Args:
             mels: torch.Tensor, mel spectrograms for which to apply log.
 
@@ -272,7 +267,7 @@ class SEDTask4(pl.LightningModule):
         return model(self.scaler(self.take_log(mel_feats)))
 
     def training_step(self, batch, batch_indx):
-        """ Apply the training for one batch (a step). Used during trainer.fit
+        """Apply the training for one batch (a step). Used during trainer.fit
 
         Args:
             batch: torch.Tensor, batch input tensor
@@ -282,7 +277,7 @@ class SEDTask4(pl.LightningModule):
            torch.Tensor, the loss to take into account.
         """
 
-        audio, labels, padded_indxs = batch
+        audio, labels, padded_indxs, _ = batch
         indx_synth, indx_weak, indx_unlabelled = self.hparams["training"]["batch_size"]
         features = self.mel_spec(audio)
 
@@ -370,7 +365,7 @@ class SEDTask4(pl.LightningModule):
         )
 
     def validation_step(self, batch, batch_indx):
-        """ Apply validation to a batch (step). Used during trainer.fit
+        """Apply validation to a batch (step). Used during trainer.fit
 
         Args:
             batch: torch.Tensor, input batch tensor
@@ -378,8 +373,7 @@ class SEDTask4(pl.LightningModule):
         Returns:
         """
 
-        audio, labels, padded_indxs, filenames = batch
-
+        audio, labels, padded_indxs, filenames, _ = batch
 
         # prediction for student
         mels = self.mel_spec(audio)
@@ -449,7 +443,8 @@ class SEDTask4(pl.LightningModule):
             ]
 
             (
-                scores_raw_student_strong, scores_postprocessed_student_strong,
+                scores_raw_student_strong,
+                scores_postprocessed_student_strong,
                 decoded_student_strong,
             ) = batched_decode_preds(
                 strong_preds_student[mask_synth],
@@ -463,10 +458,14 @@ class SEDTask4(pl.LightningModule):
                 scores_postprocessed_student_strong
             )
             for th in self.val_buffer_student_synth.keys():
-                self.val_buffer_student_synth[th] = pd.concat([self.val_buffer_student_synth[th], decoded_student_strong[th]], ignore_index=True)
+                self.val_buffer_student_synth[th] = pd.concat(
+                    [self.val_buffer_student_synth[th], decoded_student_strong[th]],
+                    ignore_index=True,
+                )
 
             (
-                scores_raw_teacher_strong, scores_postprocessed_teacher_strong,
+                scores_raw_teacher_strong,
+                scores_postprocessed_teacher_strong,
                 decoded_teacher_strong,
             ) = batched_decode_preds(
                 strong_preds_teacher[mask_synth],
@@ -480,12 +479,15 @@ class SEDTask4(pl.LightningModule):
                 scores_postprocessed_teacher_strong
             )
             for th in self.val_buffer_teacher_synth.keys():
-                self.val_buffer_teacher_synth[th] = pd.concat([self.val_buffer_teacher_synth[th], decoded_teacher_strong[th]], ignore_index=True)
+                self.val_buffer_teacher_synth[th] = pd.concat(
+                    [self.val_buffer_teacher_synth[th], decoded_teacher_strong[th]],
+                    ignore_index=True,
+                )
 
         return
 
     def validation_epoch_end(self, outputs):
-        """ Fonction applied at the end of all the validation steps of the epoch.
+        """Fonction applied at the end of all the validation steps of the epoch.
 
         Args:
             outputs: torch.Tensor, the concatenation of everything returned by validation_step.
@@ -498,8 +500,12 @@ class SEDTask4(pl.LightningModule):
         weak_teacher_f1_macro = self.get_weak_teacher_f1_seg_macro.compute()
 
         # synth dataset
-        ground_truth = sed_scores_eval.io.read_ground_truth_events(self.hparams["data"]["synth_val_tsv"])
-        audio_durations = sed_scores_eval.io.read_audio_durations(self.hparams["data"]["synth_val_dur"])
+        ground_truth = sed_scores_eval.io.read_ground_truth_events(
+            self.hparams["data"]["synth_val_tsv"]
+        )
+        audio_durations = sed_scores_eval.io.read_audio_durations(
+            self.hparams["data"]["synth_val_dur"]
+        )
         if self.fast_dev_run:
             ground_truth = {
                 audio_id: ground_truth[audio_id]
@@ -512,12 +518,10 @@ class SEDTask4(pl.LightningModule):
         else:
             # drop audios without events
             ground_truth = {
-                audio_id: gt for audio_id, gt in ground_truth.items()
-                if len(gt) > 0
+                audio_id: gt for audio_id, gt in ground_truth.items() if len(gt) > 0
             }
             audio_durations = {
-                audio_id: audio_durations[audio_id]
-                for audio_id in ground_truth.keys()
+                audio_id: audio_durations[audio_id] for audio_id in ground_truth.keys()
             }
         psds1_student_sed_scores_eval = compute_psds_from_scores(
             self.val_scores_postprocessed_buffer_student_synth,
@@ -536,7 +540,8 @@ class SEDTask4(pl.LightningModule):
             self.hparams["data"]["synth_val_dur"],
         )
         synth_student_event_macro = log_sedeval_metrics(
-            self.val_buffer_student_synth[0.5], self.hparams["data"]["synth_val_tsv"],
+            self.val_buffer_student_synth[0.5],
+            self.hparams["data"]["synth_val_tsv"],
         )[0]
         intersection_f1_macro_teacher = compute_per_intersection_macro_f1(
             self.val_buffer_teacher_synth,
@@ -545,7 +550,8 @@ class SEDTask4(pl.LightningModule):
         )
 
         synth_teacher_event_macro = log_sedeval_metrics(
-            self.val_buffer_teacher_synth[0.5], self.hparams["data"]["synth_val_tsv"],
+            self.val_buffer_teacher_synth[0.5],
+            self.hparams["data"]["synth_val_tsv"],
         )[0]
 
         obj_metric_synth_type = self.hparams["training"].get("obj_metric_synth_type")
@@ -567,7 +573,9 @@ class SEDTask4(pl.LightningModule):
         self.log("val/obj_metric", obj_metric, prog_bar=True)
         self.log("val/weak/student/macro_F1", weak_student_f1_macro)
         self.log("val/weak/teacher/macro_F1", weak_teacher_f1_macro)
-        self.log("val/synth/student/psds1_sed_scores_eval", psds1_student_sed_scores_eval)
+        self.log(
+            "val/synth/student/psds1_sed_scores_eval", psds1_student_sed_scores_eval
+        )
         self.log(
             "val/synth/student/intersection_f1_macro", intersection_f1_macro_student
         )
@@ -598,22 +606,22 @@ class SEDTask4(pl.LightningModule):
         return checkpoint
 
     def test_step(self, batch, batch_indx):
-        """ Apply Test to a batch (step), used only when (trainer.test is called)
+        """Apply Test to a batch (step), used only when (trainer.test is called)
 
         Args:
             batch: torch.Tensor, input batch tensor
             batch_indx: torch.Tensor, 1D tensor of indexes to know which data are present in each batch.
         Returns:
         """
-        
-        audio, labels, padded_indxs, filenames = batch        
-        
+
+        audio, labels, padded_indxs, filenames, _ = batch
+
         # prediction for student
         mels = self.mel_spec(audio)
         strong_preds_student, weak_preds_student = self.detect(mels, self.sed_student)
         # prediction for teacher
         strong_preds_teacher, weak_preds_teacher = self.detect(mels, self.sed_teacher)
-        
+
         if not self.evaluation:
             loss_strong_student = self.supervised_loss(strong_preds_student, labels)
             loss_strong_teacher = self.supervised_loss(strong_preds_teacher, labels)
@@ -623,14 +631,15 @@ class SEDTask4(pl.LightningModule):
 
         # compute psds
         (
-            scores_raw_student_strong, scores_postprocessed_student_strong,
+            scores_raw_student_strong,
+            scores_postprocessed_student_strong,
             decoded_student_strong,
         ) = batched_decode_preds(
             strong_preds_student,
             filenames,
             self.encoder,
             median_filter=self.hparams["training"]["median_window"],
-            thresholds=list(self.test_psds_buffer_student.keys()) + [.5],
+            thresholds=list(self.test_psds_buffer_student.keys()) + [0.5],
         )
 
         self.test_scores_raw_buffer_student.update(scores_raw_student_strong)
@@ -638,17 +647,21 @@ class SEDTask4(pl.LightningModule):
             scores_postprocessed_student_strong
         )
         for th in self.test_psds_buffer_student.keys():
-            self.test_psds_buffer_student[th] = pd.concat([self.test_psds_buffer_student[th], decoded_student_strong[th]], ignore_index=True)
+            self.test_psds_buffer_student[th] = pd.concat(
+                [self.test_psds_buffer_student[th], decoded_student_strong[th]],
+                ignore_index=True,
+            )
 
         (
-            scores_raw_teacher_strong, scores_postprocessed_teacher_strong,
+            scores_raw_teacher_strong,
+            scores_postprocessed_teacher_strong,
             decoded_teacher_strong,
         ) = batched_decode_preds(
             strong_preds_teacher,
             filenames,
             self.encoder,
             median_filter=self.hparams["training"]["median_window"],
-            thresholds=list(self.test_psds_buffer_teacher.keys()) + [.5],
+            thresholds=list(self.test_psds_buffer_teacher.keys()) + [0.5],
         )
 
         self.test_scores_raw_buffer_teacher.update(scores_raw_teacher_strong)
@@ -656,11 +669,18 @@ class SEDTask4(pl.LightningModule):
             scores_postprocessed_teacher_strong
         )
         for th in self.test_psds_buffer_teacher.keys():
-            self.test_psds_buffer_teacher[th] = pd.concat([self.test_psds_buffer_teacher[th], decoded_teacher_strong[th]], ignore_index=True)
+            self.test_psds_buffer_teacher[th] = pd.concat(
+                [self.test_psds_buffer_teacher[th], decoded_teacher_strong[th]],
+                ignore_index=True,
+            )
 
         # compute f1 score
-        self.decoded_student_05_buffer = pd.concat([self.decoded_student_05_buffer, decoded_student_strong[0.5]])
-        self.decoded_teacher_05_buffer = pd.concat([self.decoded_teacher_05_buffer, decoded_teacher_strong[0.5]])
+        self.decoded_student_05_buffer = pd.concat(
+            [self.decoded_student_05_buffer, decoded_student_strong[0.5]]
+        )
+        self.decoded_teacher_05_buffer = pd.concat(
+            [self.decoded_teacher_05_buffer, decoded_teacher_strong[0.5]]
+        )
 
     def on_test_epoch_end(self):
         # pub eval dataset
@@ -669,30 +689,55 @@ class SEDTask4(pl.LightningModule):
         if self.evaluation:
             # only save prediction scores
             save_dir_student_raw = os.path.join(save_dir, "student_scores", "raw")
-            sed_scores_eval.io.write_sed_scores(self.test_scores_raw_buffer_student, save_dir_student_raw)
+            sed_scores_eval.io.write_sed_scores(
+                self.test_scores_raw_buffer_student, save_dir_student_raw
+            )
             print(f"\nRaw scores for student saved in: {save_dir_student_raw}")
 
-            save_dir_student_postprocessed = os.path.join(save_dir, "student_scores", "postprocessed")
-            sed_scores_eval.io.write_sed_scores(self.test_scores_postprocessed_buffer_student, save_dir_student_postprocessed)
-            print(f"\nPostprocessed scores for student saved in: {save_dir_student_postprocessed}")
+            save_dir_student_postprocessed = os.path.join(
+                save_dir, "student_scores", "postprocessed"
+            )
+            sed_scores_eval.io.write_sed_scores(
+                self.test_scores_postprocessed_buffer_student,
+                save_dir_student_postprocessed,
+            )
+            print(
+                f"\nPostprocessed scores for student saved in: {save_dir_student_postprocessed}"
+            )
 
             save_dir_teacher_raw = os.path.join(save_dir, "teacher_scores", "raw")
-            sed_scores_eval.io.write_sed_scores(self.test_scores_raw_buffer_teacher, save_dir_teacher_raw)
+            sed_scores_eval.io.write_sed_scores(
+                self.test_scores_raw_buffer_teacher, save_dir_teacher_raw
+            )
             print(f"\nRaw scores for teacher saved in: {save_dir_teacher_raw}")
 
-            save_dir_teacher_postprocessed = os.path.join(save_dir, "teacher_scores", "postprocessed")
-            sed_scores_eval.io.write_sed_scores(self.test_scores_postprocessed_buffer_teacher, save_dir_teacher_postprocessed)
-            print(f"\nPostprocessed scores for teacher saved in: {save_dir_teacher_postprocessed}")
+            save_dir_teacher_postprocessed = os.path.join(
+                save_dir, "teacher_scores", "postprocessed"
+            )
+            sed_scores_eval.io.write_sed_scores(
+                self.test_scores_postprocessed_buffer_teacher,
+                save_dir_teacher_postprocessed,
+            )
+            print(
+                f"\nPostprocessed scores for teacher saved in: {save_dir_teacher_postprocessed}"
+            )
 
             self.tracker_eval.stop()
             eval_kwh = self.tracker_eval._total_energy.kWh
             results = {"/eval/tot_energy_kWh": torch.tensor(float(eval_kwh))}
-            with open(os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"), "w") as f:
+            with open(
+                os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"),
+                "w",
+            ) as f:
                 f.write(str(eval_kwh))
         else:
             # calculate the metrics
-            ground_truth = sed_scores_eval.io.read_ground_truth_events(self.hparams["data"]["test_tsv"])
-            audio_durations = sed_scores_eval.io.read_audio_durations(self.hparams["data"]["test_dur"])
+            ground_truth = sed_scores_eval.io.read_ground_truth_events(
+                self.hparams["data"]["test_tsv"]
+            )
+            audio_durations = sed_scores_eval.io.read_audio_durations(
+                self.hparams["data"]["test_dur"]
+            )
             if self.fast_dev_run:
                 ground_truth = {
                     audio_id: ground_truth[audio_id]
@@ -705,8 +750,7 @@ class SEDTask4(pl.LightningModule):
             else:
                 # drop audios without events
                 ground_truth = {
-                    audio_id: gt for audio_id, gt in ground_truth.items()
-                    if len(gt) > 0
+                    audio_id: gt for audio_id, gt in ground_truth.items() if len(gt) > 0
                 }
                 audio_durations = {
                     audio_id: audio_durations[audio_id]
@@ -828,7 +872,9 @@ class SEDTask4(pl.LightningModule):
                 self.hparams["data"]["test_dur"],
             )
 
-            best_test_result = torch.tensor(max(psds1_student_psds_eval, psds2_student_psds_eval))
+            best_test_result = torch.tensor(
+                max(psds1_student_psds_eval, psds2_student_psds_eval)
+            )
 
             results = {
                 "hp_metric": best_test_result,
@@ -848,13 +894,15 @@ class SEDTask4(pl.LightningModule):
             self.tracker_devtest.stop()
             eval_kwh = self.tracker_devtest._total_energy.kWh
             results.update({"/test/tot_energy_kWh": torch.tensor(float(eval_kwh))})
-            with open(os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"), "w") as f:
+            with open(
+                os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"),
+                "w",
+            ) as f:
                 f.write(str(eval_kwh))
 
         if self.logger is not None:
             self.logger.log_metrics(results)
             self.logger.log_hyperparams(self.hparams, results)
-
 
         for key in results.keys():
             self.log(key, results[key], prog_bar=True, logger=True)
@@ -863,7 +911,6 @@ class SEDTask4(pl.LightningModule):
         return [self.opt], [self.scheduler]
 
     def train_dataloader(self):
-
         self.train_loader = torch.utils.data.DataLoader(
             self.train_data,
             batch_sampler=self.train_sampler,
@@ -906,7 +953,6 @@ class SEDTask4(pl.LightningModule):
             f.write(str(training_kwh))
 
     def on_test_start(self) -> None:
-
         if self.evaluation:
             os.makedirs(
                 os.path.join(self.exp_dir, "evaluation_codecarbon"), exist_ok=True

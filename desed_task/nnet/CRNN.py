@@ -1,9 +1,12 @@
 import warnings
 
-import torch.nn as nn
 import torch
-from .RNN import BidirectionalGRU
+import torch.nn as nn
+import torchaudio.transforms
+
 from .CNN import CNN
+from .RNN import BidirectionalGRU
+
 
 class CRNN(nn.Module):
     def __init__(
@@ -25,11 +28,12 @@ class CRNN(nn.Module):
         embedding_type="global",
         frame_emb_enc_dim=512,
         aggregation_type="global",
+        dropstep_recurrent=0.0,
         **kwargs,
     ):
         """
             Initialization of CRNN model
-        
+
         Args:
             n_in_channel: int, number of input channel
             n_class: int, number of classes
@@ -42,7 +46,7 @@ class CRNN(nn.Module):
             n_layer_RNN: int, number of RNN layers
             dropout_recurrent: float, recurrent layers dropout
             cnn_integration: bool, integration of cnn
-            freeze_bn: 
+            freeze_bn:
             **kwargs: keywords arguments for CNN.
         """
         super(CRNN, self).__init__()
@@ -54,6 +58,8 @@ class CRNN(nn.Module):
         self.use_embeddings = use_embeddings
         self.embedding_type = embedding_type
         self.aggregation_type = aggregation_type
+        self.nclass = nclass
+        self.dropstep_recurrent = dropstep_recurrent
 
         n_in_cnn = n_in_channel
 
@@ -84,36 +90,105 @@ class CRNN(nn.Module):
             NotImplementedError("Only BGRU supported for CRNN for now")
 
         self.dropout = nn.Dropout(dropout)
-        self.dense = nn.Linear(n_RNN_cell * 2, nclass)
-        self.sigmoid = nn.Sigmoid()
 
-        if self.attention:
-            self.dense_softmax = nn.Linear(n_RNN_cell * 2, nclass)
+        if isinstance(self.nclass, (tuple, list)) and len(self.nclass) > 1:
+            # multiple heads
+            self.dense = torch.nn.ModuleList([])
+            self.sigmoid = nn.Sigmoid()
             self.softmax = nn.Softmax(dim=-1)
+            for current_classes in self.nclass:
+                self.dense.append(nn.Linear(n_RNN_cell * 2, current_classes))
+                if self.attention:
+                    self.dense_softmax.append(
+                        nn.Linear(n_RNN_cell * 2, current_classes)
+                    )
 
+        else:
+            if isinstance(self.nclass, (tuple, list)):
+                self.nclass = self.nclass[0]
+            self.dense = nn.Linear(n_RNN_cell * 2, self.nclass)
+            self.sigmoid = nn.Sigmoid()
+
+            if self.attention:
+                self.dense_softmax = nn.Linear(n_RNN_cell * 2, self.nclass)
+                self.softmax = nn.Softmax(dim=-1)
 
         if self.use_embeddings:
             if self.aggregation_type == "frame":
-                self.frame_embs_encoder = nn.GRU(batch_first=True, input_size=embedding_size,
-                                                      hidden_size=512,
-                                                      bidirectional=True)
-                self.shrink_emb = torch.nn.Sequential(torch.nn.Linear(2 * frame_emb_enc_dim, nb_in),
-                                                      torch.nn.LayerNorm(nb_in))
-                self.cat_tf = torch.nn.Linear(2*nb_in, nb_in)
+                self.frame_embs_encoder = nn.GRU(
+                    batch_first=True,
+                    input_size=embedding_size,
+                    hidden_size=512,
+                    bidirectional=True,
+                )
+                self.shrink_emb = torch.nn.Sequential(
+                    torch.nn.Linear(2 * frame_emb_enc_dim, nb_in),
+                    torch.nn.LayerNorm(nb_in),
+                )
+                self.cat_tf = torch.nn.Linear(2 * nb_in, nb_in)
             elif self.aggregation_type == "global":
-                self.shrink_emb = torch.nn.Sequential(torch.nn.Linear(embedding_size, nb_in),
-                                                      torch.nn.LayerNorm(nb_in))
-                self.cat_tf = torch.nn.Linear(2*nb_in, nb_in)
+                self.shrink_emb = torch.nn.Sequential(
+                    torch.nn.Linear(embedding_size, nb_in), torch.nn.LayerNorm(nb_in)
+                )
+                self.cat_tf = torch.nn.Linear(2 * nb_in, nb_in)
             elif self.aggregation_type == "interpolate":
-                self.cat_tf = torch.nn.Linear(nb_in+embedding_size, nb_in)
+                self.cat_tf = torch.nn.Linear(nb_in + embedding_size, nb_in)
             elif self.aggregation_type == "pool1d":
-                self.cat_tf = torch.nn.Linear(nb_in+embedding_size, nb_in)
+                self.cat_tf = torch.nn.Linear(nb_in + embedding_size, nb_in)
             else:
-                self.cat_tf = torch.nn.Linear(2*nb_in, nb_in)
+                self.cat_tf = torch.nn.Linear(2 * nb_in, nb_in)
 
-        
-    def forward(self, x, pad_mask=None, embeddings=None):
+    def _get_logits_one_head(self, x, pad_mask, dense, dense_softmax, classes_mask=None):
+        strong = dense(x)  # [bs, frames, nclass]
+        strong = self.sigmoid(strong)
+        if classes_mask is not None:
+            classes_mask = ~classes_mask[:, None].expand_as(strong)
+        if self.attention in [True, "legacy"]:
+            sof = dense_softmax(x)  # [bs, frames, nclass]
+            if not pad_mask is None:
+                sof = sof.masked_fill(pad_mask.transpose(1, 2), -1e30)  # mask attention
 
+            if classes_mask is not None:
+                # mask the invalid classes, cannot attend to these
+                sof = sof.masked_fill(classes_mask, -1e30)
+            sof = self.softmax(sof)
+            sof = torch.clamp(sof, min=1e-7, max=1)
+            weak = (strong * sof).sum(1) / sof.sum(1)  # [bs, nclass]
+        else:
+            weak = strong.mean(1)
+
+        if classes_mask is not None:
+            # mask invalid
+            strong = strong.masked_fill(classes_mask, 0.0)
+            weak = weak.masked_fill(classes_mask[:, 0], 0.0)
+
+        return strong.transpose(1, 2), weak
+
+    def _get_logits(self, x, pad_mask, classes_mask=None):
+        out_strong = []
+        out_weak = []
+        if isinstance(self.nclass, (tuple, list)):
+            # instead of masking the softmax we can have multiple heads for each dataset:
+            # maestro_synth, maestro_real and desed.
+            # not sure which approach is better. We must try.
+            for indx, c_classes in enumerate(self.nclass):
+                dense_softmax = self.dense_softmax[indx] if hasattr(self, "dense_softmax") else None
+                c_strong, c_weak = self._get_logits_one_head(
+                    x, pad_mask, self.dense[indx], dense_softmax, classes_mask
+                )
+                out_strong.append(c_strong)
+                out_weak.append(c_weak)
+
+            # concatenate over class dimension
+            return torch.cat(out_strong, 1), torch.cat(out_weak, 1)
+        else:
+            dense_softmax = self.dense_softmax if hasattr(self,
+                                                                "dense_softmax") else None
+            return self._get_logits_one_head(
+                x, pad_mask, self.dense, dense_softmax, classes_mask
+            )
+
+    def forward(self, x, pad_mask=None, embeddings=None, classes_mask=None):
         x = x.transpose(1, 2).unsqueeze(1)
 
         # input size : (batch_size, n_channels, n_frames, n_freq)
@@ -140,37 +215,57 @@ class CRNN(nn.Module):
         # rnn features
         if self.use_embeddings:
             if self.aggregation_type == "global":
-                x = self.cat_tf(torch.cat((x, self.shrink_emb(embeddings).unsqueeze(1).repeat(1, x.shape[1], 1)), -1))
+                x = self.cat_tf(
+                    torch.cat(
+                        (
+                            x,
+                            self.shrink_emb(embeddings)
+                            .unsqueeze(1)
+                            .repeat(1, x.shape[1], 1),
+                        ),
+                        -1,
+                    )
+                )
             elif self.aggregation_type == "frame":
                 # there can be some mismatch between seq length of cnn of crnn and the pretrained embeddings, we use an rnn
                 # as an encoder and we use the last state
                 last, _ = self.frame_embs_encoder(embeddings.transpose(1, 2))
                 embeddings = last[:, -1]
-                x = self.cat_tf(torch.cat((x, self.shrink_emb(embeddings).unsqueeze(1).repeat(1, x.shape[1], 1)), -1))
+                reshape_emb = self.shrink_emb(embeddings).unsqueeze(1).repeat(1, x.shape[1], 1)
+
             elif self.aggregation_type == "interpolate":
                 output_shape = (embeddings.shape[1], x.shape[1])
-                reshape_emb = torch.nn.functional.interpolate(embeddings.unsqueeze(1), size=output_shape, mode='nearest-exact').squeeze(1).transpose(1, 2)
-                x = self.cat_tf(torch.cat((x, reshape_emb), -1))
+                reshape_emb = (
+                    torch.nn.functional.interpolate(
+                        embeddings.unsqueeze(1), size=output_shape, mode="nearest-exact"
+                    )
+                    .squeeze(1)
+                    .transpose(1, 2)
+                )
+
             elif self.aggregation_type == "pool1d":
-                reshape_emb = torch.nn.functional.adaptive_avg_pool1d(embeddings, x.shape[1]).transpose(1, 2)
-                x = self.cat_tf(torch.cat((x, reshape_emb), -1))
+                reshape_emb = torch.nn.functional.adaptive_avg_pool1d(
+                    embeddings, x.shape[1]
+                ).transpose(1, 2)
             else:
-                pass
+                raise NotImplementedError
+
+        if self.use_embeddings:
+            if self.dropstep_recurrent:
+                dropstep = torchaudio.transforms.TimeMasking(2, True, self.dropstep_recurrent)
+                x = dropstep(x.transpose(1, 2)).transpose(1, 2)
+                reshape_emb = dropstep(reshape_emb.transpose(1, -1)).transpose(1, -1)
+            x = self.cat_tf(torch.cat((x, reshape_emb), -1))
+        else:
+            if self.dropstep_recurrent:
+                dropstep = torchaudio.transforms.TimeMasking(2, True,
+                                                             self.dropstep_recurrent)
+                x = dropstep(x.transpose(1, 2)).transpose(1, 2)
 
         x = self.rnn(x)
         x = self.dropout(x)
-        strong = self.dense(x)  # [bs, frames, nclass]
-        strong = self.sigmoid(strong)
-        if self.attention:
-            sof = self.dense_softmax(x)  # [bs, frames, nclass]
-            if not pad_mask is None:
-                sof = sof.masked_fill(pad_mask.transpose(1, 2), -1e30)  # mask attention
-            sof = self.softmax(sof)
-            sof = torch.clamp(sof, min=1e-7, max=1)
-            weak = (strong * sof).sum(1) / sof.sum(1)  # [bs, nclass]
-        else:
-            weak = strong.mean(1)
-        return strong.transpose(1, 2), weak
+
+        return self._get_logits(x, pad_mask, classes_mask)
 
     def train(self, mode=True):
         """

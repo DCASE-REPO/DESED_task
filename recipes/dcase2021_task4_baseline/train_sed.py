@@ -1,26 +1,25 @@
 import argparse
-from copy import deepcopy
-import numpy as np
 import os
-import pandas as pd
 import random
+from copy import deepcopy
+
+import numpy as np
+import pandas as pd
+import pytorch_lightning as pl
 import torch
 import yaml
-
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
-
 from desed_task.dataio import ConcatDatasetBatchSampler
-from desed_task.dataio.datasets import StronglyAnnotatedSet, UnlabeledSet, WeakSet
+from desed_task.dataio.datasets import (StronglyAnnotatedSet, UnlabeledSet,
+                                        WeakSet)
 from desed_task.nnet.CRNN import CRNN
 from desed_task.utils.encoder import ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
-
 from local.classes_dict import classes_labels
-from local.sed_trainer import SEDTask4_2021
 from local.resample_folder import resample_folder
+from local.sed_trainer import SEDTask4_2021
 from local.utils import generate_tsv_wav_durations
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
 
 
 def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
@@ -49,6 +48,7 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
                     config_data[base_set + "_folder"], config_data[base_set + "_dur"]
                 )
 
+
 def single_run(
     config,
     log_dir,
@@ -56,7 +56,7 @@ def single_run(
     checkpoint_resume=None,
     test_state_dict=None,
     fast_dev_run=False,
-    evaluation=False
+    evaluation=False,
 ):
     """
     Running sound event detection baselin
@@ -90,14 +90,11 @@ def single_run(
             devtest_df,
             encoder,
             return_filename=True,
-            pad_to=config["data"]["audio_max_len"]
+            pad_to=config["data"]["audio_max_len"],
         )
     else:
         devtest_dataset = UnlabeledSet(
-            config["data"]["eval_folder"],
-            encoder,
-            pad_to=None,
-            return_filename=True
+            config["data"]["eval_folder"], encoder, pad_to=None, return_filename=True
         )
 
     test_dataset = devtest_dataset
@@ -180,7 +177,8 @@ def single_run(
             "interval": "step",
         }
         logger = TensorBoardLogger(
-            os.path.dirname(config["log_dir"]), config["log_dir"].split("/")[-1],
+            os.path.dirname(config["log_dir"]),
+            config["log_dir"].split("/")[-1],
         )
         print(f"experiment dir: {logger.log_dir}")
 
@@ -219,7 +217,7 @@ def single_run(
         train_sampler=batch_sampler,
         scheduler=exp_scheduler,
         fast_dev_run=fast_dev_run,
-        evaluation=evaluation
+        evaluation=evaluation,
     )
 
     # Not using the fast_dev_run of Trainer because creates a DummyLogger so cannot check problems with the Logger
@@ -301,9 +299,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--eval_from_checkpoint",
-        default=None,
-        help="Evaluate the model specified"
+        "--eval_from_checkpoint", default=None, help="Evaluate the model specified"
     )
 
     args = parser.parse_args()
@@ -311,13 +307,13 @@ if __name__ == "__main__":
     with open(args.conf_file, "r") as f:
         configs = yaml.safe_load(f)
 
-    evaluation = False 
+    evaluation = False
     test_from_checkpoint = args.test_from_checkpoint
 
     if args.eval_from_checkpoint is not None:
         test_from_checkpoint = args.eval_from_checkpoint
         evaluation = True
-    
+
     test_model_state_dict = None
     if test_from_checkpoint is not None:
         checkpoint = torch.load(test_from_checkpoint)
@@ -331,7 +327,7 @@ if __name__ == "__main__":
 
     if evaluation:
         configs["training"]["batch_size_val"] = 1
-        
+
     seed = configs["training"]["seed"]
     if seed:
         torch.random.manual_seed(seed)
@@ -348,5 +344,5 @@ if __name__ == "__main__":
         args.resume_from_checkpoint,
         test_model_state_dict,
         args.fast_dev_run,
-        evaluation
+        evaluation,
     )
