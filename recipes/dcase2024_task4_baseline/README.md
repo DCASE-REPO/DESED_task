@@ -156,7 +156,7 @@ This year we use two datasets which have different annotation procedures:
       1. Note that the onset and offset information was obtained from aggregating multiple annotators opinions over different 10 second windows with 1 s stride.
       2. Also, compared to DESED, this dataset is long form as audio clips are several minutes long. 
 
-Crucially these datasets have sound event classes that are partially shared (e.g. Speech), as well as some that are not shared. <br> 
+Crucially these datasets have sound event classes that are partially shared (e.g. _Speech_ and _people_talking_), as well as some that are not shared. <br> 
 In general, since annotation is different, we do not know if some events that are not shared do or do not occur, hence the need to handle the "missing information". 
 Participants are challenged on how to explore how these two datasets can be combined in the best way during training, in order to get the best performance on both. <br>
 We already described how we handle such missing information in the baseline regarding loss computation, mixup and the attention 
