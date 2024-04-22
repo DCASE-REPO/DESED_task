@@ -23,7 +23,7 @@ following code (recommended to run line by line in case of problems).
 
 ## Downloading the Task Datasets
 
-You can download all the training and development datasets using the script: `generate_dcase_task4_2023.py`.
+You can download all the training and development datasets using the script: `generate_dcase_task4_2024.py`.
 
 ### Usage:
 Run the command `python generate_dcase_task4_2024.py --basedir="../../data"` to download the dataset. <br> 
@@ -87,7 +87,7 @@ Then, you can train the baseline using the following command:
 ```bash
 python train_pretrained.py
 ```
-The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline` and will use GPU 0.  
+The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2024_baseline` and will use GPU 0.  
 You can however pass the argument `--gpu` to change the GPU used. <br>
 ⚠️ note that `python train_pretrained.py --gpus 0` will use the CPU. 
 GPU indexes start from 1 in this script ! <br>
@@ -132,7 +132,7 @@ In detail:
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario1 (sed score)** | **mean pAUC**     | 
 --------|--------------------|--------------------------------|-------------------|
-Dev-test| **0.50 +- 0.01**   | **0.52 +- 0.007**              | **** | 
+Dev-test| **0.50 +- 0.01**   | **0.52 +- 0.007**              | **0.637 +- 0.04** | 
 
 **Energy Consumption** (GPU: NVIDIA A100 40Gb on a single DGX A100 machine)
 
