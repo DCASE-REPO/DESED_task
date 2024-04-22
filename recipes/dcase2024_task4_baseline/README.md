@@ -132,7 +132,7 @@ In detail:
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario1 (sed score)** | **mean pAUC**     | 
 --------|--------------------|--------------------------------|-------------------|
-Dev-test| **0.50 +- 0.01**   | **0.52 +- 0.007**              | **0.686 +- 0.07** | 
+Dev-test| **0.50 +- 0.01**   | **0.52 +- 0.007**              | **** | 
 
 **Energy Consumption** (GPU: NVIDIA A100 40Gb on a single DGX A100 machine)
 
