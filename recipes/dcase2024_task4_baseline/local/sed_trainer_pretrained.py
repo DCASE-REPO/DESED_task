@@ -937,21 +937,13 @@ class SEDTask4(pl.LightningModule):
             desed_audio_durations = sed_scores_eval.io.read_audio_durations(
                 self.hparams["data"]["test_dur"]
             )
-            if self.fast_dev_run:
-                desed_ground_truth = {
-                    audio_id: desed_ground_truth[audio_id]
-                    for audio_id in self.test_buffer_sed_scores_eval_student
-                }
-                desed_audio_durations = {
-                    audio_id: desed_audio_durations[audio_id]
-                    for audio_id in self.test_buffer_sed_scores_eval_student
-                }
-            else:
-                # drop audios without events
-                desed_ground_truth = {
+
+
+            # drop audios without events
+            desed_ground_truth = {
                     audio_id: gt for audio_id, gt in desed_ground_truth.items() if len(gt) > 0
                 }
-                desed_audio_durations = {
+            desed_audio_durations = {
                     audio_id: desed_audio_durations[audio_id]
                     for audio_id in desed_ground_truth.keys()
                 }

@@ -1,23 +1,39 @@
-### DCASE2024 Task 4 Baseline for Sound Event Detection in Domestic Environments
+# DCASE2024 Task 4 Baseline
+
+### Sound Event Detection in Domestic Environments with Heterogeneous Training Dataset and Potentially Missing Labels
+
+[![Slack][slack-badge]][slack-invite]
 
 ---
 
-## Requirements
+
+#### 📢  If you want to participate see [official DCASE Challenge website page][dcase_website].
+
+
+### <a id="reach_us">Any Question/Problem ? Reach us !</a>
+
+For any problem consider raising a GitHub issue here. <br>
+We have also a [DCASE Slack Workspace][slack-invite], join the `task-4-2024` channel there or contact the organizers via Slack directly.<br>
+We also have a [Troubleshooting page](./HELP.md).
+
+## Installation
 
 The script `conda_create_environment.sh` is available to create an environment which runs the
-following code (recommended to run line by line in case of problems).
+following code (recommended to run line by line in case of problems). 
 
-## (New!) Datasets
+## Downloading the Task Datasets
+
 You can download all the training and development datasets using the script: `generate_dcase_task4_2023.py`.
-The development dataset is composed of two parts:
-- real-world data ([DESED dataset][desed]): this part of the dataset is composed of strong labels, weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
-- synthetically generated data: this part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
 
 ### Usage:
 Run the command `python generate_dcase_task4_2024.py --basedir="../../data"` to download the dataset (the user can change basedir to the desired data folder. 
 If you do so remember then to change the corresponding entries in `confs/pretrained.yaml"`)
 
-If the user already has downloaded part of the dataset, it does not need to re-download the whole set. It is possible to download only part of the full dataset, if needed, using the options:
+The development dataset is composed of two parts:
+- real-world data ([DESED dataset][desed]): this part of the dataset is composed of strong labels, weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
+- synthetically generated data: this part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
+
+If the user already has downloaded parts of the dataset, it does not need to re-download the whole set. It is possible to download only part of the full dataset, if needed, using the options:
 
  - **only_strong** (download only the strong labels of the DESED dataset)
  - **only_real** (download the weak labels, unlabeled and validation data of the DESED dataset)
@@ -28,66 +44,10 @@ If the user already has downloaded part of the dataset, it does not need to re-d
 
  `python generate_dcase_task4_2024.py --only_strong` 
 
- If the user wants to download only the synthetic part of the dataset, it could be done with the following command: 
-
- `python generate_dcase_task4_2024.py --only_synth`
-
-Once the dataset is downloaded, the user should find the folder **missing_files**, containing the list of files from the real-world dataset (desed_real) which was not possible to download. You need to download it and **send your missing files to the task organisers to get the complete dataset** (in priority to Francesca Ronchini and Romain serizel).
-
-### Development dataset
-
-The dataset is composed by 4 different splits of training data: 
-- Synthetic training set with strong annotations
-- Strong labeled training set **(only for the SED Audioset baseline)**
-- Weak labeled training set 
-- Unlabeled in domain training set
-
-#### Synthetic training set with strong annotations
-
-This set is composed of **10000** clips generated with the [Scaper][scaper] soundscape synthesis and augmentation library. The clips are generated such that the distribution per event is close to that of the validation set.
-
-The strong annotations are provided in a tab separated csv file under the following format:
-
-`[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
-
-For example: YOTsn73eqbfc_10.000_20.000.wav 0.163 0.665 Alarm_bell_ringing
-
-#### Strong labeled training set 
-
-This set is composed of **3470** audio clips coming from [Audioset][audioset]. 
-
-**This set is used at training only for the SED Audioset baseline.** 
-
-The strong annotations are provided in a tab separated csv file under the following format:
-
-`[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
-
-For example: Y07fghylishw_20.000_30.000.wav 0.163 0.665 Dog
-
-
-#### Weak labeled training set 
-
-This set contains **1578** clips (2244 class occurrences) for which weak annotations have been manually verified for a small subset of the training set. 
-
-The weak annotations are provided in a tab separated csv file under the following format:
-
-`[filename (string)][tab][event_labels (strings)]`
-
-For example: Y-BJNMHMZDcU_50.000_60.000.wav Alarm_bell_ringing,Dog
-
-
-#### Unlabeled in domain training set
-
-This set contains **14412** clips. The clips are selected such that the distribution per class (based on Audioset annotations) is close to the distribution in the labeled set. However, given the uncertainty on Audioset labels, this distribution might not be exactly similar.
-
-
-The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed]. <br>
-For more information regarding the dataset, please refer to the [DCASE Challenge website][dcase_22_dataset]. 
-
 
 ## Baseline System
 
-We provide **one** baseline system for the task which uses pre-trained BEATS embeddings and Audioset strong-annotated data together with 
+We provide one baseline system for the task which uses pre-trained BEATS embeddings and Audioset strong-annotated data together with 
 DESED and MAESTRO data. <br>
 
 This baseline is built upon the 2023 pre-trained embedding baseline. 
@@ -162,62 +122,25 @@ Mixup is used as data augmentation technique for weak and synthetic data by mixi
 For more information regarding the baseline model, the reader is referred to [1] and [2].
 
 
-### How to run the Baseline 
+### Training the Baseline System
+
 The baseline can be run from scratch using the following command:
 
-`python train_pretrained.py`
+`python train_pretrained.py` <br>
 
-Note that the default training config will use GPU 0. <br>
+Note that the default training config will use GPU 0. You can however pass the argument `--gpu` to change this behaviour: <br>
+
+Please note that `python train_pretrained.py --gpus 0` will use the CPU. 
+**GPU indexes start from 1 in this script !**
+
+Tensorboard logs can be visualized using the command `tensorboard --logdir="path/to/exp_folder"`. 
+
+### Running Inference with the Pre-trained Baseline System
+
 Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models]. <br>
 The baseline can be tested on the development set of the dataset using the following command:
 
 `python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
-
-Tensorboard logs can be visualized using the command `tensorboard --logdir="path/to/exp_folder"`. 
-
-
-
-#### Common issues
-
-**Data Download**
-
-`FileNotFoundError: [Errno 2] No such file or directory: 'ffprobe'`
-
-it probably means you have to install ffmpeg on your machine.
-
-A possible installation: `sudo apt install ffmpeg`
-
-**Training**
-
-If training appears too slow, check with `top` and with `nvidia-smi` that you 
-are effectively using a GPU and not the CPU. 
-If running `python train_sed.py` uses by default the CPU you may have **pytorch** installed 
-without CUDA support. 
-
-Check with IPython by running this pytorch line `torch.rand((1)).cuda()` 
-If you encounter an error install CUDA-enabled pytorch from https://pytorch.org/
-Check again till you can run `torch.rand((1)).cuda()` successfully. 
-
-
-**NOTE: Currently multi-GPUs is not supported**
-
-**note**: `python train_pretrained.py --gpus 0` will use the CPU. GPU indexes start from 1 here.
-
-**Common issues**
-
-If you encounter: 
-`pytorch_lightning.utilities.exceptions.MisconfigurationException: You requested GPUs: [0]
- But your machine only has: [] (edited) `
-
-or 
-
-`OSError: libc10_cuda.so: cannot open shared object file: No such file or directory`
-
-
-It probably means you have installed CPU-only version of Pytorch or have installed the incorrect 
-**cudatoolkit** version. 
-Please install the correct version from https://pytorch.org/
-
 
 
 ### Results:
@@ -233,11 +156,67 @@ Dataset |     Training       |      Dev-Test      |
 **kWh** | **1.742 +- 0.416** | **0.020 +- 0.003** | 
 
 
-Collar-based = event-based. More information about the metrics in the DCASE Challenge [webpage][dcase22_webpage].
+Collar-based = event-based. More information about the metrics in the [DCASE Challenge webpage][dcase_webpage].
 
-The results are computed from the **teacher** predictions. 
+A more in depth description of the metrics is available in this page below. 
 
-As in the [SED baseline][sed_baseline], resuming training, testing from checkpoint and running in fast development mode are possible with the same optional arguments.
+## Datasets Description
+
+
+
+### Development dataset
+
+The dataset is composed by 4 different splits of training data: 
+- Synthetic training set with strong annotations
+- Strong labeled training set **(only for the SED Audioset baseline)**
+- Weak labeled training set 
+- Unlabeled in domain training set
+
+#### Synthetic training set with strong annotations
+
+This set is composed of **10000** clips generated with the [Scaper][scaper] soundscape synthesis and augmentation library. The clips are generated such that the distribution per event is close to that of the validation set.
+
+The strong annotations are provided in a tab separated csv file under the following format:
+
+`[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
+
+For example: YOTsn73eqbfc_10.000_20.000.wav 0.163 0.665 Alarm_bell_ringing
+
+#### Strong labeled training set 
+
+This set is composed of **3470** audio clips coming from [Audioset][audioset]. 
+
+**This set is used at training only for the SED Audioset baseline.** 
+
+The strong annotations are provided in a tab separated csv file under the following format:
+
+`[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
+
+For example: Y07fghylishw_20.000_30.000.wav 0.163 0.665 Dog
+
+
+#### Weak labeled training set 
+
+This set contains **1578** clips (2244 class occurrences) for which weak annotations have been manually verified for a small subset of the training set. 
+
+The weak annotations are provided in a tab separated csv file under the following format:
+
+`[filename (string)][tab][event_labels (strings)]`
+
+For example: Y-BJNMHMZDcU_50.000_60.000.wav Alarm_bell_ringing,Dog
+
+
+#### Unlabeled in domain training set
+
+This set contains **14412** clips. The clips are selected such that the distribution per class (based on Audioset annotations) is close to the distribution in the labeled set. However, given the uncertainty on Audioset labels, this distribution might not be exactly similar.
+
+
+The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed]. <br>
+For more information regarding the dataset, please refer to the [DCASE Challenge website][dcase_22_dataset]. 
+
+
+## Evaluation Metrics
+
 
 ## Energy Consumption
 
@@ -302,9 +281,8 @@ Further we kindly ask participants to provide (post-processed and unprocessed) o
 
 
 
-
 [audioset]: https://research.google.com/audioset/
-[dcase22_webpage]: https://dcase.community/challenge2024/task-sound-event-detection-in-domestic-environments
+[dcase_webpage]: https://dcase.community/challenge2024/task-sound-event-detection-with-heterogeneous-training-dataset-and-potentially-missing-labels
 [dcase_21_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2022_task4_baseline
 [dcase_22_repo]: https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2024_task4_baseline
 [dcase_22_dataset]: https://dcase.community/challenge2024/task-sound-event-detection-in-domestic-environments#audio-dataset
@@ -323,7 +301,13 @@ Further we kindly ask participants to provide (post-processed and unprocessed) o
 [psds_eval]: https://pypi.org/project/psds-eval/
 [sed_scores_eval]: https://github.com/fgnt/sed_scores_eval
 
-#### References
+
+
+[slack-badge]: https://img.shields.io/badge/slack-chat-green.svg?logo=slack
+[slack-invite]: https://join.slack.com/t/dcase/shared_invite/zt-2h9kw735h-r8HClw_JHGVh6hWQOuBa_g
+
+
+## References
 [1] L. Delphin-Poulat & C. Plapous, technical report, dcase 2019.
 
 [2] Turpault, Nicolas, et al. "Sound event detection in domestic environments with weakly labeled data and soundscape synthesis."
