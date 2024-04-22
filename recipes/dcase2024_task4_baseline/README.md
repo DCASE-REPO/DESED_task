@@ -10,7 +10,7 @@
 #### 📢  If you want to participate see [official DCASE Challenge website page][dcase_webpage].
 
 
-### <a id="reach_us">Any Question/Problem ? Reach us !</a>
+## <a id="reach_us">Any Question/Problem ? Reach us !</a>
 
 For any problem consider raising a GitHub issue here. <br>
 We have also a [DCASE Slack Workspace][slack-invite], join the `task-4-2024` channel there or contact the organizers via Slack directly.<br>
@@ -48,7 +48,8 @@ We provide one baseline system for the task which uses pre-trained BEATS embeddi
 DESED and MAESTRO data. <br>
 
 This baseline is built upon the 2023 pre-trained embedding baseline. 
-It exploits the pre-trained model [BEATs](https://arxiv.org/abs/2212.09058), the current state-of-the-art on the [Audioset classification task](https://paperswithcode.com/sota/audio-classification-on-audioset). <br> In addition it uses by default the Audioset strong-annotated data. <br>
+It exploits the pre-trained model [BEATs](https://arxiv.org/abs/2212.09058), the current state-of-the-art on the [Audioset classification task](https://paperswithcode.com/sota/audio-classification-on-audioset). In addition it uses by default the Audioset strong-annotated data. <br>
+
 🆕 We made some changes in the loss computation as well as in the attention pooling to make sure that the baseline can handle 
 now multiple datasets with potentially missing information.
 
@@ -108,20 +109,21 @@ A different configuration YAML (for example `sed_2.yaml`) can be used in each ru
 The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline`.
 
 
-
 It uses very few batches and epochs so it won't give any meaningful result.
 
-### Baseline Short Description
+### Baseline Novelties Short Description
 
-The baseline is the same as the [DCASE 2022 Task 4 baseline][dcase_21_repo], based on a Mean-Teacher model [1].
+The baseline is the same as the pre-trained embedding [DCASE 2023 Task 4 baseline][https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2023_task4_baseline], based on a Mean-Teacher model [1]. <br>
+We made some changes here in order to handle both DESED and MAESTRO which can have partially missing labels (e.g. DESED events may not be annotated in MAESTRO and vice-versa). <br> 
+In detail: 
 
-The baseline uses a Mean-Teacher model which is a combination of two models: a student model and a
-teacher model, having the same architecture. <br>
-The teacher's weight are the exponential average of the student model's weights. <br>
-The models are a combination of a convolutional neural network (CNN) and a recurrent neural network (RNN) followed by an attention layer. <br> 
-The output of the RNN gives strong predictions while the output of the attention layer gives the weak predictions [2]. <br>
-Mixup is used as data augmentation technique for weak and synthetic data by mixing data in a batch (50% chance of applying it) [3]. <br>
-For more information regarding the network, the reader is referred to [1] and [2].
+1. We map certain classes in MAESTRO to some DESED classes (but not vice-versa) when training on MAESTRO data.
+   1. See
+2. When computing losses on MAESTRO and DESED we mask the output logits which corresponds to classes for which we do miss annotation for the current dataset.
+   1. This masking is also applied to the attention pooling layer see . 
+3. Mixup is performed only within the same dataset (e.g. only within MAESTRO and DESED). 
+
+
 
 ### Training the Baseline System
 
