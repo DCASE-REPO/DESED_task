@@ -131,9 +131,9 @@ In detail:
 
 ### Results:
 
-Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** | *Intersection-based F1* | *Collar-based F1* |
---------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
-Dev-test|  **0.480 +- 0.003** |        **0.491 +- 0.003**      |   **0.765 +- 0.002**  |       **0.787 +- 0.007**       |      79.9 +- 0.8%      |  57.6 +- 0.7%  |
+Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** |
+--------|---------------------|--------------------------------|-----------------------|--------------------------------|
+Dev-test|  **0.480 +- 0.003** |        **0.491 +- 0.003**      |   **0.765 +- 0.002**  |       **0.787 +- 0.007**       |
 
 **Energy Consumption** (GPU: NVIDIA A100 40Gb)
 
@@ -146,64 +146,27 @@ Collar-based = event-based. More information about the metrics in the [DCASE Cha
 
 A more in depth description of the metrics is available in this page below. 
 
-## Datasets Description
+## Short Datasets Description
 
+A more accurate description of the datasets used is available in [official DCASE Challenge website page][dcase_webpage]. <br>
+This year we use two datasets which have different annotation procedures: 
+1. DESED (as in previous years)
+2. MAESTRO
+   1. this dataset
 
-### Development dataset
+As such, participants are challenged on how to explore. <br>
+We already described how we handle such missing information in the baseline regarding loss computation, mixup and the attention 
+pooling layer. 
 
-The dataset is composed by 4 different splits of training data: 
-- Synthetic training set with strong annotations
-- Strong labeled training set **(only for the SED Audioset baseline)**
-- Weak labeled training set 
-- Unlabeled in domain training set
-
-#### Synthetic training set with strong annotations
-
-This set is composed of **10000** clips generated with the [Scaper][scaper] soundscape synthesis and augmentation library. The clips are generated such that the distribution per event is close to that of the validation set.
-
-The strong annotations are provided in a tab separated csv file under the following format:
-
-`[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
-
-For example: YOTsn73eqbfc_10.000_20.000.wav 0.163 0.665 Alarm_bell_ringing
-
-#### Strong labeled training set 
-
-This set is composed of **3470** audio clips coming from [Audioset][audioset]. 
-
-**This set is used at training only for the SED Audioset baseline.** 
-
-The strong annotations are provided in a tab separated csv file under the following format:
-
-`[filename (string)][tab][onset (in seconds) (float)][tab][offset (in seconds) (float)][tab][event_label (string)]`
-
-For example: Y07fghylishw_20.000_30.000.wav 0.163 0.665 Dog
-
-
-#### Weak labeled training set 
-
-This set contains **1578** clips (2244 class occurrences) for which weak annotations have been manually verified for a small subset of the training set. 
-
-The weak annotations are provided in a tab separated csv file under the following format:
-
-`[filename (string)][tab][event_labels (strings)]`
-
-For example: Y-BJNMHMZDcU_50.000_60.000.wav Alarm_bell_ringing,Dog
-
-
-#### Unlabeled in domain training set
-
-This set contains **14412** clips. The clips are selected such that the distribution per class (based on Audioset annotations) is close to the distribution in the labeled set. However, given the uncertainty on Audioset labels, this distribution might not be exactly similar.
-
-
-The dataset uses [FUSS][fuss_git], [FSD50K][FSD50K], [desed_soundbank][desed] and [desed_real][desed]. <br>
-For more information regarding the dataset, please refer to the [DCASE Challenge website][dcase_22_dataset]. 
 
 
 ## Evaluation Metrics
 
+### 👉 Multi-runs Evaluation
+Further we kindly ask participants to provide (post-processed and unprocessed) output scores from three independent model trainings with different initialization to be able to evaluate the model performance's standard deviation.
 
-### Energy Consumption
+
+### ⚡ Energy Consumption (mandatory this year !)
 
 As in the last year, energy consumption (kWh) is going to be considered as additional metric to rank the submitted systems, therefore it is mandatory to report the energy consumption of the submitted models [11]. 
 
@@ -214,12 +177,9 @@ Participants need to provide, for each submitted system (or at least the best on
 3) evaluation set inference
 
 You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to do this (super simple! 😉 )
-or to this baseline code see `local/sed_trained.py` for some hints on how we are doing this for the baseline system.
+or to this baseline code see `local/sed_trainer_pretrained.py` for some hints on how we are doing this for the baseline system.
 
-
-**Important!!** 
-
-In addition to this, we kindly suggest the participants to
+⚠️ In addition to this, we kindly suggest the participants to
 provide the energy consumption in kWh (using the same hardware used for 2) and 3)) of:
 
 1) devtest inference for baseline system using: 
@@ -241,12 +201,11 @@ as a common reference. Because of this, it is important that the
 inference energy consumption figures for both submitted system 
 and baseline are computed on same hardware under similar loading. 
 
-### Multiply–accumulate (MAC) operations. 
+### 🧮 Multiply–accumulate (MAC) operations. 
 
-This year we are introducing a new metric, complementary to the energy consumption metric. 
-We are considering the Multiply–accumulate operations (MACs) for 10 seconds of audio prediction, so to have information regarding the computational complexity of the network in terms of multiply-accumulate (MAC) operations.
+As in the last year participants can submit multiply–accumulate operations (MACs) for 10 seconds of audio prediction, so to have information regarding the computational complexity of the network in terms of multiply-accumulate (MAC) operations.
 
-We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as framework to compute the number of multiply-accumulate operations (MACs). For more information regarding how to install and use THOP, the reader is referred to https://github.com/Lyken17/pytorch-OpCounter. 
+We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as the framework to compute the number of multiply-accumulate operations (MACs). For more information regarding how to install and use THOP, the reader is referred to https://github.com/Lyken17/pytorch-OpCounter. <br>
 
 
 ## [sed_scores_eval][sed_scores_eval] based PSDS evaluation
@@ -254,16 +213,7 @@ We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as framework to comput
 Recently, [10] has shown that the PSD-ROC [9] may be significantly underestimated if computed from a limited set of thresholds as done with [psds_eval][psds_eval].
 This year we therefore use [sed_scores_eval][sed_scores_eval] for evaluation which computes the PSDS accurately from sound event detection scores.
 Hence, we require participants to submit timestamped scores rather than detected events.
-See https://github.com/fgnt/sed_scores_eval for details.
-
-**Note that this year's results can therefore not be directly compared with previous year's results as [sed_scores_eval][sed_scores_eval] does not underestimate the PSDS resulting in higher values (for the baseline ~1%).**
-
-## Post-processing-invariant evaluation
-In addition to their post-processed scores submission we kindly ask participants to additionally submit unprocessed scores as provided by the model, which enables us to run post-processing-invariant evaluation.
-
-## Multi-runs evaluation
-Further we kindly ask participants to provide (post-processed and unprocessed) output scores from three independent model trainings with different initialization to be able to evaluate the model performance's standard deviation.
-
+See [https://github.com/fgnt/sed_scores_eval](https://github.com/fgnt/sed_scores_eval) for details.
 
 
 [audioset]: https://research.google.com/audioset/
