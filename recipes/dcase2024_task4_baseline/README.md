@@ -7,7 +7,7 @@
 ---
 
 
-#### 📢  If you want to participate see [official DCASE Challenge website page][dcase_website].
+#### 📢  If you want to participate see [official DCASE Challenge website page][dcase_webpage].
 
 
 ### <a id="reach_us">Any Question/Problem ? Reach us !</a>
@@ -26,12 +26,8 @@ following code (recommended to run line by line in case of problems).
 You can download all the training and development datasets using the script: `generate_dcase_task4_2023.py`.
 
 ### Usage:
-Run the command `python generate_dcase_task4_2024.py --basedir="../../data"` to download the dataset (the user can change basedir to the desired data folder. 
-If you do so remember then to change the corresponding entries in `confs/pretrained.yaml"`)
-
-The development dataset is composed of two parts:
-- real-world data ([DESED dataset][desed]): this part of the dataset is composed of strong labels, weak labels, unlabeled, and validation data which are coming from [Audioset][audioset].
-- synthetically generated data: this part of the dataset is composed of synthetically soundscapes, generated using [Scaper][scaper]. 
+Run the command `python generate_dcase_task4_2024.py --basedir="../../data"` to download the dataset. 
+⚠️ the user can change basedir to the desired data folder. If you do so remember then to change the corresponding entries in `confs/pretrained.yaml"`)
 
 If the user already has downloaded parts of the dataset, it does not need to re-download the whole set. It is possible to download only part of the full dataset, if needed, using the options:
 
@@ -40,10 +36,11 @@ If the user already has downloaded parts of the dataset, it does not need to re-
  - **only_synth** (download only the synthetic part of the dataset)
  - **only_maestro** (download only MAESTRO dataset)
 
- For example, if the user already has downloaded the real and synthetic part of the set, it can integrate the dataset with the strong labels of the DESED dataset with the following command:
+For example, if the user already has downloaded the real and synthetic part of the set, it can integrate the dataset with the strong labels of the DESED dataset with the following command:
 
- `python generate_dcase_task4_2024.py --only_strong` 
-
+```bash
+python generate_dcase_task4_2024.py --only_strong
+```
 
 ## Baseline System
 
@@ -51,8 +48,9 @@ We provide one baseline system for the task which uses pre-trained BEATS embeddi
 DESED and MAESTRO data. <br>
 
 This baseline is built upon the 2023 pre-trained embedding baseline. 
-It exploits the pre-trained model [BEATs](https://arxiv.org/abs/2212.09058), the current state-of-the-art (as of March 2023) on the [Audioset classification task](https://paperswithcode.com/sota/audio-classification-on-audioset).
-In addition it uses by default the Audioset strong-annotated data. 
+It exploits the pre-trained model [BEATs](https://arxiv.org/abs/2212.09058), the current state-of-the-art on the [Audioset classification task](https://paperswithcode.com/sota/audio-classification-on-audioset). <br> In addition it uses by default the Audioset strong-annotated data. <br>
+🆕 We made some changes in the loss computation as well as in the attention pooling to make sure that the baseline can handle 
+now multiple datasets with potentially missing information.
 
 In the proposed baseline, the frame-level embeddings are used in a late-fusion fashion with the existing CRNN baseline classifier. The temporal resolution of the frame-level embeddings is matched to that of the CNN output using Adaptative Average Pooling. We then feed their frame-level concatenation to the RNN + MLP classifier. See 'desed_tasl/nnet/CRNN.py' for details. 
 
@@ -77,60 +75,65 @@ We provide [pretrained checkpoints][zenodo_pretrained_models]. The baseline can 
 `python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
 
 To reproduce our results, you first need to pre-compute the embeddings using the following command:
-`python extract_embeddings.py --output_dir ./embeddings --pretrained_model "beats"
-Then, you need to train the baseline using the following command:
-`python train_pretrained.py`
+```bash
+python extract_embeddings.py --output_dir ./embeddings"
+```
+You can use an alternative output directory for the embeddings but then you need to change the corresponding path in 
+`confs/pretrained.yaml`.
+Then, you can train the baseline using the following command:
+```bash
+python train_pretrained.py
+```
 
-**NOTES**:
+Note that training can be resumed using the following command:
 
-All baselines scripts assume that your data is in `../../data` folder in `DESED_task` directory.
+```bash
+python train_pretrained.py --resume_from_checkpoint /path/to/file.ckpt
+```
+
+In order to make a "fast" run, which could be useful for development and debugging, you can use the following command: 
+
+```bash
+python train_pretrained.py --fast_dev_run
+```
+
+
+⚠ All baselines scripts assume that your data is in `../../data` folder in `DESED_task` directory.
 If your data is in another folder, you will have to change the paths of your data in the corresponding `data` keys in YAML configuration file in `conf/sed.yaml`.
 Note that `train_sed.py` will create (at its very first run) additional folders with resampled data (from 44kHz to 16kHz)
 so the user need to have write permissions on the folder where your data are saved.
 
-**Hyperparameters** can be changed in the YAML file (e.g. lower or higher batch size).
-
-A different configuration YAML (for example `sed_2.yaml`) can be used in each run using `--conf_file="confs/sed_2.yaml` argument.
-
+🧪 Hyperparameters can be changed in the YAML file (e.g. lower or higher batch size). <br>
+A different configuration YAML (for example `sed_2.yaml`) can be used in each run using `--conf_file="confs/sed_2.yaml` argument. <br>
 The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline`.
 
-Training can be resumed using the following command:
 
-`python train_sed.py --resume_from_checkpoint /path/to/file.ckpt`
-
-In order to make a "fast" run, which could be useful for development and debugging, you can use the following command: 
-
-`python train_sed.py --fast_dev_run`
 
 It uses very few batches and epochs so it won't give any meaningful result.
 
-**Architecture**
+### Baseline Short Description
 
 The baseline is the same as the [DCASE 2022 Task 4 baseline][dcase_21_repo], based on a Mean-Teacher model [1].
 
 The baseline uses a Mean-Teacher model which is a combination of two models: a student model and a
-teacher model, having the same architecture. The student model is the one used at inference while the goal of the teacher is to help the student model during training. The teacher's weight are the exponential average of the student model's weights. The models are a combination of a convolutional neural network (CNN) and a recurrent neural network (RNN) followed by an attention layer. The output of the RNN gives strong predictions while the output of the attention layer gives the weak predictions [2]. 
-
-Figure 1 shows an illustration of the baseline model. 
-
-| ![This is an image](./img/mean_teacher.png) |
-|:--:|
-| *Figure 1: baseline Mean-teacher model. Adapted from [2].* |
-
-Mixup is used as data augmentation technique for weak and synthetic data by mixing data in a batch (50% chance of applying it) [3].
-
-For more information regarding the baseline model, the reader is referred to [1] and [2].
-
+teacher model, having the same architecture. <br>
+The teacher's weight are the exponential average of the student model's weights. <br>
+The models are a combination of a convolutional neural network (CNN) and a recurrent neural network (RNN) followed by an attention layer. <br> 
+The output of the RNN gives strong predictions while the output of the attention layer gives the weak predictions [2]. <br>
+Mixup is used as data augmentation technique for weak and synthetic data by mixing data in a batch (50% chance of applying it) [3]. <br>
+For more information regarding the network, the reader is referred to [1] and [2].
 
 ### Training the Baseline System
 
 The baseline can be run from scratch using the following command:
 
-`python train_pretrained.py` <br>
+```bash
+python train_pretrained.py 
+```
+The default training config will use GPU 0.  
+You can however pass the argument `--gpu` to change this behaviour: <br>
 
-Note that the default training config will use GPU 0. You can however pass the argument `--gpu` to change this behaviour: <br>
-
-Please note that `python train_pretrained.py --gpus 0` will use the CPU. 
+⚠️ note that `python train_pretrained.py --gpus 0` will use the CPU. 
 **GPU indexes start from 1 in this script !**
 
 Tensorboard logs can be visualized using the command `tensorboard --logdir="path/to/exp_folder"`. 
@@ -140,8 +143,9 @@ Tensorboard logs can be visualized using the command `tensorboard --logdir="path
 Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models]. <br>
 The baseline can be tested on the development set of the dataset using the following command:
 
-`python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt`
-
+```bash
+python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt
+```
 
 ### Results:
 
@@ -161,7 +165,6 @@ Collar-based = event-based. More information about the metrics in the [DCASE Cha
 A more in depth description of the metrics is available in this page below. 
 
 ## Datasets Description
-
 
 
 ### Development dataset
