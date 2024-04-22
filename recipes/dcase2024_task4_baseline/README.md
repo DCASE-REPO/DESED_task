@@ -82,12 +82,18 @@ python extract_embeddings.py --output_dir ./embeddings"
 ```
 You can use an alternative output directory for the embeddings but then you need to change the corresponding path in 
 `confs/pretrained.yaml`.
+
 Then, you can train the baseline using the following command:
 ```bash
 python train_pretrained.py
 ```
-The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline`.
-Note that training can be resumed using the following command:
+The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline` and will use GPU 0.  
+You can however pass the argument `--gpu` to change the GPU used. <br>
+⚠️ note that `python train_pretrained.py --gpus 0` will use the CPU. 
+GPU indexes start from 1 in this script ! <br>
+
+Tensorboard logs can be visualized using the command `tensorboard --logdir="path/to/exp_folder"`. <br>
+Training can be resumed using the following command:
 
 ```bash
 python train_pretrained.py --resume_from_checkpoint /path/to/file.ckpt
@@ -116,36 +122,12 @@ We made some changes here in order to handle both DESED and MAESTRO which can ha
 In detail: 
 
 1. We map certain classes in MAESTRO to some DESED classes (but not vice-versa) when training on MAESTRO data.
-   1. See
+   1. See `local/classes_dict.py` and the function `process_tsvs` used in `train_pretrained.py`.
 2. When computing losses on MAESTRO and DESED we mask the output logits which corresponds to classes for which we do miss annotation for the current dataset.
-   1. This masking is also applied to the attention pooling layer see . 
+   1. This masking is also applied to the attention pooling layer see `desed_task/nnet/CRNN.py`. 
 3. Mixup is performed only within the same dataset (e.g. only within MAESTRO and DESED). 
 
 
-
-### Training the Baseline System
-
-The baseline can be run from scratch using the following command:
-
-```bash
-python train_pretrained.py 
-```
-The default training config will use GPU 0.  
-You can however pass the argument `--gpu` to change this behaviour: <br>
-
-⚠️ note that `python train_pretrained.py --gpus 0` will use the CPU. 
-**GPU indexes start from 1 in this script !**
-
-Tensorboard logs can be visualized using the command `tensorboard --logdir="path/to/exp_folder"`. 
-
-### Running Inference with the Pre-trained Baseline System
-
-Alternatively, we provide a [pre-trained checkpoint][zenodo_pretrained_models]. <br>
-The baseline can be tested on the development set of the dataset using the following command:
-
-```bash
-python train_pretrained.py --test_from_checkpoint /path/to/downloaded.ckpt
-```
 
 ### Results:
 
@@ -153,7 +135,7 @@ Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenari
 --------|---------------------|--------------------------------|-----------------------|--------------------------------|-------------------------|----------------|
 Dev-test|  **0.480 +- 0.003** |        **0.491 +- 0.003**      |   **0.765 +- 0.002**  |       **0.787 +- 0.007**       |      79.9 +- 0.8%      |  57.6 +- 0.7%  |
 
-**Energy Consumption** (GPU: NVIDIA A100 80Gb)
+**Energy Consumption** (GPU: NVIDIA A100 40Gb)
 
 Dataset |     Training       |      Dev-Test      |
 --------|--------------------|--------------------|
@@ -221,7 +203,7 @@ For more information regarding the dataset, please refer to the [DCASE Challenge
 ## Evaluation Metrics
 
 
-## Energy Consumption
+### Energy Consumption
 
 As in the last year, energy consumption (kWh) is going to be considered as additional metric to rank the submitted systems, therefore it is mandatory to report the energy consumption of the submitted models [11]. 
 
@@ -259,7 +241,7 @@ as a common reference. Because of this, it is important that the
 inference energy consumption figures for both submitted system 
 and baseline are computed on same hardware under similar loading. 
 
-## Multiply–accumulate (MAC) operations. 
+### Multiply–accumulate (MAC) operations. 
 
 This year we are introducing a new metric, complementary to the energy consumption metric. 
 We are considering the Multiply–accumulate operations (MACs) for 10 seconds of audio prediction, so to have information regarding the computational complexity of the network in terms of multiply-accumulate (MAC) operations.
