@@ -114,7 +114,6 @@ so the user need to have write permissions on the folder where your data are sav
 A different configuration YAML (for example `sed_2.yaml`) can be used in each run using `--conf_file="confs/sed_2.yaml` argument. <br>
 
 
-
 ### Baseline Novelties Short Description
 
 The baseline is the same as the pre-trained embedding [DCASE 2023 Task 4 baseline][https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2023_task4_baseline], based on a Mean-Teacher model [1]. <br>
@@ -126,20 +125,20 @@ In detail:
 2. When computing losses on MAESTRO and DESED we mask the output logits which corresponds to classes for which we do miss annotation for the current dataset.
    1. This masking is also applied to the attention pooling layer see `desed_task/nnet/CRNN.py`. 
 3. Mixup is performed only within the same dataset (e.g. only within MAESTRO and DESED). 
-
+4. To handle MAESTRO, which is long form, we perform overlap add at the logit level over sliding windows, see `local/sed_trained_pretrained.py`
 
 
 ### Results:
 
-Dataset | **PSDS-scenario1**  | **PSDS-scenario1 (sed score)** |  **PSDS-scenario2**   | **PSDS-scenario2 (sed score)** |
---------|---------------------|--------------------------------|-----------------------|--------------------------------|
-Dev-test|  **0.480 +- 0.003** |        **0.491 +- 0.003**      |   **0.765 +- 0.002**  |       **0.787 +- 0.007**       |
+Dataset | **PSDS-scenario1** | **PSDS-scenario1 (sed score)** | **mean pAUC**     | 
+--------|--------------------|--------------------------------|-------------------|
+Dev-test| **0.50 +- 0.01**   | **0.52 +- 0.007**              | **0.686 +- 0.07** | 
 
-**Energy Consumption** (GPU: NVIDIA A100 40Gb)
+**Energy Consumption** (GPU: NVIDIA A100 40Gb on a single DGX A100 machine)
 
-Dataset |     Training       |      Dev-Test      |
---------|--------------------|--------------------|
-**kWh** | **1.742 +- 0.416** | **0.020 +- 0.003** | 
+Dataset | Training           |      Dev-Test  |
+--------|--------------------|----------------|
+**kWh** | **1.542 +- 0.341** |  **0.133 +- 0.03** | 
 
 
 Collar-based = event-based. More information about the metrics in the [DCASE Challenge webpage][dcase_webpage].
@@ -150,15 +149,21 @@ A more in depth description of the metrics is available in this page below.
 
 A more accurate description of the datasets used is available in [official DCASE Challenge website page][dcase_webpage]. <br>
 This year we use two datasets which have different annotation procedures: 
-1. DESED (as in previous years)
-2. MAESTRO
-   1. this dataset
+1. [DESED](https://github.com/turpaultn/DESED) (as in previous years)
+   1. This dataset contains both synthetic strong annotated, strongly labeled (from Audioset), weakly labeled and totally unlabeled audio clips of 10 s. 
+2. [MAESTRO](https://arxiv.org/pdf/2302.14572.pdf)
+   1. this dataset contains soft-labeled strong annotations as obtained from crowdsourced annotators in various acoustic environments.
+      1. Note that the onset and offset information was obtained from aggregating multiple annotators opinions over different 10 second windows with 1 s stride.
+      2. Also, compared to DESED, this dataset is long form as audio clips are several minutes long. 
 
-As such, participants are challenged on how to explore. <br>
+Crucially these datasets have sound event classes that are partially shared (e.g. Speech), as well as some that are not shared. <br> 
+In general, since annotation is different, we do not know if some events that are not shared do or do not occur, hence the need to handle the "missing information". 
+Participants are challenged on how to explore how these two datasets can be combined in the best way during training, in order to get the best performance on both. <br>
 We already described how we handle such missing information in the baseline regarding loss computation, mixup and the attention 
 pooling layer. 
 
-
+⚠ domain identification is prohibited. The system must not leverage domain information in inference whether the audio comes 
+from MAESTRO or DESED. 
 
 ## Evaluation Metrics
 
@@ -205,7 +210,8 @@ and baseline are computed on same hardware under similar loading.
 
 As in the last year participants can submit multiply–accumulate operations (MACs) for 10 seconds of audio prediction, so to have information regarding the computational complexity of the network in terms of multiply-accumulate (MAC) operations.
 
-We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as the framework to compute the number of multiply-accumulate operations (MACs). For more information regarding how to install and use THOP, the reader is referred to https://github.com/Lyken17/pytorch-OpCounter. <br>
+We use [THOP: PyTorch-OpCounter][THOP: PyTorch-OpCounter] as the framework to compute the number of multiply-accumulate operations (MACs). <br>
+For more information regarding how to install and use THOP, the reader is referred to https://github.com/Lyken17/pytorch-OpCounter. <br>
 
 
 ## [sed_scores_eval][sed_scores_eval] based PSDS evaluation
