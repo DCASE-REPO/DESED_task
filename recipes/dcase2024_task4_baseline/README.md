@@ -26,8 +26,8 @@ following code (recommended to run line by line in case of problems).
 You can download all the training and development datasets using the script: `generate_dcase_task4_2023.py`.
 
 ### Usage:
-Run the command `python generate_dcase_task4_2024.py --basedir="../../data"` to download the dataset. 
-⚠️ the user can change basedir to the desired data folder. If you do so remember then to change the corresponding entries in `confs/pretrained.yaml"`)
+Run the command `python generate_dcase_task4_2024.py --basedir="../../data"` to download the dataset. <br> 
+⚠️ the user can change basedir to the desired data folder. If you do so remember then to change the corresponding entries in `confs/pretrained.yaml"`
 
 If the user already has downloaded parts of the dataset, it does not need to re-download the whole set. It is possible to download only part of the full dataset, if needed, using the options:
 
@@ -49,13 +49,14 @@ DESED and MAESTRO data. <br>
 
 This baseline is built upon the 2023 pre-trained embedding baseline. 
 It exploits the pre-trained model [BEATs](https://arxiv.org/abs/2212.09058), the current state-of-the-art on the [Audioset classification task](https://paperswithcode.com/sota/audio-classification-on-audioset). In addition it uses by default the Audioset strong-annotated data. <br>
-
+<br>
 🆕 We made some changes in the loss computation as well as in the attention pooling to make sure that the baseline can handle 
 now multiple datasets with potentially missing information.
 
-In the proposed baseline, the frame-level embeddings are used in a late-fusion fashion with the existing CRNN baseline classifier. The temporal resolution of the frame-level embeddings is matched to that of the CNN output using Adaptative Average Pooling. We then feed their frame-level concatenation to the RNN + MLP classifier. See 'desed_tasl/nnet/CRNN.py' for details. 
+In the proposed baseline, the frame-level embeddings are used in a late-fusion fashion with the existing CRNN baseline classifier. The temporal resolution of the frame-level embeddings is matched to that of the CNN output using Adaptative Average Pooling. We then feed their frame-level concatenation to the RNN + MLP classifier. See `desed_tasl/nnet/CRNN.py` for details. 
 
 See the configuration file: `./confs/pretrained.yaml`:
+
 ```yaml
 pretrained:
   pretrained:
@@ -68,7 +69,7 @@ net:
   embedding_size: 768
   embedding_type: frame
   aggregation_type: pool1d
- ```
+```
 
 The embeddings can be integrated using several aggregation methods : **frame** (method from 2022 year : taking the last state of an RNN fed with the embeddings sequence), **interpolate** (nearest-neighbour interpolation to adapt the temporal resolution) and **pool1d** (adaptative average pooling as described before).
 
@@ -85,7 +86,7 @@ Then, you can train the baseline using the following command:
 ```bash
 python train_pretrained.py
 ```
-
+The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline`.
 Note that training can be resumed using the following command:
 
 ```bash
@@ -98,18 +99,15 @@ In order to make a "fast" run, which could be useful for development and debuggi
 python train_pretrained.py --fast_dev_run
 ```
 
-
-⚠ All baselines scripts assume that your data is in `../../data` folder in `DESED_task` directory.
+⚠ all baselines scripts assume that your data is in `../../data` folder in `DESED_task` directory.
 If your data is in another folder, you will have to change the paths of your data in the corresponding `data` keys in YAML configuration file in `conf/sed.yaml`.
 Note that `train_sed.py` will create (at its very first run) additional folders with resampled data (from 44kHz to 16kHz)
 so the user need to have write permissions on the folder where your data are saved.
 
 🧪 Hyperparameters can be changed in the YAML file (e.g. lower or higher batch size). <br>
 A different configuration YAML (for example `sed_2.yaml`) can be used in each run using `--conf_file="confs/sed_2.yaml` argument. <br>
-The default directory for checkpoints and logging can be changed using `--log_dir="./exp/2021_baseline`.
 
 
-It uses very few batches and epochs so it won't give any meaningful result.
 
 ### Baseline Novelties Short Description
 
