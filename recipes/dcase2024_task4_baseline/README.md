@@ -116,7 +116,7 @@ A different configuration YAML (for example `sed_2.yaml`) can be used in each ru
 
 ### Baseline Novelties Short Description
 
-The baseline is the same as the pre-trained embedding [DCASE 2023 Task 4 baseline](https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2023_task4_baseline), based on a Mean-Teacher model [1]. <br>
+The baseline is the same as the pre-trained embedding [DCASE 2023 Task 4 baseline](https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2024_task4_baseline), based on a Mean-Teacher model [1]. <br>
 We made some changes here in order to handle both DESED and MAESTRO which can have partially missing labels (e.g. DESED events may not be annotated in MAESTRO and vice-versa). <br> 
 In detail: 
 
