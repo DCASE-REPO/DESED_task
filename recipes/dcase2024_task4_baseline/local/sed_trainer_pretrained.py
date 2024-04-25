@@ -156,12 +156,14 @@ class SEDTask4(pl.LightningModule):
         scheduler.step()
 
     def on_train_start(self) -> None:
-        os.makedirs(os.path.join(self.exp_dir, "training_codecarbon"), exist_ok=True)
+        os.makedirs(os.path.join(self.exp_dir, "codecarbon"), exist_ok=True)
         self.tracker_train = OfflineEmissionsTracker(
             "DCASE Task 4 SED TRAINING",
-            output_dir=os.path.join(self.exp_dir, "training_codecarbon"),
+            output_dir=os.path.join(self.exp_dir, "codecarbon"),
+            output_file="emissions_baseline_training.csv",
             log_level="warning",
             country_iso_code="FRA",
+            gpu_ids=[torch.cuda.current_device()]
         )
         self.tracker_train.start()
 
@@ -855,13 +857,6 @@ class SEDTask4(pl.LightningModule):
             )
 
             self.tracker_eval.stop()
-            eval_kwh = self.tracker_eval._total_energy.kWh
-            results = {"eval/tot_energy_kWh": torch.tensor(float(eval_kwh))}
-            with open(
-                os.path.join(self.exp_dir, "evaluation_codecarbon", "eval_tot_kwh.txt"),
-                "w",
-            ) as f:
-                f.write(str(eval_kwh))
         else:
             # calculate the metrics
             # psds_eval
@@ -1107,13 +1102,6 @@ class SEDTask4(pl.LightningModule):
                 "test/teacher/segment_mpauc/sed_scores_eval": segment_mpauc_teacher,
             }
             self.tracker_devtest.stop()
-            eval_kwh = self.tracker_devtest._total_energy.kWh
-            results.update({"test/tot_energy_kWh": torch.tensor(float(eval_kwh))})
-            with open(
-                os.path.join(self.exp_dir, "devtest_codecarbon", "devtest_tot_kwh.txt"),
-                "w",
-            ) as f:
-                f.write(str(eval_kwh))
 
         if self.logger is not None:
             self.logger.log_metrics(results)
@@ -1161,6 +1149,9 @@ class SEDTask4(pl.LightningModule):
         self.logger.log_metrics(
             {"/train/tot_energy_kWh": torch.tensor(float(training_kwh))}
         )
+
+        os.makedirs(os.path.join(self.exp_dir,
+                                 "training_codecarbon"), exist_ok=True)
         with open(
             os.path.join(self.exp_dir, "training_codecarbon", "training_tot_kwh.txt"),
             "w",
@@ -1170,23 +1161,29 @@ class SEDTask4(pl.LightningModule):
     def on_test_start(self) -> None:
         if self.evaluation:
             os.makedirs(
-                os.path.join(self.exp_dir, "evaluation_codecarbon"), exist_ok=True
+                os.path.join(self.exp_dir, "codecarbon"), exist_ok=True
             )
             self.tracker_eval = OfflineEmissionsTracker(
                 "DCASE Task 4 SED EVALUATION",
-                output_dir=os.path.join(self.exp_dir, "evaluation_codecarbon"),
+                output_dir=os.path.join(self.exp_dir, "codecarbon"),
+                output_file="emissions_basleline_eval.csv",
                 log_level="warning",
                 country_iso_code="FRA",
+                gpu_ids=[torch.cuda.current_device()]
             )
             self.tracker_eval.start()
         else:
-            os.makedirs(os.path.join(self.exp_dir, "devtest_codecarbon"), exist_ok=True)
+            os.makedirs(os.path.join(self.exp_dir, "codecarbon"), exist_ok=True)
             self.tracker_devtest = OfflineEmissionsTracker(
                 "DCASE Task 4 SED DEVTEST",
-                output_dir=os.path.join(self.exp_dir, "devtest_codecarbon"),
+
+                output_dir=os.path.join(self.exp_dir, "codecarbon"),
+                output_file="emissions_baseline_test.csv",
                 log_level="warning",
                 country_iso_code="FRA",
+                gpu_ids=[torch.cuda.current_device()]
             )
+
             self.tracker_devtest.start()
 
 
