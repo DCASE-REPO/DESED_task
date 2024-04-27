@@ -537,7 +537,10 @@ def single_run(
         test_state_dict = torch.load(best_path)["state_dict"]
 
     desed_training.load_state_dict(test_state_dict)
-    trainer.test(desed_training)
+    results = trainer.test(desed_training)
+
+    return results["test/teacher/psds1/sed_scores_eval"] + \
+           results["test/teacher/segment_mpauc/sed_scores_eval"]
 
 
 def prepare_run(argv=None):
