@@ -28,7 +28,12 @@ class CRNN(nn.Module):
         embedding_type="global",
         frame_emb_enc_dim=512,
         aggregation_type="global",
+        specaugm_t_p=0.2,
+        specaugm_t_l=5,
+        specaugm_f_p=0.2,
+        specaugm_f_l=10,
         dropstep_recurrent=0.0,
+        dropstep_recurrent_len=5,
         **kwargs,
     ):
         """
@@ -60,6 +65,12 @@ class CRNN(nn.Module):
         self.aggregation_type = aggregation_type
         self.nclass = nclass
         self.dropstep_recurrent = dropstep_recurrent
+        self.dropstep_recurrent_len = dropstep_recurrent_len
+
+        self.specaugm_t_p = specaugm_t_p
+        self.specaugm_t_l = specaugm_t_l
+        self.specaugm_f_p = specaugm_f_p
+        self.specaugm_f_l = specaugm_f_l
 
         n_in_cnn = n_in_channel
 
@@ -188,7 +199,20 @@ class CRNN(nn.Module):
                 x, pad_mask, self.dense, dense_softmax, classes_mask
             )
 
+    def apply_specaugment(self, x):
+
+        if self.training:
+
+            timemask = torchaudio.transforms.TimeMasking(self.specaugm_t_l, True, self.specaugm_t_p)
+            freqmask = torchaudio.transforms.TimeMasking(self.specaugm_f_l, True, self.specaugm_f_p) # use time masking also here
+            x = timemask(freqmask(x.transpose(1, -1)).transpose(1, -1))
+
+        return x
+
+
     def forward(self, x, pad_mask=None, embeddings=None, classes_mask=None):
+
+        x = self.apply_specaugment(x)
         x = x.transpose(1, 2).unsqueeze(1)
 
         # input size : (batch_size, n_channels, n_frames, n_freq)
@@ -251,16 +275,17 @@ class CRNN(nn.Module):
                 raise NotImplementedError
 
         if self.use_embeddings:
-            if self.dropstep_recurrent:
-                dropstep = torchaudio.transforms.TimeMasking(2, True, self.dropstep_recurrent)
-                x = dropstep(x.transpose(1, 2)).transpose(1, 2)
+            if self.dropstep_recurrent and self.training:
+                dropstep = torchaudio.transforms.TimeMasking(self.dropstep_recurrent_len, True, self.dropstep_recurrent)
+                x = dropstep(x.transpose(1, -1)).transpose(1, -1)
                 reshape_emb = dropstep(reshape_emb.transpose(1, -1)).transpose(1, -1)
-            x = self.cat_tf(torch.cat((x, reshape_emb), -1))
+            x = self.cat_tf(self.dropout(torch.cat((x, reshape_emb), -1)))
         else:
-            if self.dropstep_recurrent:
-                dropstep = torchaudio.transforms.TimeMasking(2, True,
+            if self.dropstep_recurrent and self.training:
+                dropstep = torchaudio.transforms.TimeMasking(self.dropstep_recurrent_len, True,
                                                              self.dropstep_recurrent)
                 x = dropstep(x.transpose(1, 2)).transpose(1, 2)
+                x = self.dropout(x)
 
         x = self.rnn(x)
         x = self.dropout(x)
