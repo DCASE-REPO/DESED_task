@@ -42,8 +42,7 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
     for dset in dsets:
         print(f"Resampling {dset} to 16 kHz.")
         computed = resample_folder(
-            config_data[dset + "_44k"], config_data[dset], target_fs=config_data["fs"]
-        )
+            config_data[dset + "_44k"], config_data[dset], target_fs=config_data["fs"])
 
     if not evaluation:
         for base_set in ["synth_val", "test"]:
@@ -51,7 +50,6 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
                 generate_tsv_wav_durations(
                     config_data[base_set + "_folder"], config_data[base_set + "_dur"]
                 )
-
 
 def get_encoder(config):
     desed_encoder = ManyHotEncoder(
@@ -537,7 +535,7 @@ def single_run(
         test_state_dict = torch.load(best_path)["state_dict"]
 
     desed_training.load_state_dict(test_state_dict)
-    results = trainer.test(desed_training)
+    results = trainer.test(desed_training)[0]
 
     return results["test/teacher/psds1/sed_scores_eval"] + \
            results["test/teacher/segment_mpauc/sed_scores_eval"]
@@ -581,7 +579,6 @@ def prepare_run(argv=None):
     )
 
     args = parser.parse_args(argv)
-
     with open(args.conf_file, "r") as f:
         configs = yaml.safe_load(f)
 
@@ -614,7 +611,6 @@ def prepare_run(argv=None):
 if __name__ == "__main__":
     # prepare run
     configs, args, test_model_state_dict, evaluation = prepare_run()
-
     # launch run
     single_run(
         configs,
