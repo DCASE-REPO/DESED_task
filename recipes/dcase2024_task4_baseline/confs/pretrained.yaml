@@ -107,3 +107,4 @@ net:
   specaugm_t_l: 5
   specaugm_f_p: 0.2
   specaugm_f_l: 10
+  median_filter: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]

@@ -48,13 +48,13 @@ def read_maestro_annotation(annotation_f):
             if start == "onset":
                 continue
             annotation.append(
-            {
-                "onset": float(start),
-                "offset": float(stop),
-                "event_label": event,
-                "confidence": 1.0,
-            }
-        )
+                {
+                    "onset": float(start),
+                    "offset": float(stop),
+                    "event_label": event,
+                    "confidence": 1.0,
+                }
+            )
     return annotation
 
 
@@ -73,8 +73,8 @@ def get_current_annotation(annotation, start, end):
         if ann.overlaps(start, end):
             c_segment = ann.data
             # make it relative
-            onset = max(0.0, c_segment["onset"]-start)
-            offset = min(end - start, c_segment["offset"]-start)
+            onset = max(0.0, c_segment["onset"] - start)
+            offset = min(end - start, c_segment["offset"] - start)
             c_segment = {
                 "onset": onset,
                 "offset": offset,
@@ -104,8 +104,7 @@ def split_maestro_single_file(output_audio_folder, audiofile, annotation):
         for line in c_annotation:
             new_annotation.append(
                 {
-                    "filename": filename +
-                                Path(audiofile).suffix,
+                    "filename": filename + Path(audiofile).suffix,
                     "onset": line["onset"],
                     "offset": line["offset"],
                     "event_label": line["event_label"],
@@ -172,7 +171,9 @@ def split_maestro_real(download_folder, out_audio_folder, out_meta_folder):
             sep="\t",
             index=False,
         )
-    (Path(download_folder) / "development_metadata.csv").rename(Path(out_meta_folder) / "maestro_real_durations.tsv")
+    (Path(download_folder) / "development_metadata.csv").rename(
+        Path(out_meta_folder) / "maestro_real_durations.tsv"
+    )
 
 
 def split_maestro_synth(download_folder, out_audio_folder, out_meta_folder):
@@ -252,10 +253,10 @@ def download_and_prepare_maestro(dcase_dataset_folder):
     )
     dev_meta_path = os.path.join(dcase_dataset_folder, "maestro_dev")
     help_extract(dev_meta_path, url_dev_meta, "development_audio.zip")
-    url_dev_audio_durations = (
-        "https://raw.githubusercontent.com/marmoi/dcase2023_task4b_baseline/main/metadata/development_metadata.csv"
+    url_dev_audio_durations = "https://raw.githubusercontent.com/marmoi/dcase2023_task4b_baseline/main/metadata/development_metadata.csv"
+    desed.utils.download_file_from_url(
+        url_dev_audio_durations, os.path.join(dev_meta_path, "development_metadata.csv")
     )
-    desed.utils.download_file_from_url(url_dev_audio_durations, os.path.join(dev_meta_path, "development_metadata.csv"))
 
 
 def get_maestro(dcase_dataset_folder):
@@ -279,6 +280,10 @@ def get_maestro(dcase_dataset_folder):
         os.path.join(dcase_dataset_folder, "metadata"),
     )
 
+
 if __name__ == "__main__":
-    split_maestro_real("/media/samco/Data1/MAESTRO/maestro_dev/", "/media/samco/Data1/MAESTRO_split/audio",
-                       "/media/samco/Data1/MAESTRO_split/metadata")
+    split_maestro_real(
+        "/media/samco/Data1/MAESTRO/maestro_dev/",
+        "/media/samco/Data1/MAESTRO_split/audio",
+        "/media/samco/Data1/MAESTRO_split/metadata",
+    )

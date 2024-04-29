@@ -9,9 +9,10 @@ import pandas as pd
 import torch
 import torchaudio
 import yaml
+from tqdm import tqdm
+
 from desed_task.dataio.datasets import read_audio
 from desed_task.utils.download import download_from_url
-from tqdm import tqdm
 
 parser = argparse.ArgumentParser("Extract Embeddings with Audioset Pretrained Models")
 
@@ -219,15 +220,14 @@ if __name__ == "__main__":
         config["data"]["test_folder"], feats_pipeline=feature_extraction
     )
 
-
     # now extract features for MAESTRO too
     maestro_real_dev = WavDataset(
-        config["data"]["real_maestro_val_folder"],
-        feats_pipeline=feature_extraction)
+        config["data"]["real_maestro_val_folder"], feats_pipeline=feature_extraction
+    )
 
     maestro_real_train = WavDataset(
-        config["data"]["real_maestro_train_folder"],
-        feats_pipeline=feature_extraction)
+        config["data"]["real_maestro_train_folder"], feats_pipeline=feature_extraction
+    )
 
     for k, elem in {
         "synth_train": synth_set,
@@ -239,7 +239,6 @@ if __name__ == "__main__":
         "devtest": devtest_dataset,
         "maestro_real_dev": maestro_real_dev,
         "maestro_real_train": maestro_real_train,
-
     }.items():
         # for k, elem in {"strong_train": strong_set}.items():
         # for k, elem in {"devtest": devtest_dataset}.items():

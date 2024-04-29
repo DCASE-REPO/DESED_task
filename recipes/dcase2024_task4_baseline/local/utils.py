@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -8,10 +9,11 @@ import pandas as pd
 import scipy
 import soundfile
 import torch
-from desed_task.evaluation.evaluation_measures import compute_sed_eval_metrics
 from sed_scores_eval.base_modules.scores import create_score_dataframe
 from thop import clever_format, profile
-from copy import deepcopy
+
+from desed_task.evaluation.evaluation_measures import compute_sed_eval_metrics
+
 
 def process_tsvs(tsv, alias_map=None):
     if alias_map is None:
@@ -34,7 +36,7 @@ def batched_decode_preds(
     filenames,
     encoder,
     thresholds=[0.5],
-    median_filter=7,
+    median_filter=None,
     pad_indx=None,
 ):
     """Decode a batch of predictions to dataframes. Each threshold gives a different dataframe and stored in a
@@ -71,7 +73,8 @@ def batched_decode_preds(
             timestamps=encoder._frame_to_time(np.arange(len(c_scores) + 1)),
             event_classes=encoder.labels,
         )
-        c_scores = scipy.ndimage.filters.median_filter(c_scores, (median_filter, 1))
+        if median_filter is not None:
+            c_scores = median_filter(c_scores)
         scores_postprocessed[audio_id] = create_score_dataframe(
             scores=c_scores,
             timestamps=encoder._frame_to_time(np.arange(len(c_scores) + 1)),
