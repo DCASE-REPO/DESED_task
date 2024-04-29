@@ -117,4 +117,4 @@ class TorchScaler(torch.nn.Module):
                     - torch.amin(tensor, dim=self.dims, keepdim=True)
                     + self.eps
                 )
-                return out*2 - 1 # between -1 and 1
+                return out * 2 - 1  # between -1 and 1

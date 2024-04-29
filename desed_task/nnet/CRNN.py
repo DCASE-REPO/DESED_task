@@ -149,7 +149,9 @@ class CRNN(nn.Module):
             else:
                 self.cat_tf = torch.nn.Linear(2 * nb_in, nb_in)
 
-    def _get_logits_one_head(self, x, pad_mask, dense, dense_softmax, classes_mask=None):
+    def _get_logits_one_head(
+        self, x, pad_mask, dense, dense_softmax, classes_mask=None
+    ):
         strong = dense(x)  # [bs, frames, nclass]
         strong = self.sigmoid(strong)
         if classes_mask is not None:
@@ -183,7 +185,9 @@ class CRNN(nn.Module):
             # maestro_synth, maestro_real and desed.
             # not sure which approach is better. We must try.
             for indx, c_classes in enumerate(self.nclass):
-                dense_softmax = self.dense_softmax[indx] if hasattr(self, "dense_softmax") else None
+                dense_softmax = (
+                    self.dense_softmax[indx] if hasattr(self, "dense_softmax") else None
+                )
                 c_strong, c_weak = self._get_logits_one_head(
                     x, pad_mask, self.dense[indx], dense_softmax, classes_mask
                 )
@@ -193,8 +197,9 @@ class CRNN(nn.Module):
             # concatenate over class dimension
             return torch.cat(out_strong, 1), torch.cat(out_weak, 1)
         else:
-            dense_softmax = self.dense_softmax if hasattr(self,
-                                                                "dense_softmax") else None
+            dense_softmax = (
+                self.dense_softmax if hasattr(self, "dense_softmax") else None
+            )
             return self._get_logits_one_head(
                 x, pad_mask, self.dense, dense_softmax, classes_mask
             )
@@ -203,12 +208,15 @@ class CRNN(nn.Module):
 
         if self.training:
 
-            timemask = torchaudio.transforms.TimeMasking(self.specaugm_t_l, True, self.specaugm_t_p)
-            freqmask = torchaudio.transforms.TimeMasking(self.specaugm_f_l, True, self.specaugm_f_p) # use time masking also here
+            timemask = torchaudio.transforms.TimeMasking(
+                self.specaugm_t_l, True, self.specaugm_t_p
+            )
+            freqmask = torchaudio.transforms.TimeMasking(
+                self.specaugm_f_l, True, self.specaugm_f_p
+            )  # use time masking also here
             x = timemask(freqmask(x.transpose(1, -1)).transpose(1, -1))
 
         return x
-
 
     def forward(self, x, pad_mask=None, embeddings=None, classes_mask=None):
 
@@ -255,7 +263,9 @@ class CRNN(nn.Module):
                 # as an encoder and we use the last state
                 last, _ = self.frame_embs_encoder(embeddings.transpose(1, 2))
                 embeddings = last[:, -1]
-                reshape_emb = self.shrink_emb(embeddings).unsqueeze(1).repeat(1, x.shape[1], 1)
+                reshape_emb = (
+                    self.shrink_emb(embeddings).unsqueeze(1).repeat(1, x.shape[1], 1)
+                )
 
             elif self.aggregation_type == "interpolate":
                 output_shape = (embeddings.shape[1], x.shape[1])
@@ -276,14 +286,17 @@ class CRNN(nn.Module):
 
         if self.use_embeddings:
             if self.dropstep_recurrent and self.training:
-                dropstep = torchaudio.transforms.TimeMasking(self.dropstep_recurrent_len, True, self.dropstep_recurrent)
+                dropstep = torchaudio.transforms.TimeMasking(
+                    self.dropstep_recurrent_len, True, self.dropstep_recurrent
+                )
                 x = dropstep(x.transpose(1, -1)).transpose(1, -1)
                 reshape_emb = dropstep(reshape_emb.transpose(1, -1)).transpose(1, -1)
             x = self.cat_tf(self.dropout(torch.cat((x, reshape_emb), -1)))
         else:
             if self.dropstep_recurrent and self.training:
-                dropstep = torchaudio.transforms.TimeMasking(self.dropstep_recurrent_len, True,
-                                                             self.dropstep_recurrent)
+                dropstep = torchaudio.transforms.TimeMasking(
+                    self.dropstep_recurrent_len, True, self.dropstep_recurrent
+                )
                 x = dropstep(x.transpose(1, 2)).transpose(1, 2)
                 x = self.dropout(x)
 
