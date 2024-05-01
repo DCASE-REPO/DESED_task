@@ -49,7 +49,8 @@ def prepare_run(argv=None):
 
     test_model_state_dict = None
     if test_from_checkpoint is not None:
-        checkpoint = torch.load(test_from_checkpoint)
+        checkpoint = torch.load(test_from_checkpoint,
+                                map_location="cpu")
         configs_ckpt = checkpoint["hyper_parameters"]
         configs_ckpt["data"] = configs["data"]
         print(
@@ -93,8 +94,20 @@ def sample_params_train(configs, trial: optuna.Trial):
     return configs
 
 
+def sample_params_eval(configs, trial: optuna.Trial):
+
+    new_median_filt = []
+    for cls_indx in range(len(configs["net"]["median_filter"])):
+        new_median_filt.append(trial.suggest_int(
+        f"median_filt_cls_{cls_indx}", low=1, high=20, step=2))
+    configs["net"]["median_filter"] = new_median_filt
+
+    return config
+
+
 def objective(
-    trial: optuna.Trial, gpu_id: int, config: dict, optuna_output_dir: str, fast_dev_run
+    trial: optuna.Trial, gpu_id: int, config: dict, optuna_output_dir: str, fast_dev_run,
+test_model_state_dict
 ):
 
     with Path(optuna_output_dir, f"trial-{trial.number}") as output_dir:
@@ -105,7 +118,10 @@ def objective(
             # Set up some configs based on the current trial
 
             # Sample parameters for this trial
-            config = sample_params_train(config, trial)
+            if test_model_state_dict is not None:
+                config = sample_params_eval(config, trial)
+            else:
+                config = sample_params_train(config, trial)
 
             # Run Diarization
             start_time2 = time.time()
@@ -138,7 +154,7 @@ if __name__ == "__main__":
 
     def optimize(gpu_id):
         worker_func = lambda trial: objective(
-            trial, gpu_id, deepcopy(config), args.log_dir, args.fast_dev_run
+            trial, gpu_id, deepcopy(config), args.log_dir, args.fast_dev_run, test_model_state_dict
         )
 
         study = optuna.create_study(

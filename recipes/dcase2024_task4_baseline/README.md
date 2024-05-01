@@ -114,6 +114,29 @@ so the user need to have write permissions on the folder where your data are sav
 A different configuration YAML (for example `sed_2.yaml`) can be used in each run using `--conf_file="confs/sed_2.yaml` argument. <br>
 
 
+## (New !) 🧪🧪 Baseline System Hyper-Parameter Tuning via Optuna
+
+We provide an [Optuna](https://optuna.readthedocs.io/en/stable/index.html) based script for hyper-parameters tuning. 
+You can launch the hyper-parameter tuning script using: 
+
+```bash
+python optuna_pretrained.py --log_dir MY_TUNING_EXP --n_jobs X  
+```
+where MY_TUNING_EXP is your output folder which will contain all the runs for the tuning experiment (Optuna supports resuming the experiment which is pretty neat). <br>
+You can look at `MY_TUNING_EXP/optuna-sed.log` to see the full log for the hyperparameter tuning experiment and which is the best run with the best 
+configuration up to now. <br>
+
+⚠️ n_jobs should be set equal to the GPUs you have set with `export CUDA_VISIBLE_DEVICES`. <br>
+Note that if the GPUs are not in **exclusive compute mode** (nvidia-smi -c 2) the script will launch all the jobs on the first GPU only !!  
+
+
+The script tunes first all the parameters except the median filter lengths. <br>
+To tune this latter, take the best configuration as found in the previous tuning and then launch this one, which only tuned the 
+median filter lengths on the dev-test set. 
+```bash
+python optuna_pretrained.py --log_dir MY_TUNING_EXP_4_MEDIAN --n_jobs X  --test_from_checkpoint best_checkpoint.ckpt --confs path/to/best.yaml
+```
+
 ### Baseline Novelties Short Description
 
 The baseline is the same as the pre-trained embedding [DCASE 2023 Task 4 baseline](https://github.com/DCASE-REPO/DESED_task/tree/master/recipes/dcase2024_task4_baseline), based on a Mean-Teacher model [1]. <br>
@@ -126,6 +149,8 @@ In detail:
    1. This masking is also applied to the attention pooling layer see `desed_task/nnet/CRNN.py`. 
 3. Mixup is performed only within the same dataset (e.g. only within MAESTRO and DESED). 
 4. To handle MAESTRO, which is long form, we perform overlap add at the logit level over sliding windows, see `local/sed_trained_pretrained.py`
+5. We use a per-class median filter
+6. We extensively re-tuned the hyper-parameters using Optuna. 
 
 
 ### Results:

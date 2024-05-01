@@ -439,7 +439,8 @@ def single_run(
             mask_events_other_than=mask_events_maestro_real,
         )
 
-        strong_full_set = torch.utils.data.ConcatDataset([strong_set, synth_set])
+        # oversampled in order to not making the training epoch too short.
+        strong_full_set = torch.utils.data.ConcatDataset([strong_set]*(len(synth_set) // len(strong_set) + 1))
         tot_train_data = [
             maestro_real_train,
             synth_set,
