@@ -585,6 +585,7 @@ def single_run(
         test_state_dict = torch.load(best_path)["state_dict"]
 
     desed_training.load_state_dict(test_state_dict)
+
     results = trainer.test(desed_training)[0]
 
     return (

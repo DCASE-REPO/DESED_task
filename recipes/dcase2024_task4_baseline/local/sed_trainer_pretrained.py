@@ -69,6 +69,7 @@ class SEDTask4(pl.LightningModule):
         self.sed_student = sed_student
         self.median_filter = ClassWiseMedianFilter(self.hparams["net"]["median_filter"])
 
+
         if self.hparams["pretrained"]["e2e"]:
             self.pretrained_model = pretrained_model
         # else we use pre-computed embeddings from hdf5

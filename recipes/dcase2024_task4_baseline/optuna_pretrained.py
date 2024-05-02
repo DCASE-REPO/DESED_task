@@ -87,6 +87,12 @@ def sample_params_train(configs, trial: optuna.Trial):
     configs["net"]["n_RNN_cell"] = trial.suggest_categorical(
         "n_RNN_cell", [128, 192, 256, 64]
     )
+
+    configs["net"]["batch_size"] = [12, trial.suggest_categorical(
+        "bsz_synth", [6, 8, 12]),
+                                    trial.suggest_categorical(
+                                        "bsz_strong", [2, 4, 6, 8, 12]), 12, 24]
+
     configs["net"]["rnn_layers"] = trial.suggest_categorical("rnn_layers", [1, 2, 3])
     configs["training"]["n_epochs_warmup"] = trial.suggest_categorical(
         "n_epochs_warmup", [50, 100, 25, 150]
@@ -100,9 +106,11 @@ def sample_params_eval(configs, trial: optuna.Trial):
     for cls_indx in range(len(configs["net"]["median_filter"])):
         new_median_filt.append(trial.suggest_int(
         f"median_filt_cls_{cls_indx}", low=1, high=20, step=2))
+
     configs["net"]["median_filter"] = new_median_filt
 
-    return config
+
+    return configs
 
 
 def objective(
