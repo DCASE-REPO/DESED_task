@@ -177,11 +177,13 @@ if __name__ == "__main__":
         # use beats as additional feature
         from local.beats.BEATs import BEATsModel
 
-        download_from_url(
-            "https://valle.blob.core.windows.net/share/BEATs/BEATs_iter3_plus_AS2M.pt?sv=2021-10-04&st=2024-04-04T07%3A15%3A11Z&se=2034-04-05T07%3A15%3A00Z&sr=c&sp=rl&sig=xH3MbkMqHPLBI5gN%2Frt9H4J8Ai%2BtUnkduo7KGpkLbdA%3D",
-            "./pretrained_models/BEATS_iter3_plus_AS2M.pt",
-        )
-        pretrained = BEATsModel(cfg_path="./pretrained_models/BEATS_iter3_plus_AS2M.pt")
+        try:
+            pretrained = BEATsModel(cfg_path="./pretrained_models/BEATS_iter3_plus_AS2M.pt")
+        except:
+            raise RuntimeError(f"Unfortunately automatic download of BEATs model is not longer possible, "
+                               f"you need to download it manually from https://github.com/microsoft/unilm/blob/master/beats/README.md.\n"
+                               f"We use BEATs_iter3+ AS2M. Please download it and copy it into a new folder called pretrained_models as: {os.getcwd()}/pretrained_models.")
+
     else:
         raise NotImplementedError
 
