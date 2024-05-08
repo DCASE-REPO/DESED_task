@@ -66,20 +66,37 @@ class ExponentialWarmup(BaseScheduler):
         exponent: float, the exponent to be used.
     """
 
-    def __init__(self, optimizer, max_lr, rampup_length, exponent=-5.0):
+    def __init__(self, optimizer,
+                 max_lr,
+                 rampup_length,
+                 exponent=-5.0,
+                 start_annealing=None,
+                 max_steps=None,
+                 min_lr=1e-8):
         super().__init__(optimizer)
         self.rampup_len = rampup_length
         self.max_lr = max_lr
         self.step_num = 1
         self.exponent = exponent
+        self.start_annealing = start_annealing
+        self.max_steps = max_steps
+        self.min_lr = min_lr
 
     def _get_scaling_factor(self):
         if self.rampup_len == 0:
             return 1.0
         else:
-            current = np.clip(self.step_num, 0.0, self.rampup_len)
-            phase = 1.0 - current / self.rampup_len
-            return float(np.exp(self.exponent * phase * phase))
+            if self.start_annealing is None:
+                current = np.clip(self.step_num, 0.0, self.rampup_len)
+                phase = 1.0 - current / self.rampup_len
+                return float(np.exp(self.exponent * phase * phase))
+            else:
+                if self.step_num >= self.start_annealing:
+                    return min(self.min_lr/self.max_lr, np.cos(self.step_num*np.pi/(2*self.max_steps)))
+                else:
+                    current = np.clip(self.step_num, 0.0, self.rampup_len)
+                    phase = 1.0 - current / self.rampup_len
+                    return float(np.exp(self.exponent * phase * phase))
 
     def _get_lr(self):
         return self.max_lr * self._get_scaling_factor()
