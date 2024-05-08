@@ -85,7 +85,7 @@ feats:
   f_max: 8000
 net:
   dropout: 0.2
-  rnn_layers: 2
+  rnn_layers: 1
   n_in_channel: 1
   nclass: 27
   attention: True
