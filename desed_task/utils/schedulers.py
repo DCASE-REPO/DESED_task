@@ -92,7 +92,9 @@ class ExponentialWarmup(BaseScheduler):
                 return float(np.exp(self.exponent * phase * phase))
             else:
                 if self.step_num >= self.start_annealing:
-                    return min(self.min_lr/self.max_lr, np.cos(self.step_num*np.pi/(2*self.max_steps)))
+                    one_steps = self.step_num - self.start_annealing
+                    zero_steps = self.max_steps - self.start_annealing
+                    return max(self.min_lr/self.max_lr, np.cos(one_steps*np.pi/(2*zero_steps)))
                 else:
                     current = np.clip(self.step_num, 0.0, self.rampup_len)
                     phase = 1.0 - current / self.rampup_len
