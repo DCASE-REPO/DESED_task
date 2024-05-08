@@ -470,8 +470,11 @@ def single_run(
         opt = torch.optim.Adam(parameters, config["opt"]["lr"], betas=(0.9, 0.999))
 
         exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
+        tot_steps = config["training"]["n_epochs"] * epoch_len
+        decay_steps = config["training"]["epoch_decay"] * epoch_len
         exp_scheduler = {
-            "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps),
+            "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps,
+                                           start_annealing=decay_steps, max_steps=tot_steps),
             "interval": "step",
         }
         logger = TensorBoardLogger(

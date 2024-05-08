@@ -402,7 +402,7 @@ class SEDTask4(pl.LightningModule):
         weight = (
             self.hparams["training"]["const_max"]
             * self.scheduler["scheduler"]._get_scaling_factor()
-        )
+        ) if self.current_epoch < self.hparams["training"]["epoch_decay"] else self.hparams["training"]["const_max"]
         # should we apply the valid mask for classes also here ?
 
         strong_self_sup_loss = self.selfsup_loss(
