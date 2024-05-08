@@ -9,12 +9,12 @@ training:
   batch_size_val: 24
   const_max: 2 # max weight used for self supervised loss
   n_epochs_warmup: 50 # num epochs used for exponential warmup
+  epoch_decay: 100
   num_workers: 6 # change according to your cpu
-  n_epochs: 200 # max num epochs
+  n_epochs: 400 # max num epochs
   early_stop_patience: 200 # Same as number of epochs by default, so no early stopping used
   accumulate_batches: 1
-  gradient_clip: 0. # 0 no gradient clipping
-  median_window: 7 # length of median filter used to smooth prediction in inference (nb of output frames)
+  gradient_clip: 5.0 # 0 no gradient clipping
   val_thresholds: [0.5] # thresholds used to compute f1 intersection in validation.
   n_test_thresholds: 50 # number of thresholds used to compute psds in test
   ema_factor: 0.999 # ema factor for mean teacher
@@ -84,12 +84,12 @@ feats:
   f_min: 0
   f_max: 8000
 net:
-  dropout: 0.5
+  dropout: 0.2
   rnn_layers: 2
   n_in_channel: 1
   nclass: 27
   attention: True
-  n_RNN_cell: 256
+  n_RNN_cell: 192
   activation: glu
   rnn_type: BGRU
   kernel_size: [3, 3, 3, 3, 3, 3, 3]
@@ -97,14 +97,14 @@ net:
   stride: [1, 1, 1, 1, 1, 1, 1]
   nb_filters: [ 16, 32, 64, 128, 128, 128, 128 ]
   pooling: [ [ 2, 2 ], [ 2, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ], [ 1, 2 ] ]
-  dropstep_recurrent: 0.2
-  dropstep_recurrent_len: 5
+  dropstep_recurrent: 0.3
+  dropstep_recurrent_len: 16
   use_embeddings: True
   embedding_size: 768
   embedding_type: frame
   aggregation_type: pool1d
-  specaugm_t_p: 0.2
+  specaugm_t_p: 0.0
   specaugm_t_l: 5
-  specaugm_f_p: 0.2
+  specaugm_f_p: 0.0
   specaugm_f_l: 10
-  median_filter: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  median_filter: [3, 9, 9, 5, 5, 5, 9, 7, 11, 9, 7, 3, 9, 13, 7, 1, 13, 3, 13, 7, 5, 5, 1, 13, 17, 13, 15]
