@@ -584,10 +584,8 @@ def single_run(
 
     results = trainer.test(desed_training)[0]
 
-    return (
-        results["test/teacher/psds1/sed_scores_eval"]
-        + results["test/teacher/segment_mpauc/sed_scores_eval"]
-    )
+    return (results["test/teacher/psds1/sed_scores_eval"]
+        + results["test/teacher/segment_mpauc/sed_scores_eval"])
 
 
 def prepare_run(argv=None):

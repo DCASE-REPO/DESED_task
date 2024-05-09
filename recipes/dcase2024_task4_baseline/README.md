@@ -157,13 +157,13 @@ In detail:
 
 Dataset | **PSDS-scenario1** | **PSDS-scenario1 (sed score)** | **mean pAUC**     | 
 --------|--------------------|--------------------------------|-------------------|
-Dev-test| **0.50 +- 0.01**   | **0.52 +- 0.007**              | **0.637 +- 0.04** | 
+Dev-test| **0.48 +- 0.003**  | **0.49 +- 0.004**              | **0.69 +- 0.006** | 
 
 **Energy Consumption** (GPU: NVIDIA A100 40Gb on a single DGX A100 machine)
 
-Dataset | Training           |      Dev-Test  |
---------|--------------------|----------------|
-**kWh** | **1.241 +- 0.141** |  **0.133 +- 0.03** | 
+Dataset | Training           | Dev-Test          |
+--------|--------------------|-------------------|
+**kWh** | **1.174 +- 0.141** | **0.143 +- 0.04** | 
 
 
 Collar-based = event-based. More information about the metrics in the [DCASE Challenge webpage][dcase_webpage].
