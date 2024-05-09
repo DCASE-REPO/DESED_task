@@ -1,25 +1,29 @@
 import argparse
 import os
+
+import desed
+import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torchaudio
 import yaml
-import desed
+from local.classes_dict import (classes_labels_desed,
+                                classes_labels_maestro_real,
+                                maestro_desed_alias)
+from local.resample_folder import resample_folder
+from local.sed_trainer_pretrained import SEDTask4
+from local.utils import (calculate_macs, generate_tsv_wav_durations,
+                         process_tsvs)
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
+
 from desed_task.dataio import ConcatDatasetBatchSampler
 from desed_task.dataio.datasets import (StronglyAnnotatedSet, UnlabeledSet,
                                         WeakSet)
 from desed_task.nnet.CRNN import CRNN
-import numpy as np
 from desed_task.utils.encoder import CatManyHotEncoder, ManyHotEncoder
 from desed_task.utils.schedulers import ExponentialWarmup
-from local.classes_dict import (classes_labels_desed,
-                                classes_labels_maestro_real, maestro_desed_alias)
-from local.resample_folder import resample_folder
-from local.sed_trainer_pretrained import SEDTask4
-from local.utils import calculate_macs, generate_tsv_wav_durations, process_tsvs
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
 
 
 def resample_data_generate_durations(config_data, test_only=False, evaluation=False):
@@ -71,12 +75,9 @@ def get_encoder(config):
         fs=config["data"]["fs"],
     )
 
-    encoder = CatManyHotEncoder(
-        (desed_encoder, maestro_real_encoder)
-    )
+    encoder = CatManyHotEncoder((desed_encoder, maestro_real_encoder))
 
     return encoder
-
 
 
 def get_embeddings_name(config, name):
@@ -97,25 +98,58 @@ def split_maestro(config, maestro_dev_df):
 
     np.random.seed(config["training"]["seed"])
     split_f = config["training"]["maestro_split"]
-    for indx, scene_name in enumerate(['cafe_restaurant', 'city_center', 'grocery_store', 'metro_station', 'residential_area']):
+    for indx, scene_name in enumerate(
+        [
+            "cafe_restaurant",
+            "city_center",
+            "grocery_store",
+            "metro_station",
+            "residential_area",
+        ]
+    ):
 
-        mask = maestro_dev_df["filename"].apply(lambda x: "_".join(x.split("_")[:-1])) == scene_name
-        filenames = maestro_dev_df[mask]["filename"].apply(lambda x: x.split("-")[0]).unique()
+        mask = (
+            maestro_dev_df["filename"].apply(lambda x: "_".join(x.split("_")[:-1]))
+            == scene_name
+        )
+        filenames = (
+            maestro_dev_df[mask]["filename"].apply(lambda x: x.split("-")[0]).unique()
+        )
         np.random.shuffle(filenames)
 
-        pivot = int(split_f*len(filenames))
+        pivot = int(split_f * len(filenames))
         filenames_train = filenames[:pivot]
         filenames_valid = filenames[pivot:]
         if indx == 0:
-            mask_train = maestro_dev_df["filename"].apply(lambda x: x.split("-")[0]).isin(filenames_train)
-            mask_valid = maestro_dev_df["filename"].apply(lambda x: x.split("-")[0]).isin(filenames_valid)
+            mask_train = (
+                maestro_dev_df["filename"]
+                .apply(lambda x: x.split("-")[0])
+                .isin(filenames_train)
+            )
+            mask_valid = (
+                maestro_dev_df["filename"]
+                .apply(lambda x: x.split("-")[0])
+                .isin(filenames_valid)
+            )
             train_split = maestro_dev_df[mask_train]
             valid_split = maestro_dev_df[mask_valid]
         else:
-            mask_train = maestro_dev_df["filename"].apply(lambda x: x.split("-")[0]).isin(filenames_train)
-            mask_valid = maestro_dev_df["filename"].apply(lambda x: x.split("-")[0]).isin(filenames_valid)
-            train_split = pd.concat([train_split, maestro_dev_df[mask_train]], ignore_index=True)
-            valid_split = pd.concat([valid_split, maestro_dev_df[mask_valid]], ignore_index=True)
+            mask_train = (
+                maestro_dev_df["filename"]
+                .apply(lambda x: x.split("-")[0])
+                .isin(filenames_train)
+            )
+            mask_valid = (
+                maestro_dev_df["filename"]
+                .apply(lambda x: x.split("-")[0])
+                .isin(filenames_valid)
+            )
+            train_split = pd.concat(
+                [train_split, maestro_dev_df[mask_train]], ignore_index=True
+            )
+            valid_split = pd.concat(
+                [valid_split, maestro_dev_df[mask_valid]], ignore_index=True
+            )
 
     return train_split, valid_split
 
@@ -154,8 +188,9 @@ def single_run(
     encoder = get_encoder(config)
 
     mask_events_desed = set(classes_labels_desed.keys())
-    mask_events_maestro_real = (set(classes_labels_maestro_real.keys()).union(
-        set(["Speech", "Dog", "Dishes"])))
+    mask_events_maestro_real = set(classes_labels_maestro_real.keys()).union(
+        set(["Speech", "Dog", "Dishes"])
+    )
 
     if not config["pretrained"]["freezed"]:
         assert config["pretrained"]["e2e"], (
@@ -226,7 +261,9 @@ def single_run(
     elif config["pretrained"]["model"] == "panns" and config["pretrained"]["e2e"]:
         assert config["data"]["fs"] == 16000, "this pretrained model is trained on 16k"
         feature_extraction = None  # integrated in the model
-        desed.download_from_url(config["pretrained"]["url"], config["pretrained"]["dest"])
+        desed.download_from_url(
+            config["pretrained"]["url"], config["pretrained"]["dest"]
+        )
         # use PANNs as additional feature
         from local.panns.models import Cnn14_16k
 
@@ -250,7 +287,7 @@ def single_run(
             feats_pipeline=feature_extraction,
             embeddings_hdf5_file=get_embeddings_name(config, "devtest"),
             embedding_type=config["net"]["embedding_type"],
-            mask_events_other_than=mask_events_desed
+            mask_events_other_than=mask_events_desed,
         )
 
         maestro_real_devtest_tsv = pd.read_csv(
@@ -268,7 +305,9 @@ def single_run(
             embedding_type=config["net"]["embedding_type"],
             mask_events_other_than=mask_events_maestro_real,
         )
-        devtest_dataset = torch.utils.data.ConcatDataset([desed_devtest_dataset, maestro_real_devtest])
+        devtest_dataset = torch.utils.data.ConcatDataset(
+            [desed_devtest_dataset, maestro_real_devtest]
+        )
     else:
         # FIXME fix later the evaluation sets
         raise NotImplementedError
@@ -300,18 +339,17 @@ def single_run(
             embedding_type=config["net"]["embedding_type"],
         )
 
-
         strong_df = pd.read_csv(config["data"]["strong_tsv"], sep="\t")
         strong_set = StronglyAnnotatedSet(
-                config["data"]["strong_folder"],
-                strong_df,
-                encoder,
-                pad_to=config["data"]["audio_max_len"],
-                feats_pipeline=feature_extraction,
-                embeddings_hdf5_file=get_embeddings_name(config, "strong_train"),
-                embedding_type=config["net"]["embedding_type"],
-                mask_events_other_than=mask_events_desed
-            )
+            config["data"]["strong_folder"],
+            strong_df,
+            encoder,
+            pad_to=config["data"]["audio_max_len"],
+            feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=get_embeddings_name(config, "strong_train"),
+            embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_desed,
+        )
 
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
         train_weak_df = weak_df.sample(
@@ -329,7 +367,7 @@ def single_run(
             feats_pipeline=feature_extraction,
             embeddings_hdf5_file=get_embeddings_name(config, "weak_train"),
             embedding_type=config["net"]["embedding_type"],
-            mask_events_other_than=mask_events_desed
+            mask_events_other_than=mask_events_desed,
         )
 
         unlabeled_set = UnlabeledSet(
@@ -339,7 +377,7 @@ def single_run(
             feats_pipeline=feature_extraction,
             embeddings_hdf5_file=get_embeddings_name(config, "unlabeled_train"),
             embedding_type=config["net"]["embedding_type"],
-            mask_events_other_than=mask_events_desed
+            mask_events_other_than=mask_events_desed,
         )
 
         synth_df_val = pd.read_csv(config["data"]["synth_val_tsv"], sep="\t")
@@ -353,9 +391,8 @@ def single_run(
             feats_pipeline=feature_extraction,
             embeddings_hdf5_file=get_embeddings_name(config, "synth_val"),
             embedding_type=config["net"]["embedding_type"],
-            mask_events_other_than=mask_events_desed
+            mask_events_other_than=mask_events_desed,
         )
-
 
         weak_val = WeakSet(
             config["data"]["weak_folder"],
@@ -366,16 +403,19 @@ def single_run(
             feats_pipeline=feature_extraction,
             embeddings_hdf5_file=get_embeddings_name(config, "weak_val"),
             embedding_type=config["net"]["embedding_type"],
-            mask_events_other_than=mask_events_desed
+            mask_events_other_than=mask_events_desed,
         )
 
         maestro_real_train = pd.read_csv(
-            config["data"]["real_maestro_train_tsv"], sep="\t")
+            config["data"]["real_maestro_train_tsv"], sep="\t"
+        )
 
-
-        maestro_real_train, maestro_real_valid = split_maestro(config, maestro_real_train)
-        maestro_real_train = process_tsvs(maestro_real_train,
-                                          alias_map=maestro_desed_alias)
+        maestro_real_train, maestro_real_valid = split_maestro(
+            config, maestro_real_train
+        )
+        maestro_real_train = process_tsvs(
+            maestro_real_train, alias_map=maestro_desed_alias
+        )
         maestro_real_train = StronglyAnnotatedSet(
             config["data"]["real_maestro_train_folder"],
             maestro_real_train,
@@ -401,6 +441,7 @@ def single_run(
 
 
         strong_full_set = torch.utils.data.ConcatDataset([strong_set, synth_set])
+        # this gives best configuration see https://github.com/DCASE-REPO/DESED_task/issues/92
         tot_train_data = [maestro_real_train, synth_set, strong_full_set, weak_set, unlabeled_set]
         train_dataset = torch.utils.data.ConcatDataset(tot_train_data)
 
@@ -429,8 +470,11 @@ def single_run(
         opt = torch.optim.Adam(parameters, config["opt"]["lr"], betas=(0.9, 0.999))
 
         exp_steps = config["training"]["n_epochs_warmup"] * epoch_len
+        tot_steps = config["training"]["n_epochs"] * epoch_len
+        decay_steps = config["training"]["epoch_decay"] * epoch_len
         exp_scheduler = {
-            "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps),
+            "scheduler": ExponentialWarmup(opt, config["opt"]["lr"], exp_steps,
+                                           start_annealing=decay_steps, max_steps=tot_steps),
             "interval": "step",
         }
         logger = TensorBoardLogger(
@@ -537,7 +581,11 @@ def single_run(
         test_state_dict = torch.load(best_path)["state_dict"]
 
     desed_training.load_state_dict(test_state_dict)
-    trainer.test(desed_training)
+
+    results = trainer.test(desed_training)[0]
+
+    return (results["test/teacher/psds1/sed_scores_eval"]
+        + results["test/teacher/segment_mpauc/sed_scores_eval"])
 
 
 def prepare_run(argv=None):
@@ -578,7 +626,6 @@ def prepare_run(argv=None):
     )
 
     args = parser.parse_args(argv)
-
     with open(args.conf_file, "r") as f:
         configs = yaml.safe_load(f)
 
@@ -611,7 +658,6 @@ def prepare_run(argv=None):
 if __name__ == "__main__":
     # prepare run
     configs, args, test_model_state_dict, evaluation = prepare_run()
-
     # launch run
     single_run(
         configs,

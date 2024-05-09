@@ -112,8 +112,9 @@ class TorchScaler(torch.nn.Module):
                     torch.std(tensor, self.dims, keepdim=True) + self.eps
                 )
             elif self.normtype == "minmax":
-                return (tensor - torch.amin(tensor, dim=self.dims, keepdim=True)) / (
+                out = (tensor - torch.amin(tensor, dim=self.dims, keepdim=True)) / (
                     torch.amax(tensor, dim=self.dims, keepdim=True)
                     - torch.amin(tensor, dim=self.dims, keepdim=True)
                     + self.eps
                 )
+                return out * 2 - 1  # between -1 and 1

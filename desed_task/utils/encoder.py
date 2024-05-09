@@ -109,9 +109,9 @@ class ManyHotEncoder:
                         if "confidence" in label_df.columns:
                             y[onset:offset, i] = row["confidence"]  # support confidence
                         else:
-                            y[
-                                onset:offset, i
-                            ] = 1  # means offset not included (hypothesis of overlapping frames, so ok)
+                            y[onset:offset, i] = (
+                                1  # means offset not included (hypothesis of overlapping frames, so ok)
+                            )
 
         elif type(label_df) in [
             pd.Series,

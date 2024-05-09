@@ -9,9 +9,11 @@ import pandas as pd
 import torch
 import torchaudio
 import yaml
+from tqdm import tqdm
+
 from desed_task.dataio.datasets import read_audio
 from desed_task.utils.download import download_from_url
-from tqdm import tqdm
+from train_pretrained import resample_data_generate_durations
 
 parser = argparse.ArgumentParser("Extract Embeddings with Audioset Pretrained Models")
 
@@ -93,6 +95,8 @@ if __name__ == "__main__":
         help="Batch size for model inference, used to speed up the embedding extraction.",
     )
 
+
+
     args = parser.parse_args()
     assert args.pretrained_model in [
         "beats",
@@ -104,6 +108,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
 
     output_dir = os.path.join(args.output_dir, args.pretrained_model)
+    resample_data_generate_durations(config["data"], False, False)
     # loading model
     if args.pretrained_model == "ast":
         # need feature extraction with torchaudio compliance feats
@@ -176,11 +181,13 @@ if __name__ == "__main__":
         # use beats as additional feature
         from local.beats.BEATs import BEATsModel
 
-        download_from_url(
-            "https://valle.blob.core.windows.net/share/BEATs/BEATs_iter3_plus_AS2M.pt?sv=2021-10-04&st=2024-04-04T07%3A15%3A11Z&se=2034-04-05T07%3A15%3A00Z&sr=c&sp=rl&sig=xH3MbkMqHPLBI5gN%2Frt9H4J8Ai%2BtUnkduo7KGpkLbdA%3D",
-            "./pretrained_models/BEATS_iter3_plus_AS2M.pt",
-        )
-        pretrained = BEATsModel(cfg_path="./pretrained_models/BEATS_iter3_plus_AS2M.pt")
+        try:
+            pretrained = BEATsModel(cfg_path="./pretrained_models/BEATS_iter3_plus_AS2M.pt")
+        except:
+            raise RuntimeError(f"Unfortunately automatic download of BEATs model is not longer possible, "
+                               f"you need to download it manually from https://github.com/microsoft/unilm/blob/master/beats/README.md.\n"
+                               f"We use BEATs_iter3+ AS2M. Please download it and copy it into a new folder called pretrained_models as: {os.getcwd()}/pretrained_models.")
+
     else:
         raise NotImplementedError
 
@@ -219,15 +226,14 @@ if __name__ == "__main__":
         config["data"]["test_folder"], feats_pipeline=feature_extraction
     )
 
-
     # now extract features for MAESTRO too
     maestro_real_dev = WavDataset(
-        config["data"]["real_maestro_val_folder"],
-        feats_pipeline=feature_extraction)
+        config["data"]["real_maestro_val_folder"], feats_pipeline=feature_extraction
+    )
 
     maestro_real_train = WavDataset(
-        config["data"]["real_maestro_train_folder"],
-        feats_pipeline=feature_extraction)
+        config["data"]["real_maestro_train_folder"], feats_pipeline=feature_extraction
+    )
 
     for k, elem in {
         "synth_train": synth_set,
@@ -239,7 +245,6 @@ if __name__ == "__main__":
         "devtest": devtest_dataset,
         "maestro_real_dev": maestro_real_dev,
         "maestro_real_train": maestro_real_train,
-
     }.items():
         # for k, elem in {"strong_train": strong_set}.items():
         # for k, elem in {"devtest": devtest_dataset}.items():

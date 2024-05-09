@@ -126,28 +126,32 @@ class StronglyAnnotatedSet(Dataset):
                 confidence = 1.0 if "confidence" not in r.keys() else r["confidence"]
                 examples[r["filename"]] = {
                     "mixture": os.path.join(audio_folder, r["filename"]),
-                    "events": [], "confidence": confidence
+                    "events": [],
+                    "confidence": confidence,
                 }
                 if not np.isnan(r["onset"]):
-                    confidence = 1.0 if "confidence" not in r.keys() else r[
-                        "confidence"]
-                    examples[r["filename"]]["events"].append(
-                        {
-                            "event_label": r["event_label"],
-                            "onset": r["onset"],
-                            "offset": r["offset"], "confidence": confidence
-                        }
+                    confidence = (
+                        1.0 if "confidence" not in r.keys() else r["confidence"]
                     )
-            else:
-                if not np.isnan(r["onset"]):
-                    confidence = 1.0 if "confidence" not in r.keys() else r[
-                        "confidence"]
                     examples[r["filename"]]["events"].append(
                         {
                             "event_label": r["event_label"],
                             "onset": r["onset"],
                             "offset": r["offset"],
-                            "confidence": confidence
+                            "confidence": confidence,
+                        }
+                    )
+            else:
+                if not np.isnan(r["onset"]):
+                    confidence = (
+                        1.0 if "confidence" not in r.keys() else r["confidence"]
+                    )
+                    examples[r["filename"]]["events"].append(
+                        {
+                            "event_label": r["event_label"],
+                            "onset": r["onset"],
+                            "offset": r["offset"],
+                            "confidence": confidence,
                         }
                     )
 
@@ -242,7 +246,7 @@ class WeakSet(Dataset):
         feats_pipeline=None,
         embeddings_hdf5_file=None,
         embedding_type=None,
-        mask_events_other_than= None
+        mask_events_other_than=None,
     ):
         self.encoder = encoder
         self.fs = fs
@@ -369,7 +373,7 @@ class UnlabeledSet(Dataset):
         feats_pipeline=None,
         embeddings_hdf5_file=None,
         embedding_type=None,
-        mask_events_other_than=None
+        mask_events_other_than=None,
     ):
         self.encoder = encoder
         self.fs = fs
