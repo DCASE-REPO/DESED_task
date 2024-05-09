@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 from desed_task.dataio.datasets import read_audio
 from desed_task.utils.download import download_from_url
+from train_pretrained import resample_data_generate_durations
 
 parser = argparse.ArgumentParser("Extract Embeddings with Audioset Pretrained Models")
 
@@ -94,6 +95,8 @@ if __name__ == "__main__":
         help="Batch size for model inference, used to speed up the embedding extraction.",
     )
 
+
+
     args = parser.parse_args()
     assert args.pretrained_model in [
         "beats",
@@ -105,6 +108,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
 
     output_dir = os.path.join(args.output_dir, args.pretrained_model)
+    resample_data_generate_durations(config["data"], False, False)
     # loading model
     if args.pretrained_model == "ast":
         # need feature extraction with torchaudio compliance feats
