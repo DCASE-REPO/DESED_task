@@ -337,6 +337,7 @@ def single_run(
             feats_pipeline=feature_extraction,
             embeddings_hdf5_file=get_embeddings_name(config, "synth_train"),
             embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_desed,
         )
 
         strong_df = pd.read_csv(config["data"]["strong_tsv"], sep="\t")
@@ -348,7 +349,7 @@ def single_run(
             feats_pipeline=feature_extraction,
             embeddings_hdf5_file=get_embeddings_name(config, "strong_train"),
             embedding_type=config["net"]["embedding_type"],
-            mask_events_other_than=mask_events_desed,
+            mask_events_other_than=mask_events_desed
         )
 
         weak_df = pd.read_csv(config["data"]["weak_tsv"], sep="\t")
