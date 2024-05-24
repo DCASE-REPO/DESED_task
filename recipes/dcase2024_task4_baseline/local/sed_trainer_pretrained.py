@@ -1336,13 +1336,6 @@ class SEDTask4(pl.LightningModule):
             {"/train/tot_energy_kWh": torch.tensor(float(training_kwh))}
         )
 
-        os.makedirs(os.path.join(self.exp_dir, "training_codecarbon"), exist_ok=True)
-        with open(
-            os.path.join(self.exp_dir, "training_codecarbon", "training_tot_kwh.txt"),
-            "w",
-        ) as f:
-            f.write(str(training_kwh))
-
     def on_test_start(self) -> None:
         if self.evaluation:
             os.makedirs(os.path.join(self.exp_dir, "codecarbon"), exist_ok=True)
