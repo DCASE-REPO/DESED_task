@@ -68,7 +68,7 @@ classes_labels_maestro_real_eval = {
 }
 
 maestro_desed_alias = {
-    "people_talking": "Speech",
+    "people talking": "Speech",
     "children voices": "Speech",  # both synth and real
     "announcement": "Speech",
     "cutlery and dishes": "Dishes",
