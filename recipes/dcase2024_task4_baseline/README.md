@@ -107,7 +107,7 @@ python train_pretrained.py --fast_dev_run
 
 ⚠ all baselines scripts assume that your data is in `../../data` folder in `DESED_task` directory.
 If your data is in another folder, you will have to change the paths of your data in the corresponding `data` keys in YAML configuration file in `conf/sed.yaml`.
-Note that `train_sed.py` will create (at its very first run) additional folders with resampled data (from 44kHz to 16kHz)
+Note that `train_pretrained.py` will create (at its very first run) additional folders with resampled data (from 44kHz to 16kHz)
 so the user need to have write permissions on the folder where your data are saved.
 
 🧪 Hyperparameters can be changed in the YAML file (e.g. lower or higher batch size). <br>
@@ -215,7 +215,7 @@ provide the energy consumption in kWh (using the same hardware used for 2) and 3
 1) Training the baseline system for 10 epochs
 2) Devtest inference for the baseline system
 
-Both are computed by the `python train_sed.py` command. You just need to set 10 epochs in the `confs/default.yaml`. <br> 
+Both are computed by the `python train_pretrained.py` command. You just need to set 10 epochs in the `confs/default.yaml`. <br> 
 You can find the energy consumed in kWh in `./exp/2024_baseline/version_X/codecarbon/emissions_baseline_training.csv` for training and `./exp/2024_baseline/version_X/codecarbon/emissions_baseline_test.csv` for devtest inference. 
 
 **(NEW)** This year, we recommend participants submit the whole .csv files that provide the details of consumption for GPU, CPU and RAM usage. For more information, please refer to the submission package example.
