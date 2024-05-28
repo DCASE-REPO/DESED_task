@@ -206,8 +206,8 @@ Participants need to provide, for each submitted system (or at least the best on
 2) devtest inference
 3) evaluation set inference
 
-You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to accomplish this (it's super simple! 😉), or refer to the baseline code in `local/sed_trained.py` for some hints on how we accomplish this for the baseline system. <br>
-or to this baseline code see `local/sed_trainer_pretrained.py` for some hints on how we are doing this for the baseline system.
+You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to accomplish this (it's super simple! 😉), or take a look at this baseline code. 
+See `local/sed_trainer_pretrained.py` for some hints on how we are doing this for the baseline system.
 
 ⚠️ In addition to this, we kindly suggest the participants to
 provide the energy consumption in kWh (using the same hardware used for 2) and 3)) of:
