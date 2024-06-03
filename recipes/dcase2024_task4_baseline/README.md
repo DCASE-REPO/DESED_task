@@ -206,21 +206,39 @@ Participants need to provide, for each submitted system (or at least the best on
 2) devtest inference
 3) evaluation set inference
 
-You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to accomplish this (it's super simple! 😉), or take a look at this baseline code. 
-See `local/sed_trainer_pretrained.py` for some hints on how we are doing this for the baseline system.
+You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to accomplish this (it's super simple! 😉). 
+
+#### Important Steps
+
+1. **Initialize the Tracker**:
+   - When initializing the tracker, make sure to specify the GPU IDs that you want to track.
+   - You can do this by using the following parameter: `gpu_ids=[torch.cuda.current_device()]`.
+
+2. **Example**:
+   ```python
+   from codecarbon import EmissionsTracker
+   tracker = EmissionsTracker(gpu_ids=[torch.cuda.current_device()])
+   tracker.start()
+   # Your code here
+   tracker.stop()
+
+3. **Additional Resources**:
+   - For more hints on how we do this on the baseline system, check out `local/sed_trainer_pretrained.py`.
 
 ⚠️ In addition to this, we kindly suggest the participants to
 provide the energy consumption in kWh (using the same hardware used for 2) and 3)) of:
 
-1) Training the baseline system for 10 epochs
-2) Devtest inference for the baseline system
+1) training the baseline system for 10 epochs
+2) devtest inference for the baseline system
 
 Both are computed by the `python train_pretrained.py` command. You just need to set 10 epochs in the `confs/default.yaml`. <br> 
 You can find the energy consumed in kWh in `./exp/2024_baseline/version_X/codecarbon/emissions_baseline_training.csv` for training and `./exp/2024_baseline/version_X/codecarbon/emissions_baseline_test.csv` for devtest inference. 
 
-**(NEW)** This year, we recommend participants submit the whole .csv files that provide the details of consumption for GPU, CPU and RAM usage. For more information, please refer to the submission package example.
-
 Energy consumption depends on hardware, and each participant uses different hardware. To account for this difference, we use the baseline training and inference kWh energy consumption as a common reference. It is important that the inference energy consumption figures for both submitted systems and baseline are computed on the same hardware under similar loading.
+
+### (NEW) This year, we ask participants submit the whole .csv files that provide the details of consumption for GPU, CPU and RAM usage. For more information, please refer to the submission package example.
+
+
 
 ### 🧮 Multiply–accumulate (MAC) operations. 
 
