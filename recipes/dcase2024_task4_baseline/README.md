@@ -264,7 +264,7 @@ See [https://github.com/fgnt/sed_scores_eval](https://github.com/fgnt/sed_scores
 [desed]: https://github.com/turpaultn/DESED
 [fuss_git]: https://github.com/google-research/sound-separation/tree/master/datasets/fuss
 [fsd50k]: https://zenodo.org/record/4060432
-[zenodo_pretrained_models]: https://zenodo.org/records/11034682
+[zenodo_pretrained_models]: https://zenodo.org/records/11280943
 [zenodo_pretrained_audioset_models]: https://zenodo.org/record/6447197
 [zenodo_pretrained_ast_embedding_model]: https://zenodo.org/record/6539466
 [google_sourcesep_repo]: https://github.com/google-research/sound-separation/tree/master/datasets/yfcc100m
