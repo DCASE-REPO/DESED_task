@@ -204,7 +204,6 @@ Participants need to provide, for each submitted system (or at least the best on
 
 1) whole system training
 2) devtest inference
-3) evaluation set inference
 
 You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to accomplish this (it's super simple! 😉). 
 
