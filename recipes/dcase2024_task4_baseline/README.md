@@ -204,7 +204,6 @@ Participants need to provide, for each submitted system (or at least the best on
 
 1) whole system training
 2) devtest inference
-3) evaluation set inference
 
 You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to accomplish this (it's super simple! 😉). 
 
@@ -216,8 +215,8 @@ You can refer to [Codecarbon](https://github.com/mlco2/codecarbon) on how to acc
 
 2. **Example**:
    ```python
-   from codecarbon import EmissionsTracker
-   tracker = EmissionsTracker(gpu_ids=[torch.cuda.current_device()])
+   from codecarbon import OfflineEmissionsTracker
+   tracker = OfflineEmissionsTracker(gpu_ids=[torch.cuda.current_device()], country_iso_code="CAN")
    tracker.start()
    # Your code here
    tracker.stop()
