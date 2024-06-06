@@ -925,7 +925,7 @@ class SEDTask4(pl.LightningModule):
         # pub eval dataset
         save_dir = os.path.join(self.exp_dir, "metrics_test")
         print("save_dir", save_dir)
-
+        results = {}
         if self.evaluation:
             # only save prediction scores
             save_dir_student_unprocessed = os.path.join(
@@ -1158,6 +1158,7 @@ class SEDTask4(pl.LightningModule):
             maestro_ground_truth_clips = pd.read_csv(
                 self.hparams["data"]["real_maestro_val_tsv"], sep="\t"
             )
+            maestro_clip_ids = [filename[:-4] for filename in maestro_ground_truth_clips["filename"]]
             maestro_ground_truth_clips = maestro_ground_truth_clips[
                 maestro_ground_truth_clips.confidence > 0.5
             ]
@@ -1180,11 +1181,11 @@ class SEDTask4(pl.LightningModule):
 
             maestro_scores_student = {
                 clip_id: self.test_buffer_sed_scores_eval_student[clip_id]
-                for clip_id in maestro_ground_truth_clips.keys()
+                for clip_id in maestro_clip_ids
             }
             maestro_scores_teacher = {
                 clip_id: self.test_buffer_sed_scores_eval_teacher[clip_id]
-                for clip_id in maestro_ground_truth_clips.keys()
+                for clip_id in maestro_clip_ids
             }
             segment_length = 1.0
             event_classes_maestro = sorted(classes_labels_maestro_real)
@@ -1263,7 +1264,7 @@ class SEDTask4(pl.LightningModule):
                 max_fpr=0.1,
             )[0]["mean"]
 
-            results = {
+            results.update({
                 "test/student/psds1/psds_eval": psds1_student_psds_eval,
                 "test/student/psds2/psds_eval": psds2_student_psds_eval,
                 "test/teacher/psds1/psds_eval": psds1_teacher_psds_eval,
@@ -1286,7 +1287,7 @@ class SEDTask4(pl.LightningModule):
                 "test/teacher/segment_f1_macro_thresopt/sed_scores_eval": segment_f1_macro_optthres_teacher,
                 "test/teacher/segment_mauc/sed_scores_eval": segment_mauc_teacher,
                 "test/teacher/segment_mpauc/sed_scores_eval": segment_mpauc_teacher,
-            }
+            })
             self.tracker_devtest.stop()
 
         if self.logger is not None:

@@ -226,6 +226,10 @@ if __name__ == "__main__":
         config["data"]["test_folder"], feats_pipeline=feature_extraction
     )
 
+    eval_dataset = WavDataset(
+        config["data"]["eval_folder"], feats_pipeline=feature_extraction
+    )
+
     # now extract features for MAESTRO too
     maestro_real_dev = WavDataset(
         config["data"]["real_maestro_val_folder"], feats_pipeline=feature_extraction
@@ -243,6 +247,7 @@ if __name__ == "__main__":
         "synth_val": synth_val,
         "weak_val": weak_val,
         "devtest": devtest_dataset,
+        "eval": eval_dataset,
         "maestro_real_dev": maestro_real_dev,
         "maestro_real_train": maestro_real_train,
     }.items():

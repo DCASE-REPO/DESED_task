@@ -288,6 +288,7 @@ def single_run(
             embeddings_hdf5_file=get_embeddings_name(config, "devtest"),
             embedding_type=config["net"]["embedding_type"],
             mask_events_other_than=mask_events_desed,
+            test=True,
         )
 
         maestro_real_devtest_tsv = pd.read_csv(
@@ -304,20 +305,21 @@ def single_run(
             embeddings_hdf5_file=get_embeddings_name(config, "maestro_real_dev"),
             embedding_type=config["net"]["embedding_type"],
             mask_events_other_than=mask_events_maestro_real,
+            test=True,
         )
         devtest_dataset = torch.utils.data.ConcatDataset(
             [desed_devtest_dataset, maestro_real_devtest]
         )
     else:
-        # FIXME fix later the evaluation sets
-        raise NotImplementedError
         devtest_dataset = UnlabeledSet(
             config["data"]["eval_folder"],
             encoder,
-            pad_to=None,
             return_filename=True,
+            pad_to=config["data"]["audio_max_len"],
             feats_pipeline=feature_extraction,
-            mask_events_other_than=mask_events_maestro_real,
+            embeddings_hdf5_file=get_embeddings_name(config, "eval"),
+            embedding_type=config["net"]["embedding_type"],
+            test=True,
         )
 
     test_dataset = devtest_dataset
@@ -585,8 +587,9 @@ def single_run(
 
     results = trainer.test(desed_training)[0]
 
-    return (results["test/teacher/psds1/sed_scores_eval"]
-        + results["test/teacher/segment_mpauc/sed_scores_eval"])
+    if "test/teacher/psds1/sed_scores_eval" in results:
+        return (results["test/teacher/psds1/sed_scores_eval"]
+            + results["test/teacher/segment_mpauc/sed_scores_eval"])
 
 
 def prepare_run(argv=None):
