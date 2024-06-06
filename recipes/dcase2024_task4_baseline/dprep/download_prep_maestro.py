@@ -9,10 +9,6 @@ import pandas as pd
 import soundfile as sf
 from tqdm import tqdm
 
-# MAESTRO was annotated with 10 seconds windows and 1 second overlap.
-WINDOW_LEN = 10
-HOP_LEN = 1
-
 
 def count_chunks(inlen, chunk_size, chunk_stride):
     return int((inlen - chunk_size + chunk_stride) / chunk_stride)
@@ -87,12 +83,12 @@ def get_current_annotation(annotation, start, end):
     return overlapping
 
 
-def split_maestro_single_file(output_audio_folder, audiofile, annotation):
+def split_maestro_single_file(output_audio_folder, audiofile, annotation, window_len=10, hop_len=1):
     audio, fs = sf.read(audiofile)
     annotation = read_maestro_annotation(annotation)
     annotation = ann2intervaltree(annotation)
     new_annotation = []
-    for st, end in get_chunks_indx(len(audio), int(WINDOW_LEN * fs), int(HOP_LEN * fs)):
+    for st, end in get_chunks_indx(len(audio), int(window_len * fs), int(hop_len * fs)):
         c_seg = audio[st:end]
         c_annotation = get_current_annotation(annotation, st / fs, end / fs)
 
@@ -134,8 +130,10 @@ def split_maestro_real(download_folder, out_audio_folder, out_meta_folder):
         split_info = os.path.join(os.path.dirname(__file__), f"{split}_split.csv")
         if split == "validation":
             split_info = pd.read_csv(split_info)["val"]
+            hop_len = 5
         else:
             split_info = pd.read_csv(split_info)[f"{split}"]
+            hop_len = 1
         split_info = set([Path(x).stem for x in split_info])
         # filter audiofiles here now and annotation
         c_audiofiles = [x for x in audiofiles if Path(x).stem in split_info]
@@ -161,6 +159,8 @@ def split_maestro_real(download_folder, out_audio_folder, out_meta_folder):
                 os.path.join(out_audio_folder, f"maestro_real_{split}"),
                 c_path,
                 c_metadata_f,
+                window_len=10,
+                hop_len=hop_len,
             )
             all_annotations.extend(c_annotations)
 
