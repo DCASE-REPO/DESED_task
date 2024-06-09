@@ -38,10 +38,10 @@ def resample_data_generate_durations(config_data, test_only=False, evaluation=Fa
             "unlabeled_folder",
             "test_folder",
         ]
-    elif not evaluation:
-        dsets = ["test_folder"]
-    else:
+    elif evaluation:
         dsets = ["eval_folder"]
+    else:
+        dsets = ["test_folder"]
 
     for dset in dsets:
         print(f"Resampling {dset} to 16 kHz.")
