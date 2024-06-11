@@ -94,8 +94,11 @@ if __name__ == "__main__":
         default="8",
         help="Batch size for model inference, used to speed up the embedding extraction.",
     )
-
-
+    parser.add_argument(
+        "--eval_set",
+        default="store_true",
+        help="If you want to extract the embeddings also on the eval set.",
+    )
 
     args = parser.parse_args()
     assert args.pretrained_model in [
@@ -108,7 +111,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
 
     output_dir = os.path.join(args.output_dir, args.pretrained_model)
-    resample_data_generate_durations(config["data"], False, False)
+    resample_data_generate_durations(config["data"], False, args.eval_set)
     # loading model
     if args.pretrained_model == "ast":
         # need feature extraction with torchaudio compliance feats
@@ -226,6 +229,11 @@ if __name__ == "__main__":
         config["data"]["test_folder"], feats_pipeline=feature_extraction
     )
 
+
+    eval_dataset = WavDataset(
+        config["data"]["eval_folder"], feats_pipeline=feature_extraction
+    )
+
     # now extract features for MAESTRO too
     maestro_real_dev = WavDataset(
         config["data"]["real_maestro_val_folder"], feats_pipeline=feature_extraction
@@ -243,6 +251,7 @@ if __name__ == "__main__":
         "synth_val": synth_val,
         "weak_val": weak_val,
         "devtest": devtest_dataset,
+        "eval": eval_dataset,
         "maestro_real_dev": maestro_real_dev,
         "maestro_real_train": maestro_real_train,
     }.items():

@@ -21,7 +21,7 @@ def to_mono(mixture, random_ch=False):
     return mixture
 
 
-def pad_audio(audio, target_len, fs):
+def pad_audio(audio, target_len, fs, test=False):
     if audio.shape[-1] < target_len:
         audio = torch.nn.functional.pad(
             audio, (0, target_len - audio.shape[-1]), mode="constant"
@@ -31,9 +31,12 @@ def pad_audio(audio, target_len, fs):
         onset_s = 0.000
 
     elif len(audio) > target_len:
-        rand_onset = random.randint(0, len(audio) - target_len)
-        audio = audio[rand_onset : rand_onset + target_len]
-        onset_s = round(rand_onset / fs, 3)
+        if test:
+            clip_onset = 0
+        else:
+            clip_onset = random.randint(0, len(audio) - target_len)
+        audio = audio[clip_onset : clip_onset + target_len]
+        onset_s = round(clip_onset / fs, 3)
 
         padded_indx = [target_len / len(audio)]
     else:
@@ -54,14 +57,14 @@ def process_labels(df, onset, offset):
     return df_new.drop_duplicates()
 
 
-def read_audio(file, multisrc, random_channel, pad_to):
+def read_audio(file, multisrc, random_channel, pad_to, test=False):
     mixture, fs = torchaudio.load(file)
 
     if not multisrc:
         mixture = to_mono(mixture, random_channel)
 
     if pad_to is not None:
-        mixture, onset_s, offset_s, padded_indx = pad_audio(mixture, pad_to, fs)
+        mixture, onset_s, offset_s, padded_indx = pad_audio(mixture, pad_to, fs, test=test)
     else:
         padded_indx = [1.0]
         onset_s = None
@@ -86,6 +89,7 @@ class StronglyAnnotatedSet(Dataset):
         embeddings_hdf5_file=None,
         embedding_type=None,
         mask_events_other_than=None,
+        test=False,
     ):
         self.encoder = encoder
         self.fs = fs
@@ -96,6 +100,7 @@ class StronglyAnnotatedSet(Dataset):
         self.feats_pipeline = feats_pipeline
         self.embeddings_hdf5_file = embeddings_hdf5_file
         self.embedding_type = embedding_type
+        self.test = test
 
         # we mask events that are incompatible with the current setting
         if mask_events_other_than is not None:
@@ -182,7 +187,7 @@ class StronglyAnnotatedSet(Dataset):
     def __getitem__(self, item):
         c_ex = self.examples[self.examples_list[item]]
         mixture, onset_s, offset_s, padded_indx = read_audio(
-            c_ex["mixture"], self.multisrc, self.random_channel, self.pad_to
+            c_ex["mixture"], self.multisrc, self.random_channel, self.pad_to, self.test,
         )
 
         # labels
@@ -247,6 +252,7 @@ class WeakSet(Dataset):
         embeddings_hdf5_file=None,
         embedding_type=None,
         mask_events_other_than=None,
+        test=False,
     ):
         self.encoder = encoder
         self.fs = fs
@@ -258,6 +264,7 @@ class WeakSet(Dataset):
         self.embeddings_hdf5_file = embeddings_hdf5_file
         self.embedding_type = embedding_type
         self.mask_events_other_than = mask_events_other_than
+        self.test = test
 
         if mask_events_other_than is not None:
             # fetch indexes to mask
@@ -316,7 +323,7 @@ class WeakSet(Dataset):
         c_ex = self.examples[file]
 
         mixture, _, _, padded_indx = read_audio(
-            c_ex["mixture"], self.multisrc, self.random_channel, self.pad_to
+            c_ex["mixture"], self.multisrc, self.random_channel, self.pad_to, self.test
         )
 
         # labels
@@ -374,6 +381,7 @@ class UnlabeledSet(Dataset):
         embeddings_hdf5_file=None,
         embedding_type=None,
         mask_events_other_than=None,
+        test=False,
     ):
         self.encoder = encoder
         self.fs = fs
@@ -385,6 +393,7 @@ class UnlabeledSet(Dataset):
         self.feats_pipeline = feats_pipeline
         self.embeddings_hdf5_file = embeddings_hdf5_file
         self.embedding_type = embedding_type
+        self.test = test
         assert embedding_type in [
             "global",
             "frame",
@@ -433,7 +442,7 @@ class UnlabeledSet(Dataset):
         c_ex = self.examples[item]
 
         mixture, _, _, padded_indx = read_audio(
-            c_ex, self.multisrc, self.random_channel, self.pad_to
+            c_ex, self.multisrc, self.random_channel, self.pad_to, self.test
         )
 
         max_len_targets = self.encoder.n_frames

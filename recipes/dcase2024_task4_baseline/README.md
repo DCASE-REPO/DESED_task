@@ -113,6 +113,13 @@ so the user need to have write permissions on the folder where your data are sav
 🧪 Hyperparameters can be changed in the YAML file (e.g. lower or higher batch size). <br>
 A different configuration YAML (for example `sed_2.yaml`) can be used in each run using `--conf_file="confs/sed_2.yaml` argument. <br>
 
+### Run Baseline on Evaluation set
+
+1. Download and unpack the evaluation set from the [official Task 4 2024 website link (Zenodo)](https://zenodo.org/records/11425124): `wget https://zenodo.org/records/11425124`.
+2. unzip it and change `confs/pretrained.yaml` entry `eval_folder_44k` to the path of the unzipped directory.
+3. extract embeddings for the eval set: `python extract_embeddings.py --eval_set` 
+4. download the baseline [pre-trained model checkpoint](https://zenodo.org/records/11280943/files/baseline_pretrained_2024.zip?download=1): `wget https://zenodo.org/records/11280943/files/baseline_pretrained_2024.zip?download=1` and unzip it.
+5. run the baseline: `python train_pretrained.py --eval_from_checkpoint <path_where_you_unzipped_baseline_zip>/baseline_pretrained_2024/epoch=259-step=30680.ckpt`.
 
 ## (New !) 🧪🧪 Baseline System Hyper-Parameter Tuning via Optuna
 
